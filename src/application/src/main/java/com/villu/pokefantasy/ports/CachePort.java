@@ -1,10 +1,13 @@
 package com.villu.pokefantasy.ports;
 
+import com.villu.pokefantasy.cache.dto.PokemonCacheDto;
 import com.villu.pokefantasy.response.PokemonResponseApi;
+
+import java.util.List;
 
 public interface CachePort {
 
-    void put(String key, Object value);
+    void put( List<PokemonCacheDto> value);
 
-    PokemonResponseApi getPokemon(String key);
+    List<PokemonCacheDto>  getPokemon(String key);
 }

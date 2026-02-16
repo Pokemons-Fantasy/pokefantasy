@@ -1,5 +1,6 @@
 package com.villu.pokefantasy.commands.getPokemon;
 
+import com.villu.pokefantasy.cache.dto.PokemonCacheDto;
 import com.villu.pokefantasy.dto.Pokemons;
 import com.villu.pokefantasy.dto.ResultPokemonDto;
 import com.villu.pokefantasy.mapper.PokemonMapper;
@@ -10,6 +11,8 @@ import com.villu.pokefantasy.response.PokemonsResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
 
 @Service
 @Slf4j
@@ -32,12 +35,15 @@ public class GetPokemonRest {
     }
 
     private PokemonsResponse getPokemonCacheById(int id) throws Exception {
-        PokemonResponseApi pokemonsResponse = cacheService.getPokemon(CACHE_KEY);
+        List<PokemonCacheDto> pokemonsResponse = cacheService.getPokemon(CACHE_KEY);
 
-        return pokemonMapper.dtoToResponse(getDataFromPokemon(pokemonsResponse.getResults().get(id-1)));
+        return pokemonMapper.dtoToResponse(getDataFromPokemon(pokemonsResponse.stream()
+                .filter(pokemon -> pokemon.getId() == id)
+                .findFirst()
+                .orElseThrow(() -> new Exception("Pokemon not found with id: " + id))));
     }
 
-    private Pokemons getDataFromPokemon(ResultPokemonDto getPokemonsResponse) throws Exception {
+    private Pokemons getDataFromPokemon(PokemonCacheDto getPokemonsResponse) throws Exception {
         return getPokemonApi.fetchPokemonById(getPokemonsResponse.getUrl(), getPokemonsResponse.getName());
     }
 }
