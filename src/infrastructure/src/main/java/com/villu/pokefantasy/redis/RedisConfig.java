@@ -20,14 +20,10 @@ public class RedisConfig {
     public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory connectionFactory, ObjectMapper redisObjectMapper) {
         RedisTemplate<String, Object> template = new RedisTemplate<>();
         template.setConnectionFactory(connectionFactory);
-
-        GenericJacksonJsonRedisSerializer jsonSerializer = new GenericJacksonJsonRedisSerializer(redisObjectMapper);
-
         template.setKeySerializer(new StringRedisSerializer());
-        template.setValueSerializer(jsonSerializer);
+        template.setValueSerializer(new GenericJacksonJsonRedisSerializer(redisObjectMapper));
         template.setHashKeySerializer(new StringRedisSerializer());
-        template.setHashValueSerializer(jsonSerializer);
-
+        template.setHashValueSerializer(new GenericJacksonJsonRedisSerializer(redisObjectMapper));
         template.afterPropertiesSet();
         return template;
     }

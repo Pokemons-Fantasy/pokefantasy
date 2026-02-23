@@ -13,6 +13,7 @@ import java.util.List;
 @AllArgsConstructor
 public class Pokemons implements Serializable {
 
+    private Integer id;
     private String name;
     private List<Ability> abilities;
     private List<Move> moves;

@@ -9,5 +9,5 @@ public class ResultPokemonDto implements Serializable {
 
     private String name;
     private String url;
-
+    private Integer id;
 }

@@ -47,10 +47,6 @@
             <groupId>com.villu</groupId>
             <artifactId>domain</artifactId>
         </dependency>
-        <dependency>
-            <groupId>com.villu</groupId>
-            <artifactId>infrastructure</artifactId>
-        </dependency>
     </dependencies>
 
     <build>

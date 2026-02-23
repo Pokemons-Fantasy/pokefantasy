@@ -1,24 +1,28 @@
 package com.villu.pokefantasy.commands.getPokemon;
 
-import com.villu.pokefantasy.commands.getDataPokemon.GetPokemonDataCommand;
-import com.villu.pokefantasy.commands.getDataPokemon.GetPokemonDataHandler;
+import com.villu.pokefantasy.cache.dto.PokemonCacheDto;
 import com.villu.pokefantasy.dto.Pokemons;
 import com.villu.pokefantasy.dto.ResultPokemonDto;
-import com.villu.pokefantasy.initializePkmn.GetPokemonsResponse;
 import com.villu.pokefantasy.mapper.PokemonMapper;
-import com.villu.pokefantasy.redis.CacheService;
+import com.villu.pokefantasy.ports.CachePort;
+import com.villu.pokefantasy.ports.PokemonApiPort;
+import com.villu.pokefantasy.response.PokemonResponseApi;
 import com.villu.pokefantasy.response.PokemonsResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
+@Slf4j
 public class GetPokemonRest {
 
     @Autowired
-    private CacheService cacheService;
+    private CachePort cacheService;
 
     @Autowired
-    private GetPokemonDataHandler getPokemonDataHandler;
+    private PokemonApiPort getPokemonApi;
 
     @Autowired
     private PokemonMapper pokemonMapper;
@@ -31,15 +35,15 @@ public class GetPokemonRest {
     }
 
     private PokemonsResponse getPokemonCacheById(int id) throws Exception {
-        GetPokemonsResponse pokemonsResponse = cacheService.get(CACHE_KEY);
-        return pokemonMapper.dtoToResponse(getDataFromPokemon(pokemonsResponse.getResults().get(id-1)));
+        List<PokemonCacheDto> pokemonsResponse = cacheService.getPokemon(CACHE_KEY);
+
+        return pokemonMapper.dtoToResponse(getDataFromPokemon(pokemonsResponse.stream()
+                .filter(pokemon -> pokemon.getId() == id)
+                .findFirst()
+                .orElseThrow(() -> new Exception("Pokemon not found with id: " + id))));
     }
 
-    private Pokemons getDataFromPokemon(ResultPokemonDto getPokemonsResponse) throws Exception {
-
-        GetPokemonDataCommand command = GetPokemonDataCommand.builder().
-                name(getPokemonsResponse.getName()).url(getPokemonsResponse.getUrl()).build();
-
-        return getPokemonDataHandler.handle(command);
+    private Pokemons getDataFromPokemon(PokemonCacheDto getPokemonsResponse) throws Exception {
+        return getPokemonApi.fetchPokemonById(getPokemonsResponse.getUrl(), getPokemonsResponse.getName());
     }
 }

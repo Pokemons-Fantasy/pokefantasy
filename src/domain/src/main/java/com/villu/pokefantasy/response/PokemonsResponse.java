@@ -12,7 +12,8 @@ import java.util.List;
 @Data
 @AllArgsConstructor
 public class PokemonsResponse {
-
+    //Este es el objeto que devuelvo yo
+    private Integer id;
     private String name;
     private List<Ability> abilities;
     private List<Move> moves;
