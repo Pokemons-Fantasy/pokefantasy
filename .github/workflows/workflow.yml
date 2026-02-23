@@ -24,4 +24,5 @@ jobs:
           cache: maven
 
       - name: Build, test and enforce coverage
+        working-directory: ./
         run: mvn -B -ntp clean verify
