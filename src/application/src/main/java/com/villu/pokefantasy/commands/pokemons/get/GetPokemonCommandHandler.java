@@ -1,40 +1,49 @@
-package com.villu.pokefantasy.commands.getPokemon;
+package com.villu.pokefantasy.commands.pokemons.get;
 
 import com.villu.pokefantasy.cache.dto.PokemonCacheDto;
 import com.villu.pokefantasy.dto.Pokemons;
-import com.villu.pokefantasy.dto.ResultPokemonDto;
 import com.villu.pokefantasy.mapper.PokemonMapper;
+import com.villu.pokefantasy.mediator.CommandHandler;
 import com.villu.pokefantasy.ports.CachePort;
 import com.villu.pokefantasy.ports.PokemonApiPort;
-import com.villu.pokefantasy.response.PokemonResponseApi;
 import com.villu.pokefantasy.response.PokemonsResponse;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 
 @Service
-@Slf4j
-public class GetPokemonRest {
+public class GetPokemonCommandHandler implements CommandHandler<GetPokemonCommand,GetPokemonCommandResponse> {
 
-    @Autowired
-    private CachePort cacheService;
 
-    @Autowired
-    private PokemonApiPort getPokemonApi;
+    private final CachePort cacheService;
 
-    @Autowired
-    private PokemonMapper pokemonMapper;
+
+    private final PokemonApiPort getPokemonApi;
+
+
+    private final PokemonMapper pokemonMapper;
 
     private static final String CACHE_KEY = "all_pokemons";
 
-    public PokemonsResponse getPokemonById(int id) throws Exception {
-        // Lógica para obtener el Pokémon por ID
-        return getPokemonCacheById(id);
+    public GetPokemonCommandHandler(CachePort cacheService,PokemonApiPort pokemonApi, PokemonMapper pokemonMapper) {
+        this.cacheService = cacheService;
+        this.pokemonMapper = pokemonMapper;
+        this.getPokemonApi = pokemonApi;
     }
 
-    private PokemonsResponse getPokemonCacheById(int id) throws Exception {
+    @Override
+    public GetPokemonCommandResponse handle(GetPokemonCommand command) throws Exception {
+        return getPokemonCacheById(command.id());
+    }
+
+    @Override
+    public Class<GetPokemonCommand> commandType() {
+        return GetPokemonCommand.class;
+    }
+
+
+    private GetPokemonCommandResponse getPokemonCacheById(int id) throws Exception {
         List<PokemonCacheDto> pokemonsResponse = cacheService.getPokemon(CACHE_KEY);
 
         return pokemonMapper.dtoToResponse(getDataFromPokemon(pokemonsResponse.stream()
