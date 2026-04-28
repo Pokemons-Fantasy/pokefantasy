@@ -1,4 +1,4 @@
-package com.villu.pokefantasy.commands.pokemons.get;
+package com.villu.pokefantasy.commands.pokemons.saved;
 
 import com.villu.pokefantasy.dto.Ability;
 import com.villu.pokefantasy.dto.Move;
@@ -9,7 +9,7 @@ import lombok.Data;
 import java.util.List;
 
 @Data
-public class GetPokemonCommandResponse {
+public class GetSavedPokemonsCommandResponse {
 
     private Integer id;
     private String name;
@@ -17,4 +17,5 @@ public class GetPokemonCommandResponse {
     private List<Move> moves;
     private List<Stat> stats;
     private List<Type> types;
+
 }

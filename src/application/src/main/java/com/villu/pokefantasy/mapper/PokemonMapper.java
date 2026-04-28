@@ -23,4 +23,7 @@ public interface PokemonMapper {
     ResultPokemonDto fromCacheDtoToResponse(PokemonCacheDto pokemonCacheDto);
 
     List<PokemonEntity> fromResultToEntity(List<ResultPokemonDto> resultPokemonDto);
+
+    List<ResultPokemonDto> fromEntityToResult(List<PokemonEntity> pokemonEntity);
+
 }

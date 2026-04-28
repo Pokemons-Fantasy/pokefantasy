@@ -24,4 +24,16 @@ public class PokemonRepositoryImpl implements PokemonRepository {
         }
 
     }
+
+    @Override
+    public List<PokemonEntity> getAllPokemons() {
+        try {
+            return mongoTemplate.findAll(PokemonEntity.class);
+        }catch (Exception e){
+            log.error(e.getMessage());
+            throw new RuntimeException(e);
+        }
+    }
+
+
 }

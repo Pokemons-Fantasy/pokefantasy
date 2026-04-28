@@ -30,6 +30,12 @@ public class PkmnController {
         return ResponseEntity.ok().build();
     }
 
+    @GetMapping("/pokemons")
+    public ResponseEntity<List<PokemonsResponse>> getSavedPokemons() throws Exception {
+        return ResponseEntity.ok(pokemonFacade.getSavedPokemons());
+    }
+
+
 
 
 

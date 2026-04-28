@@ -7,4 +7,6 @@ import java.util.List;
 public interface PokemonRepository{
 
     void addPokemons(List<PokemonEntity> pokemonEntity);
+
+    List<PokemonEntity> getAllPokemons();
 }

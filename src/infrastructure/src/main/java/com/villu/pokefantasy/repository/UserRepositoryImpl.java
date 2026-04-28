@@ -1,5 +1,6 @@
 package com.villu.pokefantasy.repository;
 
+import com.villu.pokefantasy.dto.Pokemons;
 import com.villu.pokefantasy.repository.entity.UserEntity;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -8,6 +9,8 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Component;
+
+import java.util.List;
 
 @Component
 @Slf4j
@@ -46,4 +49,11 @@ public class UserRepositoryImpl implements UserRepository {
             return null;
         }
     }
+
+    @Override
+    public void updateUserWithPokemons(UserEntity userEntity) {
+        mongoTemplate.save(userEntity);
+    }
+
+
 }
