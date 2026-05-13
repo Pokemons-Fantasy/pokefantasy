@@ -6,6 +6,7 @@ import com.villu.pokefantasy.mediator.CommandHandler;
 import com.villu.pokefantasy.ports.PasswordHashPort;
 import com.villu.pokefantasy.ports.TokenPort;
 import com.villu.pokefantasy.repository.UserRepository;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -33,11 +34,11 @@ public class LoginUserCommandHandler implements CommandHandler<LoginUserCommand,
 
         User user = userMapper.entityToDto(userRepository.findByUsername(command.username()));
         if (user == null) {
-            throw new IllegalArgumentException("User not found");
+            throw new BadCredentialsException("Invalid username or password");
         }
 
         if (!passwordHashPort.matches(command.password(), user.getPassword())) {
-            throw new IllegalArgumentException("Invalid password");
+            throw new BadCredentialsException("Invalid username or password");
         }
 
         return tokenPort.generateToken(command.username());

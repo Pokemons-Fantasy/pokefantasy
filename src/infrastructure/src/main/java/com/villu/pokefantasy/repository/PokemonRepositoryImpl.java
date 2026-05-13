@@ -20,7 +20,7 @@ public class PokemonRepositoryImpl implements PokemonRepository {
     @Override
     public void addPokemons(List<PokemonEntity> pokemonEntity) {
         try {
-            mongoTemplate.insertAll(pokemonEntity);
+            pokemonEntity.forEach(mongoTemplate::save);
         } catch (Exception e) {
             log.error(e.getMessage());
             throw new RuntimeException(e);
