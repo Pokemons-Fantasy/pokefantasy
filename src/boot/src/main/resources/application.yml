@@ -3,10 +3,13 @@ spring:
     name: poke fantasy
   data:
     redis:
-      host: localhost
-      port: 6379
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      ssl:
+        enabled: ${REDIS_SSL:false}
   mongodb:
-    uri: mongodb://root:password@localhost:27017/pokefantasy?authSource=admin
+    uri: ${MONGODB_URI:mongodb://root:password@localhost:27017/pokefantasy?authSource=admin}
 server:
   port: 8080
 jwt:

@@ -13,4 +13,5 @@ public interface ClosedListRepository {
     void updateTier(String id, Tier tier);
     long countByNominatedBy(String username);
     boolean existsByPokemonName(String pokemonName);
+    Optional<ClosedListEntity> findByPokemonNameIgnoreCase(String pokemonName);
 }

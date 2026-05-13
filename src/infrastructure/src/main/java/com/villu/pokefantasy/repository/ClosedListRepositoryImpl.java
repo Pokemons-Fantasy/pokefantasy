@@ -4,6 +4,8 @@ import com.villu.pokefantasy.dto.Tier;
 import com.villu.pokefantasy.repository.entity.ClosedListEntity;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Collation;
+import org.springframework.data.mongodb.core.query.Collation.ComparisonLevel;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
@@ -59,5 +61,12 @@ public class ClosedListRepositoryImpl implements ClosedListRepository {
     public boolean existsByPokemonName(String pokemonName) {
         Query query = new Query(Criteria.where("pokemonName").is(pokemonName));
         return mongoTemplate.exists(query, ClosedListEntity.class);
+    }
+
+    @Override
+    public Optional<ClosedListEntity> findByPokemonNameIgnoreCase(String pokemonName) {
+        Query query = new Query(Criteria.where("pokemonName").is(pokemonName))
+                .collation(Collation.of("en").strength(ComparisonLevel.secondary()));
+        return Optional.ofNullable(mongoTemplate.findOne(query, ClosedListEntity.class));
     }
 }
