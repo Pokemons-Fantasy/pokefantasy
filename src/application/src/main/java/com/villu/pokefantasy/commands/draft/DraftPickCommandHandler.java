@@ -96,18 +96,17 @@ public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand,
         try {
             draftRepository.save(draft);
         } catch (OptimisticLockingFailureException exception) {
-            rollbackUserPokemon(user, currentPokemons);
+            removeAddedPokemon(user, currentPokemons, pokemon);
             throw new IllegalStateException("Draft changed while processing the pick. Please retry.", exception);
         } catch (RuntimeException exception) {
-            rollbackUserPokemon(user, currentPokemons);
+            removeAddedPokemon(user, currentPokemons, pokemon);
             throw exception;
         }
         return null;
     }
 
-    private void rollbackUserPokemon(UserEntity user, List<Pokemons> currentPokemons) {
-        if (!currentPokemons.isEmpty()) {
-            currentPokemons.remove(currentPokemons.size() - 1);
+    private void removeAddedPokemon(UserEntity user, List<Pokemons> currentPokemons, Pokemons pokemon) {
+        if (currentPokemons.remove(pokemon)) {
             user.setPokemons(currentPokemons);
             userRepository.updateUserWithPokemons(user);
         }
