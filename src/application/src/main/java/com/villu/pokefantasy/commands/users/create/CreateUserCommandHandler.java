@@ -3,23 +3,23 @@ package com.villu.pokefantasy.commands.users.create;
 import com.villu.pokefantasy.dto.users.User;
 import com.villu.pokefantasy.mapper.UserMapper;
 import com.villu.pokefantasy.mediator.CommandHandler;
+import com.villu.pokefantasy.ports.PasswordHashPort;
 import com.villu.pokefantasy.repository.UserRepository;
 import org.springframework.stereotype.Service;
 
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 import java.util.UUID;
 
 @Service
 public class CreateUserCommandHandler implements CommandHandler<CreateUserCommand, Void> {
 
     private final UserRepository userRepository;
-
     private final UserMapper userMapper;
+    private final PasswordHashPort passwordHashPort;
 
-    public CreateUserCommandHandler(UserRepository userRepository, UserMapper userMapper) {
+    public CreateUserCommandHandler(UserRepository userRepository, UserMapper userMapper, PasswordHashPort passwordHashPort) {
         this.userRepository = userRepository;
         this.userMapper = userMapper;
+        this.passwordHashPort = passwordHashPort;
     }
 
     @Override
@@ -32,7 +32,7 @@ public class CreateUserCommandHandler implements CommandHandler<CreateUserComman
         User user = User.builder()
                 .id(UUID.randomUUID().toString())
                 .name(command.username())
-                .password(Base64.getEncoder().encodeToString(command.password().getBytes(StandardCharsets.UTF_8)))
+                .password(passwordHashPort.encode(command.password()))
                 .build();
 
         userRepository.saveUser(userMapper.dtoToEntity(user));
@@ -44,4 +44,3 @@ public class CreateUserCommandHandler implements CommandHandler<CreateUserComman
         return CreateUserCommand.class;
     }
 }
-
