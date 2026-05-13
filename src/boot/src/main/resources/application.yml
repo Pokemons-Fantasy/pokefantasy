@@ -9,3 +9,7 @@ spring:
     uri: mongodb://root:password@localhost:27017/pokefantasy?authSource=admin
 server:
   port: 8080
+jwt:
+  # Must be provided externally as a Base64-encoded 256-bit key
+  secret: ${JWT_SECRET}
+  expiration-ms: 86400000

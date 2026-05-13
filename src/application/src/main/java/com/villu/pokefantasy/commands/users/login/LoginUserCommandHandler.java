@@ -3,25 +3,30 @@ package com.villu.pokefantasy.commands.users.login;
 import com.villu.pokefantasy.dto.users.User;
 import com.villu.pokefantasy.mapper.UserMapper;
 import com.villu.pokefantasy.mediator.CommandHandler;
+import com.villu.pokefantasy.ports.PasswordHashPort;
+import com.villu.pokefantasy.ports.TokenPort;
 import com.villu.pokefantasy.repository.UserRepository;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.stereotype.Service;
 
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
-
 @Service
-public class LoginUserCommandHandler implements CommandHandler<LoginUserCommand, Boolean> {
+public class LoginUserCommandHandler implements CommandHandler<LoginUserCommand, String> {
 
     private final UserRepository userRepository;
     private final UserMapper userMapper;
+    private final PasswordHashPort passwordHashPort;
+    private final TokenPort tokenPort;
 
-    public LoginUserCommandHandler(UserRepository userRepository, UserMapper userMapper) {
+    public LoginUserCommandHandler(UserRepository userRepository, UserMapper userMapper,
+                                   PasswordHashPort passwordHashPort, TokenPort tokenPort) {
         this.userRepository = userRepository;
         this.userMapper = userMapper;
+        this.passwordHashPort = passwordHashPort;
+        this.tokenPort = tokenPort;
     }
 
     @Override
-    public Boolean handle(LoginUserCommand command) {
+    public String handle(LoginUserCommand command) {
         if (command == null || command.username() == null || command.password() == null
                 || command.username().isEmpty() || command.password().isEmpty()) {
             throw new IllegalArgumentException("LoginUserCommand cannot be null or have values empty");
@@ -29,11 +34,14 @@ public class LoginUserCommandHandler implements CommandHandler<LoginUserCommand,
 
         User user = userMapper.entityToDto(userRepository.findByUsername(command.username()));
         if (user == null) {
-            return false;
+            throw new BadCredentialsException("Invalid username or password");
         }
 
-        String encodedPassword = Base64.getEncoder().encodeToString(command.password().getBytes(StandardCharsets.UTF_8));
-        return user.getPassword().equals(encodedPassword);
+        if (!passwordHashPort.matches(command.password(), user.getPassword())) {
+            throw new BadCredentialsException("Invalid username or password");
+        }
+
+        return tokenPort.generateToken(command.username());
     }
 
     @Override
@@ -41,4 +49,3 @@ public class LoginUserCommandHandler implements CommandHandler<LoginUserCommand,
         return LoginUserCommand.class;
     }
 }
-

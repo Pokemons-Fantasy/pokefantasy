@@ -27,7 +27,7 @@ public class UserFacade {
         mediator.send(new CreateUserCommand(username, password));
     }
 
-    public boolean login(String username, String password) throws Exception {
+    public String login(String username, String password) throws Exception {
         return mediator.send(new LoginUserCommand(username, password));
     }
 
