@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class ApiExceptionHandler {
 
     @ExceptionHandler(BadCredentialsException.class)
-    public ResponseEntity<String> handleBadCredentials(BadCredentialsException exception) {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(exception.getMessage());
+    public ResponseEntity<String> handleBadCredentials() {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid username or password");
     }
 }
