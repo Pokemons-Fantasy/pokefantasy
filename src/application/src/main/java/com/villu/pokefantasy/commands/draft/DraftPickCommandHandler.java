@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand, Void> {
@@ -84,6 +85,10 @@ public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand,
         pokemon.setStats(entry.getStats());
         pokemon.setTypes(entry.getTypes());
 
+        currentPokemons.add(pokemon);
+        user.setPokemons(currentPokemons);
+        userRepository.updateUserWithPokemons(user);
+
         DraftPick pick = new DraftPick(username, entry.getPokemonName(),
                 entry.getPokemonId(), draft.getCurrentRound(), Instant.now());
         draft.getPicks().add(pick);
@@ -91,14 +96,25 @@ public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand,
         advanceTurn(draft);
         try {
             draftRepository.save(draft);
-        } catch (OptimisticLockingFailureException exception) {
-            throw new IllegalStateException("Draft changed while processing the pick. Please retry.", exception);
+        } catch (RuntimeException exception) {
+            rollbackUserPokemon(user, currentPokemons, pokemon);
+            if (exception instanceof OptimisticLockingFailureException) {
+                throw new IllegalStateException("Draft changed while processing the pick. Please retry.", exception);
+            }
+            throw exception;
         }
-
-        currentPokemons.add(pokemon);
-        user.setPokemons(currentPokemons);
-        userRepository.updateUserWithPokemons(user);
         return null;
+    }
+
+    private void rollbackUserPokemon(UserEntity user, List<Pokemons> currentPokemons, Pokemons pokemon) {
+        for (int i = currentPokemons.size() - 1; i >= 0; i--) {
+            if (Objects.equals(currentPokemons.get(i).getId(), pokemon.getId())) {
+                currentPokemons.remove(i);
+                user.setPokemons(currentPokemons);
+                userRepository.updateUserWithPokemons(user);
+                return;
+            }
+        }
     }
 
     private void advanceTurn(DraftEntity draft) {

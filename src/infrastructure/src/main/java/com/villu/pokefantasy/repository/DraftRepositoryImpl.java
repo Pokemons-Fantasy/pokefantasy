@@ -2,7 +2,6 @@ package com.villu.pokefantasy.repository;
 
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
@@ -12,7 +11,6 @@ import org.springframework.stereotype.Component;
 import java.util.Optional;
 
 @Component
-@Slf4j
 public class DraftRepositoryImpl implements DraftRepository {
 
     private final MongoTemplate mongoTemplate;
@@ -23,14 +21,7 @@ public class DraftRepositoryImpl implements DraftRepository {
 
     @Override
     public void save(DraftEntity draft) {
-        try {
-            mongoTemplate.save(draft);
-        } catch (RuntimeException e) {
-            throw e;
-        } catch (Exception e) {
-            log.error("Failed to save draft", e);
-            throw new RuntimeException(e);
-        }
+        mongoTemplate.save(draft);
     }
 
     @Override
