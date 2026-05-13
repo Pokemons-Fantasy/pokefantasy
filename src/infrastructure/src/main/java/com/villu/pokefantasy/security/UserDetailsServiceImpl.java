@@ -1,5 +1,6 @@
 package com.villu.pokefantasy.security;
 
+import com.villu.pokefantasy.dto.Role;
 import com.villu.pokefantasy.repository.UserRepository;
 import com.villu.pokefantasy.repository.entity.UserEntity;
 import org.springframework.security.core.userdetails.User;
@@ -23,9 +24,10 @@ public class UserDetailsServiceImpl implements UserDetailsService {
         if (entity == null) {
             throw new UsernameNotFoundException("User not found: " + username);
         }
+        String role = entity.getRole() == Role.ADMIN ? "ADMIN" : "USER";
         return User.withUsername(entity.getName())
                 .password(entity.getPassword())
-                .roles("USER")
+                .roles(role)
                 .build();
     }
 }
