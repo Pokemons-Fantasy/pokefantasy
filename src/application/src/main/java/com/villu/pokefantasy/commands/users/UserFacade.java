@@ -1,10 +1,13 @@
 package com.villu.pokefantasy.commands.users;
 
+import com.villu.pokefantasy.commands.users.add.pokemon.user.AddPokemonUserCommand;
 import com.villu.pokefantasy.commands.users.create.CreateUserCommand;
 import com.villu.pokefantasy.commands.users.login.LoginUserCommand;
+import com.villu.pokefantasy.dto.Pokemons;
 import com.villu.pokefantasy.mediator.Mediator;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
 
 /**
  * Fachada para mantener la "lógica" agrupada como estaba (antes en SaveUser)
@@ -26,6 +29,10 @@ public class UserFacade {
 
     public boolean login(String username, String password) throws Exception {
         return mediator.send(new LoginUserCommand(username, password));
+    }
+
+    public void addPokemonsToUser(String username, List<Pokemons> pokemons) throws Exception {
+        mediator.send(new AddPokemonUserCommand(pokemons, username));
     }
 }
 

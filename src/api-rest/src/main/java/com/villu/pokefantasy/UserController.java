@@ -1,8 +1,8 @@
 package com.villu.pokefantasy;
 
 import com.villu.pokefantasy.commands.users.UserFacade;
+import com.villu.pokefantasy.request.user.AddPokemonsUserRequest;
 import com.villu.pokefantasy.request.user.UserRequest;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -28,5 +28,11 @@ public class UserController {
     @PostMapping("/user/login")
     public ResponseEntity<Boolean> loginUser(@RequestBody UserRequest user) throws Exception {
         return ResponseEntity.ok(userFacade.login(user.getUsername(), user.getPassword()));
+    }
+
+    @PostMapping("/user/add/pokemons")
+    public ResponseEntity<Void> addPokemonsToUser(@RequestBody AddPokemonsUserRequest request) throws Exception {
+        userFacade.addPokemonsToUser(request.getUserName(), request.getPokemons());
+        return ResponseEntity.ok().build();
     }
 }

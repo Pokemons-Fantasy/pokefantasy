@@ -17,8 +17,7 @@ public class PokemonApiAdapter implements PokemonApiPort {
     public PokemonResponseApi fetchAllPokemons() {
         RestTemplate restTemplate = new RestTemplate();
         log.info("Get Pokemons API URL: {}", POKE_API_URL);
-        PokemonResponseApi response = restTemplate.getForObject(POKE_API_URL, PokemonResponseApi.class);
-        return response;
+        return restTemplate.getForObject(POKE_API_URL, PokemonResponseApi.class);
     }
 
     @Override
@@ -31,5 +30,11 @@ public class PokemonApiAdapter implements PokemonApiPort {
             throw new Exception("Failed to fetch data for pokemon: " + name, e);
         }
     }
+
+    @Override
+    public Pokemons fetchPokemonData(String url) {
+        return null;
+    }
+
 
 }
