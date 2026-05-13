@@ -1,5 +1,6 @@
 package com.villu.pokefantasy.commands.users.create;
 
+import com.villu.pokefantasy.dto.Role;
 import com.villu.pokefantasy.dto.users.User;
 import com.villu.pokefantasy.mapper.UserMapper;
 import com.villu.pokefantasy.mediator.CommandHandler;
@@ -33,6 +34,7 @@ public class CreateUserCommandHandler implements CommandHandler<CreateUserComman
                 .id(UUID.randomUUID().toString())
                 .name(command.username())
                 .password(passwordHashPort.encode(command.password()))
+                .role(Role.USER)
                 .build();
 
         userRepository.saveUser(userMapper.dtoToEntity(user));
