@@ -20,9 +20,14 @@ public class AddPokemonUserCommandHandler implements CommandHandler<AddPokemonUs
 
     @Override
     public Void handle(AddPokemonUserCommand command) {
-        UserEntity user = userRepository.findByUsername(command.nameUser());
+        if (command == null || command.nameUser() == null || command.nameUser().isBlank() || command.pokemons() == null) {
+            throw new IllegalArgumentException("Username and pokemons are required");
+        }
+
+        String username = command.nameUser().trim();
+        UserEntity user = userRepository.findByUsername(username);
         if (user == null) {
-            throw new IllegalArgumentException("User not found: " + command.nameUser());
+            throw new IllegalArgumentException("User not found: " + username);
         }
 
         if (user.getPokemons() == null) {

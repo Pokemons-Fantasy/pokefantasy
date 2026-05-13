@@ -3,6 +3,7 @@ package com.villu.pokefantasy.repository.entity;
 import com.villu.pokefantasy.dto.DraftStatus;
 import lombok.Data;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Version;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.util.List;
@@ -12,6 +13,8 @@ import java.util.List;
 public class DraftEntity {
     @Id
     private String id;
+    @Version
+    private Long version;
     private DraftStatus status;
     private List<String> turnOrder;
     private int currentTurnIndex;

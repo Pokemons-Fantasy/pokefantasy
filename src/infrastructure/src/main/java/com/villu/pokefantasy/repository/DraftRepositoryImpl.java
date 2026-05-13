@@ -3,6 +3,7 @@ package com.villu.pokefantasy.repository;
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -24,6 +25,8 @@ public class DraftRepositoryImpl implements DraftRepository {
     public void save(DraftEntity draft) {
         try {
             mongoTemplate.save(draft);
+        } catch (RuntimeException e) {
+            throw e;
         } catch (Exception e) {
             log.error("Failed to save draft", e);
             throw new RuntimeException(e);
@@ -33,6 +36,12 @@ public class DraftRepositoryImpl implements DraftRepository {
     @Override
     public Optional<DraftEntity> findActive() {
         Query query = new Query(Criteria.where("status").in(DraftStatus.PENDING, DraftStatus.IN_PROGRESS));
+        return Optional.ofNullable(mongoTemplate.findOne(query, DraftEntity.class));
+    }
+
+    @Override
+    public Optional<DraftEntity> findLatest() {
+        Query query = new Query().with(Sort.by(Sort.Direction.DESC, "_id")).limit(1);
         return Optional.ofNullable(mongoTemplate.findOne(query, DraftEntity.class));
     }
 }

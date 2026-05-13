@@ -10,6 +10,7 @@ import com.villu.pokefantasy.repository.entity.ClosedListEntity;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
 import com.villu.pokefantasy.repository.entity.DraftPick;
 import com.villu.pokefantasy.repository.entity.UserEntity;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -35,6 +36,13 @@ public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand,
 
     @Override
     public Void handle(DraftPickCommand command) {
+        if (command == null || command.username() == null || command.pokemonName() == null
+                || command.username().isBlank() || command.pokemonName().isBlank()) {
+            throw new IllegalArgumentException("Username and pokemonName are required");
+        }
+
+        String username = command.username().trim();
+        String pokemonName = command.pokemonName().trim();
         DraftEntity draft = draftRepository.findActive()
                 .orElseThrow(() -> new IllegalStateException("No active draft found"));
 
@@ -43,13 +51,13 @@ public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand,
         }
 
         String currentTurn = draft.getTurnOrder().get(draft.getCurrentTurnIndex());
-        if (!currentTurn.equals(command.username())) {
+        if (!currentTurn.equals(username)) {
             throw new IllegalStateException("It's not your turn. Current turn: " + currentTurn);
         }
 
-        UserEntity user = userRepository.findByUsername(command.username());
+        UserEntity user = userRepository.findByUsername(username);
         if (user == null) {
-            throw new IllegalArgumentException("User not found: " + command.username());
+            throw new IllegalArgumentException("User not found: " + username);
         }
 
         List<Pokemons> currentPokemons = user.getPokemons() != null ? user.getPokemons() : new ArrayList<>();
@@ -57,16 +65,18 @@ public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand,
             throw new IllegalStateException("User already has the maximum of " + MAX_POKEMONS_PER_USER + " Pokémon");
         }
 
-        boolean alreadyPicked = draft.getPicks().stream()
-                .anyMatch(p -> p.getPokemonName().equalsIgnoreCase(command.pokemonName()));
-        if (alreadyPicked) {
-            throw new IllegalArgumentException("Pokémon '" + command.pokemonName() + "' has already been picked");
+        if (draft.getPicks() == null) {
+            draft.setPicks(new ArrayList<>());
         }
 
-        ClosedListEntity entry = closedListRepository.findAll().stream()
-                .filter(e -> e.getPokemonName().equalsIgnoreCase(command.pokemonName()))
-                .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Pokémon '" + command.pokemonName() + "' is not in the closed list"));
+        boolean alreadyPicked = draft.getPicks().stream()
+                .anyMatch(p -> p.getPokemonName().equalsIgnoreCase(pokemonName));
+        if (alreadyPicked) {
+            throw new IllegalArgumentException("Pokémon '" + pokemonName + "' has already been picked");
+        }
+
+        ClosedListEntity entry = closedListRepository.findByPokemonNameIgnoreCase(pokemonName)
+                .orElseThrow(() -> new IllegalArgumentException("Pokémon '" + pokemonName + "' is not in the closed list"));
 
         Pokemons pokemon = new Pokemons();
         pokemon.setId(entry.getPokemonId());
@@ -74,16 +84,20 @@ public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand,
         pokemon.setStats(entry.getStats());
         pokemon.setTypes(entry.getTypes());
 
-        currentPokemons.add(pokemon);
-        user.setPokemons(currentPokemons);
-        userRepository.updateUserWithPokemons(user);
-
-        DraftPick pick = new DraftPick(command.username(), entry.getPokemonName(),
+        DraftPick pick = new DraftPick(username, entry.getPokemonName(),
                 entry.getPokemonId(), draft.getCurrentRound(), Instant.now());
         draft.getPicks().add(pick);
 
         advanceTurn(draft);
-        draftRepository.save(draft);
+        try {
+            draftRepository.save(draft);
+        } catch (OptimisticLockingFailureException exception) {
+            throw new IllegalStateException("Draft changed while processing the pick. Please retry.", exception);
+        }
+
+        currentPokemons.add(pokemon);
+        user.setPokemons(currentPokemons);
+        userRepository.updateUserWithPokemons(user);
         return null;
     }
 

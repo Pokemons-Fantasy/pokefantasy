@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 @Component
 @Slf4j
@@ -59,5 +60,11 @@ public class ClosedListRepositoryImpl implements ClosedListRepository {
     public boolean existsByPokemonName(String pokemonName) {
         Query query = new Query(Criteria.where("pokemonName").is(pokemonName));
         return mongoTemplate.exists(query, ClosedListEntity.class);
+    }
+
+    @Override
+    public Optional<ClosedListEntity> findByPokemonNameIgnoreCase(String pokemonName) {
+        Query query = new Query(Criteria.where("pokemonName").regex("^" + Pattern.quote(pokemonName) + "$", "i"));
+        return Optional.ofNullable(mongoTemplate.findOne(query, ClosedListEntity.class));
     }
 }
