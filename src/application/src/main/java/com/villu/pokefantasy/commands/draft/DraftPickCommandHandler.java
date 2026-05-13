@@ -16,7 +16,6 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 
 @Service
 public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand, Void> {
@@ -96,24 +95,21 @@ public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand,
         advanceTurn(draft);
         try {
             draftRepository.save(draft);
+        } catch (OptimisticLockingFailureException exception) {
+            rollbackUserPokemon(user, currentPokemons);
+            throw new IllegalStateException("Draft changed while processing the pick. Please retry.", exception);
         } catch (RuntimeException exception) {
-            rollbackUserPokemon(user, currentPokemons, pokemon);
-            if (exception instanceof OptimisticLockingFailureException) {
-                throw new IllegalStateException("Draft changed while processing the pick. Please retry.", exception);
-            }
+            rollbackUserPokemon(user, currentPokemons);
             throw exception;
         }
         return null;
     }
 
-    private void rollbackUserPokemon(UserEntity user, List<Pokemons> currentPokemons, Pokemons pokemon) {
-        for (int i = currentPokemons.size() - 1; i >= 0; i--) {
-            if (Objects.equals(currentPokemons.get(i).getId(), pokemon.getId())) {
-                currentPokemons.remove(i);
-                user.setPokemons(currentPokemons);
-                userRepository.updateUserWithPokemons(user);
-                return;
-            }
+    private void rollbackUserPokemon(UserEntity user, List<Pokemons> currentPokemons) {
+        if (!currentPokemons.isEmpty()) {
+            currentPokemons.remove(currentPokemons.size() - 1);
+            user.setPokemons(currentPokemons);
+            userRepository.updateUserWithPokemons(user);
         }
     }
 
