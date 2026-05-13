@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand, Void> {
@@ -97,7 +98,7 @@ public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand,
             draftRepository.save(draft);
         } catch (OptimisticLockingFailureException exception) {
             removeAddedPokemon(user, currentPokemons, pokemon);
-            throw new IllegalStateException("Draft changed while processing the pick. Please retry.", exception);
+            throw new IllegalStateException("Another player made a pick at the same time. Please try your pick again.", exception);
         } catch (RuntimeException exception) {
             removeAddedPokemon(user, currentPokemons, pokemon);
             throw exception;
@@ -106,7 +107,7 @@ public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand,
     }
 
     private void removeAddedPokemon(UserEntity user, List<Pokemons> currentPokemons, Pokemons pokemon) {
-        if (currentPokemons.remove(pokemon)) {
+        if (currentPokemons.removeIf(currentPokemon -> Objects.equals(currentPokemon.getId(), pokemon.getId()))) {
             user.setPokemons(currentPokemons);
             userRepository.updateUserWithPokemons(user);
         }
