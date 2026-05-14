@@ -33,7 +33,7 @@ public class CacheAdapter implements CachePort {
     @Override
     public List<PokemonCacheDto> getPokemon(String key) {
         try {
-            Object data = redisTemplate.opsForValue().get(key);
+            Object data = redisTemplate.opsForValue().get(CACHE_KEY);
             if (data == null) {
                 log.warn("Caché vacío para clave: {}", key);
                 return List.of();
