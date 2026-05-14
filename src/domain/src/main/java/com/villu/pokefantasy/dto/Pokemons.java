@@ -19,4 +19,5 @@ public class Pokemons implements Serializable {
     private List<Move> moves;
     private List<Stat> stats;
     private List<Type> types;
+    private Sprites sprites;
 }

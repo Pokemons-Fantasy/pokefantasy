@@ -8,12 +8,14 @@ import com.villu.pokefantasy.repository.entity.PokemonEntity;
 import com.villu.pokefantasy.response.PokemonResponseApi;
 import com.villu.pokefantasy.response.PokemonsResponse;
 import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 
 import java.util.List;
 
 @Mapper(componentModel = "spring")
 public interface PokemonMapper {
 
+    @Mapping(source = "sprites.frontDefault", target = "sprite")
     GetPokemonCommandResponse dtoToResponse(Pokemons pokemons);
 
     List<PokemonCacheDto> dtoToCacheDto(List<ResultPokemonDto> pokemons);

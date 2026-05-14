@@ -17,4 +17,5 @@ public class GetPokemonCommandResponse {
     private List<Move> moves;
     private List<Stat> stats;
     private List<Type> types;
+    private String sprite;
 }

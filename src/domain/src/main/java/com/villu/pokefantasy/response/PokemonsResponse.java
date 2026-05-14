@@ -6,10 +6,12 @@ import com.villu.pokefantasy.dto.Stat;
 import com.villu.pokefantasy.dto.Type;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.util.List;
 
 @Data
+@NoArgsConstructor
 @AllArgsConstructor
 public class PokemonsResponse {
     //Este es el objeto que devuelvo yo
@@ -19,5 +21,6 @@ public class PokemonsResponse {
     private List<Move> moves;
     private List<Stat> stats;
     private List<Type> types;
+    private String sprite;
 
 }
