@@ -69,4 +69,10 @@ public class ClosedListRepositoryImpl implements ClosedListRepository {
                 .collation(Collation.of("en").strength(ComparisonLevel.secondary()));
         return Optional.ofNullable(mongoTemplate.findOne(query, ClosedListEntity.class));
     }
+
+    @Override
+    public void deleteByPokemonNameAndNominatedBy(String pokemonName, String username) {
+        Query query = new Query(Criteria.where("pokemonName").is(pokemonName).and("nominatedBy").is(username));
+        mongoTemplate.remove(query, ClosedListEntity.class);
+    }
 }

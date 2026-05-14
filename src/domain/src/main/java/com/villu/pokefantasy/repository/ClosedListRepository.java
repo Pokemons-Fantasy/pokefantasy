@@ -14,4 +14,5 @@ public interface ClosedListRepository {
     long countByNominatedBy(String username);
     boolean existsByPokemonName(String pokemonName);
     Optional<ClosedListEntity> findByPokemonNameIgnoreCase(String pokemonName);
+    void deleteByPokemonNameAndNominatedBy(String pokemonName, String username);
 }

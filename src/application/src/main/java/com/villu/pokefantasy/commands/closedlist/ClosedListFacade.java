@@ -20,6 +20,10 @@ public class ClosedListFacade {
         mediator.send(new NominatePokemonCommand(username, pokemonName));
     }
 
+    public void denominate(String username, String pokemonName) throws Exception {
+        mediator.send(new DenominatePokemonCommand(username, pokemonName));
+    }
+
     public void assignTier(String entryId, Tier tier) throws Exception {
         mediator.send(new AssignTierCommand(entryId, tier));
     }

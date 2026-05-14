@@ -30,6 +30,13 @@ public class ClosedListController {
         return ResponseEntity.ok().build();
     }
 
+    @DeleteMapping("/nominate/{pokemonName}")
+    public ResponseEntity<Void> denominate(@AuthenticationPrincipal UserDetails userDetails,
+                                           @PathVariable String pokemonName) throws Exception {
+        closedListFacade.denominate(userDetails.getUsername(), pokemonName);
+        return ResponseEntity.ok().build();
+    }
+
     @PutMapping("/{entryId}/tier")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> assignTier(@PathVariable String entryId,
