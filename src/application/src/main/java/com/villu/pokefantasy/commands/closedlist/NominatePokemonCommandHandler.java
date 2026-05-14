@@ -36,22 +36,22 @@ public class NominatePokemonCommandHandler implements CommandHandler<NominatePok
 
     @Override
     public Void handle(NominatePokemonCommand command) throws Exception {
-        if (command.username() == null || command.pokemonName() == null
-                || command.username().isBlank() || command.pokemonName().isBlank()) {
-            throw new IllegalArgumentException("Username and pokemonName are required");
+        if (command.username() == null || command.pokemonName() == null || command.leagueId() == null
+                || command.username().isBlank() || command.pokemonName().isBlank() || command.leagueId().isBlank()) {
+            throw new IllegalArgumentException("Username, pokemonName and leagueId are required");
         }
 
-        draftRepository.findLatest().ifPresent(draft -> {
+        draftRepository.findLatestByLeagueId(command.leagueId()).ifPresent(draft -> {
             if (draft.getStatus() != DraftStatus.PENDING) {
                 throw new IllegalStateException("Nominations are closed: draft is already " + draft.getStatus());
             }
         });
 
-        if (closedListRepository.existsByPokemonName(command.pokemonName().toLowerCase())) {
+        if (closedListRepository.existsByPokemonNameAndLeagueId(command.pokemonName().toLowerCase(), command.leagueId())) {
             throw new IllegalArgumentException("Pokemon '" + command.pokemonName() + "' is already in the closed list");
         }
 
-        long nominations = closedListRepository.countByNominatedBy(command.username());
+        long nominations = closedListRepository.countByNominatedByAndLeagueId(command.username(), command.leagueId());
         if (nominations >= MAX_NOMINATIONS_PER_USER) {
             throw new IllegalArgumentException("User has reached the maximum of " + MAX_NOMINATIONS_PER_USER + " nominations");
         }
@@ -71,6 +71,7 @@ public class NominatePokemonCommandHandler implements CommandHandler<NominatePok
         entry.setTypes(pokemon.getTypes());
         entry.setNominatedBy(command.username());
         entry.setSprite(String.format(SPRITE_URL_TEMPLATE, pokemon.getId()));
+        entry.setLeagueId(command.leagueId());
 
         closedListRepository.save(entry);
         return null;

@@ -19,7 +19,7 @@ public class GetClosedListCommandHandler implements CommandHandler<GetClosedList
 
     @Override
     public List<ClosedListEntryResponse> handle(GetClosedListCommand command) {
-        return closedListRepository.findAll().stream()
+        return closedListRepository.findAllByLeagueId(command.leagueId()).stream()
                 .map(this::toResponse)
                 .toList();
     }

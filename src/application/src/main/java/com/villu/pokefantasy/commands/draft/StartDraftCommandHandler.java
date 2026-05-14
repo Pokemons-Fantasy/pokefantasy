@@ -1,6 +1,7 @@
 package com.villu.pokefantasy.commands.draft;
 
 import com.villu.pokefantasy.dto.DraftStatus;
+import com.villu.pokefantasy.league.LeagueAdminGuard;
 import com.villu.pokefantasy.mediator.CommandHandler;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
@@ -16,9 +17,12 @@ import java.util.Set;
 public class StartDraftCommandHandler implements CommandHandler<StartDraftCommand, Void> {
 
     private final DraftRepository draftRepository;
+    private final LeagueAdminGuard leagueAdminGuard;
 
-    public StartDraftCommandHandler(DraftRepository draftRepository) {
+    public StartDraftCommandHandler(DraftRepository draftRepository,
+                                    LeagueAdminGuard leagueAdminGuard) {
         this.draftRepository = draftRepository;
+        this.leagueAdminGuard = leagueAdminGuard;
     }
 
     @Override
@@ -26,6 +30,8 @@ public class StartDraftCommandHandler implements CommandHandler<StartDraftComman
         if (command == null || command.turnOrder() == null || command.turnOrder().isEmpty()) {
             throw new IllegalArgumentException("Turn order must have at least one player");
         }
+
+        leagueAdminGuard.requireLeagueAdmin(command.leagueId(), command.requestingUsername());
 
         List<String> sanitizedTurnOrder = new ArrayList<>();
         Set<String> seenUsers = new HashSet<>();
@@ -42,7 +48,7 @@ public class StartDraftCommandHandler implements CommandHandler<StartDraftComman
             sanitizedTurnOrder.add(username.trim());
         }
 
-        draftRepository.findActive().ifPresent(d -> {
+        draftRepository.findActiveByLeagueId(command.leagueId()).ifPresent(d -> {
             throw new IllegalStateException("A draft is already active with status: " + d.getStatus());
         });
 
@@ -52,6 +58,7 @@ public class StartDraftCommandHandler implements CommandHandler<StartDraftComman
         draft.setCurrentTurnIndex(0);
         draft.setCurrentRound(1);
         draft.setPicks(new ArrayList<>());
+        draft.setLeagueId(command.leagueId());
 
         draftRepository.save(draft);
         return null;

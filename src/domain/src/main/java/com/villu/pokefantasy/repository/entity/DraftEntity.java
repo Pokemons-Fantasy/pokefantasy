@@ -20,4 +20,5 @@ public class DraftEntity {
     private int currentTurnIndex;
     private int currentRound;
     private List<DraftPick> picks;
+    private String leagueId;
 }

@@ -20,4 +20,5 @@ public class Pokemons implements Serializable {
     private List<Stat> stats;
     private List<Type> types;
     private Sprites sprites;
+    private String leagueId;
 }

@@ -44,8 +44,10 @@ public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand,
 
         String username = command.username().trim();
         String pokemonName = command.pokemonName().trim();
-        DraftEntity draft = draftRepository.findActive()
-                .orElseThrow(() -> new IllegalStateException("No active draft found"));
+        String leagueId = command.leagueId();
+
+        DraftEntity draft = draftRepository.findActiveByLeagueId(leagueId)
+                .orElseThrow(() -> new IllegalStateException("No active draft found for league: " + leagueId));
 
         if (draft.getStatus() != DraftStatus.IN_PROGRESS) {
             throw new IllegalStateException("Draft is not in progress");
@@ -62,8 +64,11 @@ public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand,
         }
 
         List<Pokemons> currentPokemons = user.getPokemons() != null ? user.getPokemons() : new ArrayList<>();
-        if (currentPokemons.size() >= MAX_POKEMONS_PER_USER) {
-            throw new IllegalStateException("User already has the maximum of " + MAX_POKEMONS_PER_USER + " Pokémon");
+        long leaguePokemonCount = currentPokemons.stream()
+                .filter(p -> leagueId.equals(p.getLeagueId()))
+                .count();
+        if (leaguePokemonCount >= MAX_POKEMONS_PER_USER) {
+            throw new IllegalStateException("User already has the maximum of " + MAX_POKEMONS_PER_USER + " Pokémon in this league");
         }
 
         if (draft.getPicks() == null) {
@@ -76,14 +81,15 @@ public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand,
             throw new IllegalArgumentException("Pokémon '" + pokemonName + "' has already been picked");
         }
 
-        ClosedListEntity entry = closedListRepository.findByPokemonNameIgnoreCase(pokemonName)
-                .orElseThrow(() -> new IllegalArgumentException("Pokémon '" + pokemonName + "' is not in the closed list"));
+        ClosedListEntity entry = closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(pokemonName, leagueId)
+                .orElseThrow(() -> new IllegalArgumentException("Pokémon '" + pokemonName + "' is not in the closed list for this league"));
 
         Pokemons pokemon = new Pokemons();
         pokemon.setId(entry.getPokemonId());
         pokemon.setName(entry.getPokemonName());
         pokemon.setStats(entry.getStats());
         pokemon.setTypes(entry.getTypes());
+        pokemon.setLeagueId(leagueId);
 
         currentPokemons.add(pokemon);
         user.setPokemons(currentPokemons);
@@ -97,17 +103,17 @@ public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand,
         try {
             draftRepository.save(draft);
         } catch (OptimisticLockingFailureException exception) {
-            removeAddedPokemon(user, currentPokemons, pokemon);
+            removeAddedPokemon(user, currentPokemons, pokemon, leagueId);
             throw new IllegalStateException("Another player made a pick at the same time. Please try your pick again.", exception);
         } catch (RuntimeException exception) {
-            removeAddedPokemon(user, currentPokemons, pokemon);
+            removeAddedPokemon(user, currentPokemons, pokemon, leagueId);
             throw exception;
         }
         return null;
     }
 
-    private void removeAddedPokemon(UserEntity user, List<Pokemons> currentPokemons, Pokemons pokemon) {
-        if (currentPokemons.removeIf(currentPokemon -> Objects.equals(currentPokemon.getId(), pokemon.getId()))) {
+    private void removeAddedPokemon(UserEntity user, List<Pokemons> currentPokemons, Pokemons pokemon, String leagueId) {
+        if (currentPokemons.removeIf(p -> Objects.equals(p.getId(), pokemon.getId()) && leagueId.equals(p.getLeagueId()))) {
             user.setPokemons(currentPokemons);
             userRepository.updateUserWithPokemons(user);
         }

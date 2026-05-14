@@ -6,6 +6,6 @@ import java.util.Optional;
 
 public interface DraftRepository {
     void save(DraftEntity draft);
-    Optional<DraftEntity> findActive();
-    Optional<DraftEntity> findLatest();
+    Optional<DraftEntity> findActiveByLeagueId(String leagueId);
+    Optional<DraftEntity> findLatestByLeagueId(String leagueId);
 }

@@ -21,4 +21,5 @@ public class ClosedListEntity {
     private List<Type> types;
     private String nominatedBy;
     private String sprite;
+    private String leagueId;
 }

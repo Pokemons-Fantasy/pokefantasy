@@ -4,4 +4,4 @@ import com.villu.pokefantasy.mediator.Command;
 
 import java.util.List;
 
-public record StartDraftCommand(List<String> turnOrder) implements Command {}
+public record StartDraftCommand(List<String> turnOrder, String leagueId, String requestingUsername) implements Command {}

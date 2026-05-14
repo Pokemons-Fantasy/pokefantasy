@@ -1,5 +1,6 @@
 package com.villu.pokefantasy;
 
+import com.villu.pokefantasy.exception.ForbiddenOperationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
@@ -17,6 +18,11 @@ public class ApiExceptionHandler {
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<String> handleBadCredentials() {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid username or password");
+    }
+
+    @ExceptionHandler(ForbiddenOperationException.class)
+    public ResponseEntity<String> handleForbidden(ForbiddenOperationException exception) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(exception.getMessage());
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

@@ -16,19 +16,19 @@ public class ClosedListFacade {
         this.mediator = mediator;
     }
 
-    public void nominate(String username, String pokemonName) throws Exception {
-        mediator.send(new NominatePokemonCommand(username, pokemonName));
+    public void nominate(String username, String pokemonName, String leagueId) throws Exception {
+        mediator.send(new NominatePokemonCommand(username, pokemonName, leagueId));
     }
 
-    public void denominate(String username, String pokemonName) throws Exception {
-        mediator.send(new DenominatePokemonCommand(username, pokemonName));
+    public void denominate(String username, String pokemonName, String leagueId) throws Exception {
+        mediator.send(new DenominatePokemonCommand(username, pokemonName, leagueId));
     }
 
-    public void assignTier(String entryId, Tier tier) throws Exception {
-        mediator.send(new AssignTierCommand(entryId, tier));
+    public void assignTier(String entryId, Tier tier, String leagueId, String requestingUsername) throws Exception {
+        mediator.send(new AssignTierCommand(entryId, tier, leagueId, requestingUsername));
     }
 
-    public List<ClosedListEntryResponse> getClosedList() throws Exception {
-        return mediator.send(new GetClosedListCommand());
+    public List<ClosedListEntryResponse> getClosedList(String leagueId) throws Exception {
+        return mediator.send(new GetClosedListCommand(leagueId));
     }
 }

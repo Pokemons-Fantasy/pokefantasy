@@ -8,11 +8,12 @@ import java.util.Optional;
 
 public interface ClosedListRepository {
     void save(ClosedListEntity entry);
-    List<ClosedListEntity> findAll();
     Optional<ClosedListEntity> findById(String id);
     void updateTier(String id, Tier tier);
-    long countByNominatedBy(String username);
-    boolean existsByPokemonName(String pokemonName);
-    Optional<ClosedListEntity> findByPokemonNameIgnoreCase(String pokemonName);
-    void deleteByPokemonNameAndNominatedBy(String pokemonName, String username);
+
+    List<ClosedListEntity> findAllByLeagueId(String leagueId);
+    long countByNominatedByAndLeagueId(String username, String leagueId);
+    boolean existsByPokemonNameAndLeagueId(String pokemonName, String leagueId);
+    Optional<ClosedListEntity> findByPokemonNameIgnoreCaseAndLeagueId(String pokemonName, String leagueId);
+    void deleteByPokemonNameAndNominatedByAndLeagueId(String pokemonName, String username, String leagueId);
 }

@@ -25,14 +25,16 @@ public class DraftRepositoryImpl implements DraftRepository {
     }
 
     @Override
-    public Optional<DraftEntity> findActive() {
-        Query query = new Query(Criteria.where("status").in(DraftStatus.PENDING, DraftStatus.IN_PROGRESS));
+    public Optional<DraftEntity> findActiveByLeagueId(String leagueId) {
+        Query query = new Query(Criteria.where("leagueId").is(leagueId)
+                .and("status").in(DraftStatus.PENDING, DraftStatus.IN_PROGRESS));
         return Optional.ofNullable(mongoTemplate.findOne(query, DraftEntity.class));
     }
 
     @Override
-    public Optional<DraftEntity> findLatest() {
-        Query query = new Query().with(Sort.by(Sort.Direction.DESC, "_id")).limit(1);
+    public Optional<DraftEntity> findLatestByLeagueId(String leagueId) {
+        Query query = new Query(Criteria.where("leagueId").is(leagueId))
+                .with(Sort.by(Sort.Direction.DESC, "_id")).limit(1);
         return Optional.ofNullable(mongoTemplate.findOne(query, DraftEntity.class));
     }
 }

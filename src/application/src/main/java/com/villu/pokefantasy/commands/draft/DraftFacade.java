@@ -15,15 +15,15 @@ public class DraftFacade {
         this.mediator = mediator;
     }
 
-    public void startDraft(List<String> turnOrder) throws Exception {
-        mediator.send(new StartDraftCommand(turnOrder));
+    public void startDraft(List<String> turnOrder, String leagueId, String requestingUsername) throws Exception {
+        mediator.send(new StartDraftCommand(turnOrder, leagueId, requestingUsername));
     }
 
-    public void pick(String username, String pokemonName) throws Exception {
-        mediator.send(new DraftPickCommand(username, pokemonName));
+    public void pick(String username, String pokemonName, String leagueId) throws Exception {
+        mediator.send(new DraftPickCommand(username, pokemonName, leagueId));
     }
 
-    public DraftStatusResponse getStatus() throws Exception {
-        return mediator.send(new GetDraftStatusCommand());
+    public DraftStatusResponse getStatus(String leagueId) throws Exception {
+        return mediator.send(new GetDraftStatusCommand(leagueId));
     }
 }

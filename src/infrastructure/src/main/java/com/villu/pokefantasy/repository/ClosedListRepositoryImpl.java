@@ -35,11 +35,6 @@ public class ClosedListRepositoryImpl implements ClosedListRepository {
     }
 
     @Override
-    public List<ClosedListEntity> findAll() {
-        return mongoTemplate.findAll(ClosedListEntity.class);
-    }
-
-    @Override
     public Optional<ClosedListEntity> findById(String id) {
         return Optional.ofNullable(mongoTemplate.findById(id, ClosedListEntity.class));
     }
@@ -52,27 +47,35 @@ public class ClosedListRepositoryImpl implements ClosedListRepository {
     }
 
     @Override
-    public long countByNominatedBy(String username) {
-        Query query = new Query(Criteria.where("nominatedBy").is(username));
+    public List<ClosedListEntity> findAllByLeagueId(String leagueId) {
+        return mongoTemplate.find(new Query(Criteria.where("leagueId").is(leagueId)), ClosedListEntity.class);
+    }
+
+    @Override
+    public long countByNominatedByAndLeagueId(String username, String leagueId) {
+        Query query = new Query(Criteria.where("nominatedBy").is(username).and("leagueId").is(leagueId));
         return mongoTemplate.count(query, ClosedListEntity.class);
     }
 
     @Override
-    public boolean existsByPokemonName(String pokemonName) {
-        Query query = new Query(Criteria.where("pokemonName").is(pokemonName));
+    public boolean existsByPokemonNameAndLeagueId(String pokemonName, String leagueId) {
+        Query query = new Query(Criteria.where("pokemonName").is(pokemonName).and("leagueId").is(leagueId))
+                .collation(Collation.of("en").strength(ComparisonLevel.secondary()));
         return mongoTemplate.exists(query, ClosedListEntity.class);
     }
 
     @Override
-    public Optional<ClosedListEntity> findByPokemonNameIgnoreCase(String pokemonName) {
-        Query query = new Query(Criteria.where("pokemonName").is(pokemonName))
+    public Optional<ClosedListEntity> findByPokemonNameIgnoreCaseAndLeagueId(String pokemonName, String leagueId) {
+        Query query = new Query(Criteria.where("pokemonName").is(pokemonName).and("leagueId").is(leagueId))
                 .collation(Collation.of("en").strength(ComparisonLevel.secondary()));
         return Optional.ofNullable(mongoTemplate.findOne(query, ClosedListEntity.class));
     }
 
     @Override
-    public void deleteByPokemonNameAndNominatedBy(String pokemonName, String username) {
-        Query query = new Query(Criteria.where("pokemonName").is(pokemonName).and("nominatedBy").is(username));
+    public void deleteByPokemonNameAndNominatedByAndLeagueId(String pokemonName, String username, String leagueId) {
+        Query query = new Query(Criteria.where("pokemonName").is(pokemonName)
+                .and("nominatedBy").is(username)
+                .and("leagueId").is(leagueId));
         mongoTemplate.remove(query, ClosedListEntity.class);
     }
 }

@@ -20,13 +20,14 @@ public class DenominatePokemonCommandHandler implements CommandHandler<Denominat
 
     @Override
     public Void handle(DenominatePokemonCommand command) {
-        draftRepository.findLatest().ifPresent(draft -> {
+        draftRepository.findLatestByLeagueId(command.leagueId()).ifPresent(draft -> {
             if (draft.getStatus() != DraftStatus.PENDING) {
                 throw new IllegalStateException("Cannot remove nominations: draft is already " + draft.getStatus());
             }
         });
 
-        closedListRepository.deleteByPokemonNameAndNominatedBy(command.pokemonName(), command.username());
+        closedListRepository.deleteByPokemonNameAndNominatedByAndLeagueId(
+                command.pokemonName(), command.username(), command.leagueId());
         return null;
     }
 
