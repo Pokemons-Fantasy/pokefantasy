@@ -2,10 +2,12 @@ package com.villu.pokefantasy.commands.users;
 
 
 import com.villu.pokefantasy.commands.pokemons.add.AddPokemonCommand;
+import com.villu.pokefantasy.commands.pokemons.available.GetAvailablePokemonsCommand;
 import com.villu.pokefantasy.commands.pokemons.get.GetPokemonCommand;
 import com.villu.pokefantasy.commands.pokemons.saved.GetSavedPokemonsCommand;
 import com.villu.pokefantasy.mapper.PokemonMapper;
 import com.villu.pokefantasy.mediator.Mediator;
+import com.villu.pokefantasy.response.AvailablePokemonResponse;
 import com.villu.pokefantasy.response.PokemonsResponse;
 import org.springframework.stereotype.Service;
 
@@ -33,5 +35,9 @@ public class PokemonFacade {
 
     public List<PokemonsResponse> getSavedPokemons() throws Exception {
         return mediator.send(new GetSavedPokemonsCommand());
+    }
+
+    public List<AvailablePokemonResponse> getAvailablePokemons() throws Exception {
+        return mediator.send(new GetAvailablePokemonsCommand());
     }
 }

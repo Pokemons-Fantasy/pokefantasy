@@ -18,4 +18,5 @@ public class ClosedListEntryResponse {
     private List<Stat> stats;
     private List<Type> types;
     private String nominatedBy;
+    private String sprite;
 }

@@ -20,4 +20,5 @@ public class ClosedListEntity {
     private List<Stat> stats;
     private List<Type> types;
     private String nominatedBy;
+    private String sprite;
 }

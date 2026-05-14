@@ -1,11 +1,13 @@
 package com.villu.pokefantasy.commands.closedlist;
 
 import com.villu.pokefantasy.cache.dto.PokemonCacheDto;
+import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.Pokemons;
 import com.villu.pokefantasy.mediator.CommandHandler;
 import com.villu.pokefantasy.ports.CachePort;
 import com.villu.pokefantasy.ports.PokemonApiPort;
 import com.villu.pokefantasy.repository.ClosedListRepository;
+import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.entity.ClosedListEntity;
 import org.springframework.stereotype.Service;
 
@@ -15,17 +17,21 @@ import java.util.List;
 public class NominatePokemonCommandHandler implements CommandHandler<NominatePokemonCommand, Void> {
 
     private static final int MAX_NOMINATIONS_PER_USER = 16;
+    private static final String SPRITE_URL_TEMPLATE = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/%d.png";
 
     private final ClosedListRepository closedListRepository;
     private final CachePort cachePort;
     private final PokemonApiPort pokemonApiPort;
+    private final DraftRepository draftRepository;
 
     public NominatePokemonCommandHandler(ClosedListRepository closedListRepository,
                                          CachePort cachePort,
-                                         PokemonApiPort pokemonApiPort) {
+                                         PokemonApiPort pokemonApiPort,
+                                         DraftRepository draftRepository) {
         this.closedListRepository = closedListRepository;
         this.cachePort = cachePort;
         this.pokemonApiPort = pokemonApiPort;
+        this.draftRepository = draftRepository;
     }
 
     @Override
@@ -34,6 +40,12 @@ public class NominatePokemonCommandHandler implements CommandHandler<NominatePok
                 || command.username().isBlank() || command.pokemonName().isBlank()) {
             throw new IllegalArgumentException("Username and pokemonName are required");
         }
+
+        draftRepository.findLatest().ifPresent(draft -> {
+            if (draft.getStatus() != DraftStatus.PENDING) {
+                throw new IllegalStateException("Nominations are closed: draft is already " + draft.getStatus());
+            }
+        });
 
         if (closedListRepository.existsByPokemonName(command.pokemonName().toLowerCase())) {
             throw new IllegalArgumentException("Pokemon '" + command.pokemonName() + "' is already in the closed list");
@@ -58,6 +70,7 @@ public class NominatePokemonCommandHandler implements CommandHandler<NominatePok
         entry.setStats(pokemon.getStats());
         entry.setTypes(pokemon.getTypes());
         entry.setNominatedBy(command.username());
+        entry.setSprite(String.format(SPRITE_URL_TEMPLATE, pokemon.getId()));
 
         closedListRepository.save(entry);
         return null;

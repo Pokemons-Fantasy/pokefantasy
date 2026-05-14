@@ -1,8 +1,8 @@
 package com.villu.pokefantasy;
 
 import com.villu.pokefantasy.commands.users.PokemonFacade;
+import com.villu.pokefantasy.response.AvailablePokemonResponse;
 import com.villu.pokefantasy.response.PokemonsResponse;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,7 +17,6 @@ public class PkmnController {
     public PkmnController(PokemonFacade pokemonFacade) {
         this.pokemonFacade = pokemonFacade;
     }
-
 
     @GetMapping("/pokemons/{id}")
     public ResponseEntity<PokemonsResponse> getPokemons(@PathVariable int id) throws Exception {
@@ -35,8 +34,8 @@ public class PkmnController {
         return ResponseEntity.ok(pokemonFacade.getSavedPokemons());
     }
 
-
-
-
-
+    @GetMapping("/pokemons/available")
+    public ResponseEntity<List<AvailablePokemonResponse>> getAvailablePokemons() throws Exception {
+        return ResponseEntity.ok(pokemonFacade.getAvailablePokemons());
+    }
 }

@@ -38,6 +38,7 @@ public class GetClosedListCommandHandler implements CommandHandler<GetClosedList
                 .stats(entity.getStats())
                 .types(entity.getTypes())
                 .nominatedBy(entity.getNominatedBy())
+                .sprite(entity.getSprite())
                 .build();
     }
 }
