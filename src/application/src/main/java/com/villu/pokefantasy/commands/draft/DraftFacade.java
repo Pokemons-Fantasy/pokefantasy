@@ -26,4 +26,8 @@ public class DraftFacade {
     public DraftStatusResponse getStatus(String leagueId) throws Exception {
         return mediator.send(new GetDraftStatusCommand(leagueId));
     }
+
+    public void cancelDraft(String leagueId, String requestingUsername) throws Exception {
+        mediator.send(new CancelDraftCommand(leagueId, requestingUsername));
+    }
 }

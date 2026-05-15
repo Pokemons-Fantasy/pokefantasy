@@ -39,4 +39,11 @@ public class DraftController {
     public ResponseEntity<DraftStatusResponse> getStatus(@PathVariable String leagueId) throws Exception {
         return ResponseEntity.ok(draftFacade.getStatus(leagueId));
     }
+
+    @DeleteMapping
+    public ResponseEntity<Void> cancelDraft(@PathVariable String leagueId,
+                                            @AuthenticationPrincipal UserDetails userDetails) throws Exception {
+        draftFacade.cancelDraft(leagueId, userDetails.getUsername());
+        return ResponseEntity.ok().build();
+    }
 }
