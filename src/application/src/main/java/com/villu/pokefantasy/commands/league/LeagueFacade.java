@@ -31,4 +31,8 @@ public class LeagueFacade {
     public LeagueDetailResponse getLeagueDetail(String leagueId) throws Exception {
         return mediator.send(new GetLeagueDetailCommand(leagueId));
     }
+
+    public void removeMember(String leagueId, String targetUsername, String requestingUsername) throws Exception {
+        mediator.send(new RemoveMemberFromLeagueCommand(leagueId, targetUsername, requestingUsername));
+    }
 }

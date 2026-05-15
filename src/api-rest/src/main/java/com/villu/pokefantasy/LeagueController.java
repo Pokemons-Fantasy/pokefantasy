@@ -47,4 +47,12 @@ public class LeagueController {
     public ResponseEntity<LeagueDetailResponse> getLeagueDetail(@PathVariable String leagueId) throws Exception {
         return ResponseEntity.ok(leagueFacade.getLeagueDetail(leagueId));
     }
+
+    @DeleteMapping("/{leagueId}/members/{username}")
+    public ResponseEntity<Void> removeMember(@PathVariable String leagueId,
+                                             @PathVariable String username,
+                                             @AuthenticationPrincipal UserDetails userDetails) throws Exception {
+        leagueFacade.removeMember(leagueId, username, userDetails.getUsername());
+        return ResponseEntity.noContent().build();
+    }
 }

@@ -49,4 +49,11 @@ public class LeagueRepositoryImpl implements LeagueRepository {
         Update update = new Update().push("members", member);
         mongoTemplate.updateFirst(query, update, LeagueEntity.class);
     }
+
+    @Override
+    public void removeMember(String leagueId, String username) {
+        Query query = new Query(Criteria.where("_id").is(leagueId));
+        Update update = new Update().pull("members", new Query(Criteria.where("username").is(username)));
+        mongoTemplate.updateFirst(query, update, LeagueEntity.class);
+    }
 }

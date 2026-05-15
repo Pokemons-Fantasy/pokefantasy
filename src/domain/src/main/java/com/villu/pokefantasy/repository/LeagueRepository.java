@@ -12,4 +12,5 @@ public interface LeagueRepository {
     List<LeagueEntity> findByMemberUsername(String username);
     List<LeagueEntity> findAll();
     void addMember(String leagueId, LeagueMember member);
+    void removeMember(String leagueId, String username);
 }
