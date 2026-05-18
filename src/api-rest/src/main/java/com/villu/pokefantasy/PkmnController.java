@@ -1,6 +1,6 @@
 package com.villu.pokefantasy;
 
-import com.villu.pokefantasy.commands.users.PokemonFacade;
+import com.villu.pokefantasy.commands.pokemons.PokemonFacade;
 import com.villu.pokefantasy.response.AvailablePokemonResponse;
 import com.villu.pokefantasy.response.PokemonsResponse;
 import org.springframework.http.ResponseEntity;
