@@ -8,6 +8,8 @@ import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.UserRepository;
 import com.villu.pokefantasy.repository.entity.ClosedListEntity;
+import com.villu.pokefantasy.repository.entity.DraftEntity;
+import com.villu.pokefantasy.repository.entity.DraftPick;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import com.villu.pokefantasy.repository.entity.UserEntity;
 import org.springframework.stereotype.Service;
@@ -42,7 +44,7 @@ public class SwapWithBenchCommandHandler implements CommandHandler<SwapWithBench
         String pokemonToGive = command.pokemonToGive().trim();
         String pokemonToTake = command.pokemonToTake().trim();
 
-        draftRepository.findLatestByLeagueId(leagueId)
+        DraftEntity draft = draftRepository.findLatestByLeagueId(leagueId)
                 .filter(d -> d.getStatus() == DraftStatus.COMPLETED)
                 .orElseThrow(() -> new IllegalStateException("Swaps are only allowed after the draft is completed"));
 
@@ -94,6 +96,18 @@ public class SwapWithBenchCommandHandler implements CommandHandler<SwapWithBench
         currentPokemons.add(newPokemon);
         user.setPokemons(currentPokemons);
         userRepository.updateUserWithPokemons(user);
+
+        // Replace the pick in the draft so TeamsPage reflects the swap
+        List<DraftPick> picks = draft.getPicks();
+        for (int i = 0; i < picks.size(); i++) {
+            DraftPick pick = picks.get(i);
+            if (username.equals(pick.getUsername()) && pokemonToGive.equalsIgnoreCase(pick.getPokemonName())) {
+                picks.set(i, new DraftPick(username, benchEntry.getPokemonName(),
+                        benchEntry.getPokemonId(), pick.getRound(), pick.getPickedAt()));
+                break;
+            }
+        }
+        draftRepository.save(draft);
 
         return null;
     }
