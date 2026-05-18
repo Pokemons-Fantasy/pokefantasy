@@ -63,13 +63,14 @@ public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand,
             throw new IllegalArgumentException("User not found: " + username);
         }
 
-        List<Pokemons> currentPokemons = user.getPokemons() != null ? user.getPokemons() : new ArrayList<>();
-        long leaguePokemonCount = currentPokemons.stream()
-                .filter(p -> leagueId.equals(p.getLeagueId()))
+        long picksInDraft = draft.getPicks().stream()
+                .filter(p -> username.equals(p.getUsername()))
                 .count();
-        if (leaguePokemonCount >= MAX_POKEMONS_PER_USER) {
+        if (picksInDraft >= MAX_POKEMONS_PER_USER) {
             throw new IllegalStateException("User already has the maximum of " + MAX_POKEMONS_PER_USER + " Pokémon in this league");
         }
+
+        List<Pokemons> currentPokemons = user.getPokemons() != null ? user.getPokemons() : new ArrayList<>();
 
         if (draft.getPicks() == null) {
             draft.setPicks(new ArrayList<>());
