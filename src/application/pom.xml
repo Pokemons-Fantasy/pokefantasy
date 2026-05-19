@@ -68,6 +68,19 @@
                     </execution>
                 </executions>
             </plugin>
+            <!-- Exclude MapStruct-generated mappers and Lombok @Data DTOs with
+                 no business logic (branches are generated equals/hashCode/null-checks) -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>**/mapper/*MapperImpl.class</exclude>
+                        <exclude>**/GetPokemonCommandResponse.class</exclude>
+                        <exclude>**/GetSavedPokemonsCommandResponse.class</exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 </project>
