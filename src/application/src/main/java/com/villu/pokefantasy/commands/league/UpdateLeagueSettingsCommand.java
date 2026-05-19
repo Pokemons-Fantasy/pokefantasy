@@ -6,5 +6,10 @@ public record UpdateLeagueSettingsCommand(
         String leagueId,
         Integer coinsPerWin,
         Integer coinsPerLoss,
+        Integer priceTierS,
+        Integer priceTierA,
+        Integer priceTierB,
+        Integer priceTierC,
+        Integer priceTierD,
         String requestingUsername
 ) implements Command {}

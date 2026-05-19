@@ -42,7 +42,10 @@ public class LeagueFacade {
     }
 
     public void updateSettings(String leagueId, Integer coinsPerWin, Integer coinsPerLoss,
+                               Integer priceTierS, Integer priceTierA, Integer priceTierB,
+                               Integer priceTierC, Integer priceTierD,
                                String requestingUsername) throws Exception {
-        mediator.send(new UpdateLeagueSettingsCommand(leagueId, coinsPerWin, coinsPerLoss, requestingUsername));
+        mediator.send(new UpdateLeagueSettingsCommand(leagueId, coinsPerWin, coinsPerLoss,
+                priceTierS, priceTierA, priceTierB, priceTierC, priceTierD, requestingUsername));
     }
 }

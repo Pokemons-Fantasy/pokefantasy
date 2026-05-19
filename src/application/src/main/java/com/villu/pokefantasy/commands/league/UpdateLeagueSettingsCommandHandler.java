@@ -34,6 +34,14 @@ public class UpdateLeagueSettingsCommandHandler
         if (command.coinsPerWin() < 0 || command.coinsPerLoss() < 0) {
             throw new IllegalArgumentException("coinsPerWin and coinsPerLoss must be >= 0");
         }
+        if (command.priceTierS() == null || command.priceTierA() == null || command.priceTierB() == null
+                || command.priceTierC() == null || command.priceTierD() == null) {
+            throw new IllegalArgumentException("All tier prices are required");
+        }
+        if (command.priceTierS() < 0 || command.priceTierA() < 0 || command.priceTierB() < 0
+                || command.priceTierC() < 0 || command.priceTierD() < 0) {
+            throw new IllegalArgumentException("Tier prices must be >= 0");
+        }
 
         LeagueEntity league = leagueAdminGuard.requireLeagueAdmin(command.leagueId(), command.requestingUsername());
 
@@ -48,6 +56,11 @@ public class UpdateLeagueSettingsCommandHandler
         league.setSettings(LeagueSettings.builder()
                 .coinsPerWin(command.coinsPerWin())
                 .coinsPerLoss(command.coinsPerLoss())
+                .priceTierS(command.priceTierS())
+                .priceTierA(command.priceTierA())
+                .priceTierB(command.priceTierB())
+                .priceTierC(command.priceTierC())
+                .priceTierD(command.priceTierD())
                 .build());
 
         leagueRepository.save(league);

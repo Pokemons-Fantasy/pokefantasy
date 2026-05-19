@@ -68,6 +68,8 @@ public class LeagueController {
                                                @AuthenticationPrincipal UserDetails userDetails,
                                                @RequestBody UpdateLeagueSettingsRequest request) throws Exception {
         leagueFacade.updateSettings(leagueId, request.getCoinsPerWin(), request.getCoinsPerLoss(),
+                request.getPriceTierS(), request.getPriceTierA(), request.getPriceTierB(),
+                request.getPriceTierC(), request.getPriceTierD(),
                 userDetails.getUsername());
         return ResponseEntity.noContent().build();
     }
