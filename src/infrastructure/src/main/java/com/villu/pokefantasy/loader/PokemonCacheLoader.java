@@ -5,20 +5,22 @@ import com.villu.pokefantasy.adapters.PokemonApiAdapter;
 import com.villu.pokefantasy.mapper.PokemonMapper;
 import com.villu.pokefantasy.response.PokemonResponseApi;
 import jakarta.annotation.PostConstruct;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
 public class PokemonCacheLoader {
 
-    @Autowired
-    private PokemonApiAdapter getPokemonsHandler;
+    private final PokemonApiAdapter getPokemonsHandler;
+    private final CacheAdapter cacheService;
+    private final PokemonMapper pokemonMapper;
 
-    @Autowired
-    private CacheAdapter cacheService;
-
-    @Autowired
-    private PokemonMapper pokemonMapper;
+    public PokemonCacheLoader(PokemonApiAdapter getPokemonsHandler,
+                              CacheAdapter cacheService,
+                              PokemonMapper pokemonMapper) {
+        this.getPokemonsHandler = getPokemonsHandler;
+        this.cacheService = cacheService;
+        this.pokemonMapper = pokemonMapper;
+    }
 
     @PostConstruct
     public void init()

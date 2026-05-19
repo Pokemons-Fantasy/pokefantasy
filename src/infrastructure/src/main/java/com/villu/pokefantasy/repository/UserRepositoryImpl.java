@@ -21,12 +21,11 @@ public class UserRepositoryImpl implements UserRepository {
     @Override
     public void saveUser(UserEntity userEntity) {
         try {
-            Query existsQuery = Query.query(Criteria.where("name").is(userEntity.getName()));
-            boolean exists = mongoTemplate.exists(existsQuery, UserEntity.class);
-            if (exists) {
-                throw new DuplicateKeyException("Ya existe un usuario con name=" + userEntity.getName());
-            }
+            // Rely on the unique index on `name` — no TOCTOU race condition
             mongoTemplate.save(userEntity);
+        } catch (DuplicateKeyException e) {
+            log.warn("Intento de registro con nombre duplicado: {}", userEntity.getName());
+            throw new DuplicateKeyException("Ya existe un usuario con name=" + userEntity.getName());
         } catch (Exception e) {
             log.error(e.getMessage(), e);
             throw e;

@@ -1,4 +1,4 @@
-package com.villu.pokefantasy.commands.users;
+package com.villu.pokefantasy.commands.pokemons;
 
 
 import com.villu.pokefantasy.commands.pokemons.add.AddPokemonCommand;

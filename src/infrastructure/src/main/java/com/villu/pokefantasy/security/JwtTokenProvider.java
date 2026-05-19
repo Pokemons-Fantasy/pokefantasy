@@ -43,7 +43,9 @@ public class JwtTokenProvider implements TokenPort {
     @Override
     public boolean isTokenValid(String token, String username) {
         try {
-            return extractUsername(token).equals(username) && !isExpired(token);
+            Claims claims = parseClaims(token);
+            return claims.getSubject().equals(username)
+                    && !claims.getExpiration().before(new Date());
         } catch (Exception e) {
             return false;
         }
@@ -55,9 +57,5 @@ public class JwtTokenProvider implements TokenPort {
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
-    }
-
-    private boolean isExpired(String token) {
-        return parseClaims(token).getExpiration().before(new Date());
     }
 }
