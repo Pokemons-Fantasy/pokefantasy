@@ -10,4 +10,6 @@ public interface CachePort {
     void put( List<PokemonCacheDto> value);
 
     List<PokemonCacheDto>  getPokemon(String key);
+
+    boolean isCached();
 }
