@@ -30,6 +30,11 @@ public class GetLeagueSettingsCommandHandler
         return LeagueSettingsResponse.builder()
                 .coinsPerWin(settings.getCoinsPerWin())
                 .coinsPerLoss(settings.getCoinsPerLoss())
+                .priceTierS(settings.getPriceTierS())
+                .priceTierA(settings.getPriceTierA())
+                .priceTierB(settings.getPriceTierB())
+                .priceTierC(settings.getPriceTierC())
+                .priceTierD(settings.getPriceTierD())
                 .build();
     }
 

@@ -45,30 +45,53 @@ class UpdateLeagueSettingsCommandHandlerTest {
         return l;
     }
 
+    private static UpdateLeagueSettingsCommand cmd(Integer coinsPerWin, Integer coinsPerLoss,
+                                                    Integer s, Integer a, Integer b, Integer c, Integer d) {
+        return new UpdateLeagueSettingsCommand("l1", coinsPerWin, coinsPerLoss, s, a, b, c, d, "ash");
+    }
+
+    private static UpdateLeagueSettingsCommand validCmd() {
+        return cmd(200, 30, 500, 400, 300, 200, 100);
+    }
+
     @Test
     void handle_nullCoinsPerWin_throwsIllegalArgument() {
-        assertThatThrownBy(() -> handler.handle(new UpdateLeagueSettingsCommand("l1", null, 50, "ash")))
+        assertThatThrownBy(() -> handler.handle(cmd(null, 50, 500, 400, 300, 200, 100)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("required");
     }
 
     @Test
     void handle_nullCoinsPerLoss_throwsIllegalArgument() {
-        assertThatThrownBy(() -> handler.handle(new UpdateLeagueSettingsCommand("l1", 100, null, "ash")))
+        assertThatThrownBy(() -> handler.handle(cmd(100, null, 500, 400, 300, 200, 100)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("required");
     }
 
     @Test
     void handle_negativeCoinsPerWin_throwsIllegalArgument() {
-        assertThatThrownBy(() -> handler.handle(new UpdateLeagueSettingsCommand("l1", -5, 50, "ash")))
+        assertThatThrownBy(() -> handler.handle(cmd(-5, 50, 500, 400, 300, 200, 100)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining(">= 0");
     }
 
     @Test
     void handle_negativeCoinsPerLoss_throwsIllegalArgument() {
-        assertThatThrownBy(() -> handler.handle(new UpdateLeagueSettingsCommand("l1", 100, -1, "ash")))
+        assertThatThrownBy(() -> handler.handle(cmd(100, -1, 500, 400, 300, 200, 100)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining(">= 0");
+    }
+
+    @Test
+    void handle_nullTierPrice_throwsIllegalArgument() {
+        assertThatThrownBy(() -> handler.handle(cmd(100, 50, null, 400, 300, 200, 100)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("required");
+    }
+
+    @Test
+    void handle_negativeTierPrice_throwsIllegalArgument() {
+        assertThatThrownBy(() -> handler.handle(cmd(100, 50, 500, -10, 300, 200, 100)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining(">= 0");
     }
@@ -78,7 +101,8 @@ class UpdateLeagueSettingsCommandHandlerTest {
         when(leagueAdminGuard.requireLeagueAdmin("l1", "brock"))
                 .thenThrow(new ForbiddenOperationException("not admin"));
 
-        assertThatThrownBy(() -> handler.handle(new UpdateLeagueSettingsCommand("l1", 100, 50, "brock")))
+        assertThatThrownBy(() -> handler.handle(
+                new UpdateLeagueSettingsCommand("l1", 100, 50, 500, 400, 300, 200, 100, "brock")))
                 .isInstanceOf(ForbiddenOperationException.class);
     }
 
@@ -87,7 +111,7 @@ class UpdateLeagueSettingsCommandHandlerTest {
         when(leagueAdminGuard.requireLeagueAdmin("l1", "ash")).thenReturn(leagueWithAdmin("ash"));
         when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> handler.handle(new UpdateLeagueSettingsCommand("l1", 100, 50, "ash")))
+        assertThatThrownBy(() -> handler.handle(validCmd()))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("tras completar el draft");
     }
@@ -100,7 +124,7 @@ class UpdateLeagueSettingsCommandHandlerTest {
         draft.setStatus(DraftStatus.IN_PROGRESS);
         when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.of(draft));
 
-        assertThatThrownBy(() -> handler.handle(new UpdateLeagueSettingsCommand("l1", 100, 50, "ash")))
+        assertThatThrownBy(() -> handler.handle(validCmd()))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("tras completar el draft");
     }
@@ -114,12 +138,17 @@ class UpdateLeagueSettingsCommandHandlerTest {
         draft.setStatus(DraftStatus.COMPLETED);
         when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.of(draft));
 
-        handler.handle(new UpdateLeagueSettingsCommand("l1", 200, 30, "ash"));
+        handler.handle(validCmd());
 
         ArgumentCaptor<LeagueEntity> captor = ArgumentCaptor.forClass(LeagueEntity.class);
         verify(leagueRepository).save(captor.capture());
         assertThat(captor.getValue().getSettings().getCoinsPerWin()).isEqualTo(200);
         assertThat(captor.getValue().getSettings().getCoinsPerLoss()).isEqualTo(30);
+        assertThat(captor.getValue().getSettings().getPriceTierS()).isEqualTo(500);
+        assertThat(captor.getValue().getSettings().getPriceTierA()).isEqualTo(400);
+        assertThat(captor.getValue().getSettings().getPriceTierB()).isEqualTo(300);
+        assertThat(captor.getValue().getSettings().getPriceTierC()).isEqualTo(200);
+        assertThat(captor.getValue().getSettings().getPriceTierD()).isEqualTo(100);
     }
 
     @Test

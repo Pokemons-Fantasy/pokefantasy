@@ -84,13 +84,14 @@ class LeagueFacadeTest {
 
     @Test
     void updateSettings_sendsUpdateLeagueSettingsCommand() throws Exception {
-        facade.updateSettings("l1", 200, 30, "ash");
+        facade.updateSettings("l1", 200, 30, 500, 400, 300, 200, 100, "ash");
 
         ArgumentCaptor<UpdateLeagueSettingsCommand> captor = ArgumentCaptor.forClass(UpdateLeagueSettingsCommand.class);
         verify(mediator).send(captor.capture());
         assertThat(captor.getValue().leagueId()).isEqualTo("l1");
         assertThat(captor.getValue().coinsPerWin()).isEqualTo(200);
         assertThat(captor.getValue().coinsPerLoss()).isEqualTo(30);
+        assertThat(captor.getValue().priceTierS()).isEqualTo(500);
         assertThat(captor.getValue().requestingUsername()).isEqualTo("ash");
     }
 

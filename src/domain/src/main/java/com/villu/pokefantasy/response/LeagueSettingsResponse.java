@@ -12,4 +12,9 @@ import lombok.NoArgsConstructor;
 public class LeagueSettingsResponse {
     private Integer coinsPerWin;
     private Integer coinsPerLoss;
+    private Integer priceTierS;
+    private Integer priceTierA;
+    private Integer priceTierB;
+    private Integer priceTierC;
+    private Integer priceTierD;
 }
