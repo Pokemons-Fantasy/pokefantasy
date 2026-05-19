@@ -31,6 +31,11 @@ public class CacheAdapter implements CachePort {
     }
 
     @Override
+    public boolean isCached() {
+        return Boolean.TRUE.equals(redisTemplate.hasKey(CACHE_KEY));
+    }
+
+    @Override
     public List<PokemonCacheDto> getPokemon(String key) {
         try {
             Object data = redisTemplate.opsForValue().get(CACHE_KEY);

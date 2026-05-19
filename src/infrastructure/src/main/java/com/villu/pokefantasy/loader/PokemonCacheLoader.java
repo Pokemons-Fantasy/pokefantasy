@@ -5,9 +5,11 @@ import com.villu.pokefantasy.adapters.PokemonApiAdapter;
 import com.villu.pokefantasy.mapper.PokemonMapper;
 import com.villu.pokefantasy.response.PokemonResponseApi;
 import jakarta.annotation.PostConstruct;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 @Component
+@Slf4j
 public class PokemonCacheLoader {
 
     private final PokemonApiAdapter getPokemonsHandler;
@@ -23,14 +25,20 @@ public class PokemonCacheLoader {
     }
 
     @PostConstruct
-    public void init()
-    {
+    public void init() {
+        if (cacheService.isCached()) {
+            log.info("Pokemon cache already present in Redis, skipping fetch");
+            return;
+        }
+
+        log.info("Pokemon cache empty, fetching from PokeAPI...");
         PokemonResponseApi response = getPokemonsHandler.fetchAllPokemons();
-        if (response == null){
+        if (response == null) {
             throw new RuntimeException("Failed to load pokemons for cache");
         }
         response.getResults().forEach(pokemon -> pokemon.setId(getId(pokemon.getUrl())));
         cacheService.put(pokemonMapper.dtoToCacheDto(response.getResults()));
+        log.info("Pokemon cache populated with {} entries", response.getResults().size());
     }
 
     private Integer getId(String url) {
