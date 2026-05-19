@@ -3,8 +3,10 @@ package com.villu.pokefantasy;
 import com.villu.pokefantasy.commands.league.LeagueFacade;
 import com.villu.pokefantasy.request.league.AddMemberRequest;
 import com.villu.pokefantasy.request.league.CreateLeagueRequest;
+import com.villu.pokefantasy.request.league.UpdateLeagueSettingsRequest;
 import com.villu.pokefantasy.response.LeagueDetailResponse;
 import com.villu.pokefantasy.response.LeagueResponse;
+import com.villu.pokefantasy.response.LeagueSettingsResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -53,6 +55,20 @@ public class LeagueController {
                                              @PathVariable String username,
                                              @AuthenticationPrincipal UserDetails userDetails) throws Exception {
         leagueFacade.removeMember(leagueId, username, userDetails.getUsername());
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{leagueId}/settings")
+    public ResponseEntity<LeagueSettingsResponse> getSettings(@PathVariable String leagueId) throws Exception {
+        return ResponseEntity.ok(leagueFacade.getSettings(leagueId));
+    }
+
+    @PutMapping("/{leagueId}/settings")
+    public ResponseEntity<Void> updateSettings(@PathVariable String leagueId,
+                                               @AuthenticationPrincipal UserDetails userDetails,
+                                               @RequestBody UpdateLeagueSettingsRequest request) throws Exception {
+        leagueFacade.updateSettings(leagueId, request.getCoinsPerWin(), request.getCoinsPerLoss(),
+                userDetails.getUsername());
         return ResponseEntity.noContent().build();
     }
 }

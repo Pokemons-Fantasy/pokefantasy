@@ -72,6 +72,29 @@ class LeagueFacadeTest {
     }
 
     @Test
+    void getSettings_sendsGetLeagueSettingsCommand() throws Exception {
+        when(mediator.send(any(GetLeagueSettingsCommand.class))).thenReturn(null);
+
+        facade.getSettings("l1");
+
+        ArgumentCaptor<GetLeagueSettingsCommand> captor = ArgumentCaptor.forClass(GetLeagueSettingsCommand.class);
+        verify(mediator).send(captor.capture());
+        assertThat(captor.getValue().leagueId()).isEqualTo("l1");
+    }
+
+    @Test
+    void updateSettings_sendsUpdateLeagueSettingsCommand() throws Exception {
+        facade.updateSettings("l1", 200, 30, "ash");
+
+        ArgumentCaptor<UpdateLeagueSettingsCommand> captor = ArgumentCaptor.forClass(UpdateLeagueSettingsCommand.class);
+        verify(mediator).send(captor.capture());
+        assertThat(captor.getValue().leagueId()).isEqualTo("l1");
+        assertThat(captor.getValue().coinsPerWin()).isEqualTo(200);
+        assertThat(captor.getValue().coinsPerLoss()).isEqualTo(30);
+        assertThat(captor.getValue().requestingUsername()).isEqualTo("ash");
+    }
+
+    @Test
     void removeMember_sendsRemoveMemberCommand() throws Exception {
         facade.removeMember("l1", "brock", "ash");
 

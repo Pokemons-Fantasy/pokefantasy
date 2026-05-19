@@ -3,6 +3,7 @@ package com.villu.pokefantasy.commands.league;
 import com.villu.pokefantasy.mediator.Mediator;
 import com.villu.pokefantasy.response.LeagueDetailResponse;
 import com.villu.pokefantasy.response.LeagueResponse;
+import com.villu.pokefantasy.response.LeagueSettingsResponse;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -34,5 +35,14 @@ public class LeagueFacade {
 
     public void removeMember(String leagueId, String targetUsername, String requestingUsername) throws Exception {
         mediator.send(new RemoveMemberFromLeagueCommand(leagueId, targetUsername, requestingUsername));
+    }
+
+    public LeagueSettingsResponse getSettings(String leagueId) throws Exception {
+        return mediator.send(new GetLeagueSettingsCommand(leagueId));
+    }
+
+    public void updateSettings(String leagueId, Integer coinsPerWin, Integer coinsPerLoss,
+                               String requestingUsername) throws Exception {
+        mediator.send(new UpdateLeagueSettingsCommand(leagueId, coinsPerWin, coinsPerLoss, requestingUsername));
     }
 }
