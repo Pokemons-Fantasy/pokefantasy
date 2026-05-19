@@ -1,10 +1,12 @@
 package com.villu.pokefantasy.commands.draft;
 
 import com.villu.pokefantasy.dto.DraftStatus;
+import com.villu.pokefantasy.dto.LeagueSettings;
 import com.villu.pokefantasy.dto.Pokemons;
 import com.villu.pokefantasy.mediator.CommandHandler;
 import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
+import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.UserRepository;
 import com.villu.pokefantasy.repository.entity.ClosedListEntity;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
@@ -26,13 +28,16 @@ public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand,
     private final DraftRepository draftRepository;
     private final ClosedListRepository closedListRepository;
     private final UserRepository userRepository;
+    private final LeagueRepository leagueRepository;
 
     public DraftPickCommandHandler(DraftRepository draftRepository,
                                    ClosedListRepository closedListRepository,
-                                   UserRepository userRepository) {
+                                   UserRepository userRepository,
+                                   LeagueRepository leagueRepository) {
         this.draftRepository = draftRepository;
         this.closedListRepository = closedListRepository;
         this.userRepository = userRepository;
+        this.leagueRepository = leagueRepository;
     }
 
     @Override
@@ -110,7 +115,22 @@ public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand,
             removeAddedPokemon(user, currentPokemons, pokemon, leagueId);
             throw exception;
         }
+
+        // When this pick completes the draft, lazily initialize league settings
+        // with defaults so the admin config panel has something to render.
+        if (draft.getStatus() == DraftStatus.COMPLETED) {
+            initLeagueSettingsIfNeeded(leagueId);
+        }
         return null;
+    }
+
+    private void initLeagueSettingsIfNeeded(String leagueId) {
+        leagueRepository.findById(leagueId).ifPresent(league -> {
+            if (league.getSettings() == null) {
+                league.setSettings(LeagueSettings.defaults());
+                leagueRepository.save(league);
+            }
+        });
     }
 
     private void removeAddedPokemon(UserEntity user, List<Pokemons> currentPokemons, Pokemons pokemon, String leagueId) {

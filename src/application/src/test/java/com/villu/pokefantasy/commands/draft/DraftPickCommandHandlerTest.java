@@ -1,13 +1,16 @@
 package com.villu.pokefantasy.commands.draft;
 
 import com.villu.pokefantasy.dto.DraftStatus;
+import com.villu.pokefantasy.dto.LeagueSettings;
 import com.villu.pokefantasy.dto.Pokemons;
 import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
+import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.UserRepository;
 import com.villu.pokefantasy.repository.entity.ClosedListEntity;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
 import com.villu.pokefantasy.repository.entity.DraftPick;
+import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import com.villu.pokefantasy.repository.entity.UserEntity;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -33,6 +36,7 @@ class DraftPickCommandHandlerTest {
     @Mock private DraftRepository draftRepository;
     @Mock private ClosedListRepository closedListRepository;
     @Mock private UserRepository userRepository;
+    @Mock private LeagueRepository leagueRepository;
 
     private DraftPickCommandHandler handler;
 
@@ -42,7 +46,7 @@ class DraftPickCommandHandlerTest {
 
     @BeforeEach
     void setUp() {
-        handler = new DraftPickCommandHandler(draftRepository, closedListRepository, userRepository);
+        handler = new DraftPickCommandHandler(draftRepository, closedListRepository, userRepository, leagueRepository);
     }
 
     @Test
@@ -183,23 +187,57 @@ class DraftPickCommandHandlerTest {
     }
 
     @Test
-    void handle_lastPickOfLastRound_setsStatusCompleted() {
+    void handle_lastPickOfLastRound_setsStatusCompletedAndInitsDefaultSettings() {
         // 1 player, already at round 10 → next would exceed max so draft completes
         DraftEntity draft = activeDraft(List.of(USERNAME), 0, 10, new ArrayList<>());
         UserEntity user = new UserEntity();
         user.setPokemons(new ArrayList<>());
         ClosedListEntity entry = closedListEntry(POKEMON, 25);
+        LeagueEntity league = new LeagueEntity();
+        league.setId(LEAGUE_ID);
+        league.setSettings(null);
 
         when(draftRepository.findActiveByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
         when(userRepository.findByUsername(USERNAME)).thenReturn(user);
         when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(POKEMON, LEAGUE_ID))
                 .thenReturn(Optional.of(entry));
+        when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
 
         handler.handle(new DraftPickCommand(USERNAME, POKEMON, LEAGUE_ID));
 
         ArgumentCaptor<DraftEntity> captor = ArgumentCaptor.forClass(DraftEntity.class);
         verify(draftRepository).save(captor.capture());
         assertThat(captor.getValue().getStatus()).isEqualTo(DraftStatus.COMPLETED);
+
+        // Default settings initialised on the league
+        ArgumentCaptor<LeagueEntity> leagueCaptor = ArgumentCaptor.forClass(LeagueEntity.class);
+        verify(leagueRepository).save(leagueCaptor.capture());
+        assertThat(leagueCaptor.getValue().getSettings()).isNotNull();
+        assertThat(leagueCaptor.getValue().getSettings().getCoinsPerWin()).isEqualTo(100);
+        assertThat(leagueCaptor.getValue().getSettings().getCoinsPerLoss()).isEqualTo(50);
+    }
+
+    @Test
+    void handle_lastPickWithExistingSettings_doesNotOverwrite() {
+        DraftEntity draft = activeDraft(List.of(USERNAME), 0, 10, new ArrayList<>());
+        UserEntity user = new UserEntity();
+        user.setPokemons(new ArrayList<>());
+        ClosedListEntity entry = closedListEntry(POKEMON, 25);
+        LeagueEntity league = new LeagueEntity();
+        league.setId(LEAGUE_ID);
+        league.setSettings(LeagueSettings.builder().coinsPerWin(500).coinsPerLoss(0).build());
+
+        when(draftRepository.findActiveByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+        when(userRepository.findByUsername(USERNAME)).thenReturn(user);
+        when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(POKEMON, LEAGUE_ID))
+                .thenReturn(Optional.of(entry));
+        when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
+
+        handler.handle(new DraftPickCommand(USERNAME, POKEMON, LEAGUE_ID));
+
+        // findById is called but save is NOT (settings already present)
+        verify(leagueRepository).findById(LEAGUE_ID);
+        verify(leagueRepository, never()).save(any());
     }
 
     @Test

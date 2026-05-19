@@ -1,5 +1,6 @@
 package com.villu.pokefantasy.repository.entity;
 
+import com.villu.pokefantasy.dto.LeagueSettings;
 import com.villu.pokefantasy.dto.LeagueStatus;
 import lombok.Data;
 import org.springframework.data.annotation.Id;
@@ -17,4 +18,5 @@ public class LeagueEntity {
     private String createdBy;
     private List<LeagueMember> members = new ArrayList<>();
     private LeagueStatus status;
+    private LeagueSettings settings;
 }
