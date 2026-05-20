@@ -38,7 +38,7 @@ public class AddMemberToLeagueCommandHandler implements CommandHandler<AddMember
             throw new IllegalArgumentException("User '" + command.targetUsername() + "' is already a member of this league");
         }
 
-        leagueRepository.addMember(command.leagueId(), new LeagueMember(command.targetUsername(), LeagueRole.USER));
+        leagueRepository.addMember(command.leagueId(), new LeagueMember(command.targetUsername(), LeagueRole.USER, 0));
         return null;
     }
 

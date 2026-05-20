@@ -48,8 +48,8 @@ class GetLeagueDetailCommandHandlerTest {
         league.setCreatedBy("ash");
         league.setStatus(LeagueStatus.ACTIVE);
         league.setMembers(List.of(
-                new LeagueMember("ash", LeagueRole.ADMIN),
-                new LeagueMember("brock", LeagueRole.USER)));
+                new LeagueMember("ash", LeagueRole.ADMIN, 0),
+                new LeagueMember("brock", LeagueRole.USER, 0)));
         when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
 
         LeagueDetailResponse result = handler.handle(new GetLeagueDetailCommand("l1"));

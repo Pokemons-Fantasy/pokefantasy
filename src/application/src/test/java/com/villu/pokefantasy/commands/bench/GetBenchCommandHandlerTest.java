@@ -50,7 +50,7 @@ class GetBenchCommandHandlerTest {
     void handle_noOwnedPokemons_returnsFullClosedList() {
         LeagueEntity league = new LeagueEntity();
         league.setId("l1");
-        league.setMembers(List.of(new LeagueMember("ash", LeagueRole.ADMIN)));
+        league.setMembers(List.of(new LeagueMember("ash", LeagueRole.ADMIN, 0)));
         when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
 
         UserEntity user = new UserEntity();
@@ -73,7 +73,7 @@ class GetBenchCommandHandlerTest {
     void handle_ownedPokemonsFiltered_returnsOnlyBench() {
         LeagueEntity league = new LeagueEntity();
         league.setId("l1");
-        league.setMembers(List.of(new LeagueMember("ash", LeagueRole.ADMIN)));
+        league.setMembers(List.of(new LeagueMember("ash", LeagueRole.ADMIN, 0)));
         when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
 
         Pokemons ownedPokemon = new Pokemons(25, "pikachu", null, null, null, null, null, "l1");
@@ -99,7 +99,7 @@ class GetBenchCommandHandlerTest {
     void handle_userIsNull_treatedAsNoPokemons() {
         LeagueEntity league = new LeagueEntity();
         league.setId("l1");
-        league.setMembers(List.of(new LeagueMember("ash", LeagueRole.ADMIN)));
+        league.setMembers(List.of(new LeagueMember("ash", LeagueRole.ADMIN, 0)));
         when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
 
         when(userRepository.findByUsername("ash")).thenReturn(null);

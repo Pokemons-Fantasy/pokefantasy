@@ -11,4 +11,5 @@ import lombok.NoArgsConstructor;
 public class LeagueMember {
     private String username;
     private LeagueRole leagueRole;
+    private int coinBalance = 0;
 }

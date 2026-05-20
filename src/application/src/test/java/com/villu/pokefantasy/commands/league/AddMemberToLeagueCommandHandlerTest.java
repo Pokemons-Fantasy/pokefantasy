@@ -43,7 +43,7 @@ class AddMemberToLeagueCommandHandlerTest {
 
     @Test
     void handle_userNotFound_throwsIllegalArgument() {
-        LeagueEntity league = leagueWithMembers(new LeagueMember("ash", LeagueRole.ADMIN));
+        LeagueEntity league = leagueWithMembers(new LeagueMember("ash", LeagueRole.ADMIN, 0));
         when(leagueAdminGuard.requireLeagueAdmin("l1", "ash")).thenReturn(league);
         when(userRepository.findByUsername("brock")).thenReturn(null);
 
@@ -55,8 +55,8 @@ class AddMemberToLeagueCommandHandlerTest {
     @Test
     void handle_alreadyMember_throwsIllegalArgument() {
         LeagueEntity league = leagueWithMembers(
-                new LeagueMember("ash", LeagueRole.ADMIN),
-                new LeagueMember("brock", LeagueRole.USER));
+                new LeagueMember("ash", LeagueRole.ADMIN, 0),
+                new LeagueMember("brock", LeagueRole.USER, 0));
         when(leagueAdminGuard.requireLeagueAdmin("l1", "ash")).thenReturn(league);
         when(userRepository.findByUsername("brock")).thenReturn(new UserEntity());
 
@@ -67,7 +67,7 @@ class AddMemberToLeagueCommandHandlerTest {
 
     @Test
     void handle_validCommand_addsMember() {
-        LeagueEntity league = leagueWithMembers(new LeagueMember("ash", LeagueRole.ADMIN));
+        LeagueEntity league = leagueWithMembers(new LeagueMember("ash", LeagueRole.ADMIN, 0));
         when(leagueAdminGuard.requireLeagueAdmin("l1", "ash")).thenReturn(league);
         when(userRepository.findByUsername("brock")).thenReturn(new UserEntity());
 

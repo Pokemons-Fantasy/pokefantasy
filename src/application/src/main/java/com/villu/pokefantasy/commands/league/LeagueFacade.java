@@ -48,4 +48,8 @@ public class LeagueFacade {
         mediator.send(new UpdateLeagueSettingsCommand(leagueId, coinsPerWin, coinsPerLoss,
                 priceTierS, priceTierA, priceTierB, priceTierC, priceTierD, requestingUsername));
     }
+
+    public int getMyCoinBalance(String leagueId, String requestingUsername) throws Exception {
+        return mediator.send(new GetMyCoinBalanceCommand(leagueId, requestingUsername));
+    }
 }
