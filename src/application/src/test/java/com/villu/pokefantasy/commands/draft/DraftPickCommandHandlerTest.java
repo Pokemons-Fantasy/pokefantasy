@@ -6,11 +6,13 @@ import com.villu.pokefantasy.dto.Pokemons;
 import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
+import com.villu.pokefantasy.repository.ScheduleRepository;
 import com.villu.pokefantasy.repository.UserRepository;
 import com.villu.pokefantasy.repository.entity.ClosedListEntity;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
 import com.villu.pokefantasy.repository.entity.DraftPick;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
+import com.villu.pokefantasy.repository.entity.ScheduleEntity;
 import com.villu.pokefantasy.repository.entity.UserEntity;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,6 +39,7 @@ class DraftPickCommandHandlerTest {
     @Mock private ClosedListRepository closedListRepository;
     @Mock private UserRepository userRepository;
     @Mock private LeagueRepository leagueRepository;
+    @Mock private ScheduleRepository scheduleRepository;
 
     private DraftPickCommandHandler handler;
 
@@ -46,7 +49,8 @@ class DraftPickCommandHandlerTest {
 
     @BeforeEach
     void setUp() {
-        handler = new DraftPickCommandHandler(draftRepository, closedListRepository, userRepository, leagueRepository);
+        handler = new DraftPickCommandHandler(draftRepository, closedListRepository, userRepository,
+                leagueRepository, scheduleRepository);
     }
 
     @Test
@@ -261,6 +265,37 @@ class DraftPickCommandHandlerTest {
         assertThat(saved.getCurrentRound()).isEqualTo(4);
         assertThat(saved.getCurrentTurnIndex()).isZero();
         assertThat(saved.getStatus()).isEqualTo(DraftStatus.IN_PROGRESS);
+    }
+
+    @Test
+    void handle_lastPick_generatesLeagueSchedule() {
+        // 1 player, round 10 → advancing goes to round 11 which exceeds MAX → draft completes
+        DraftEntity draft = activeDraft(List.of(USERNAME), 0, 10, new ArrayList<>());
+        UserEntity user = new UserEntity();
+        user.setPokemons(new ArrayList<>());
+        ClosedListEntity entry = closedListEntry(POKEMON, 25);
+        LeagueEntity league = new LeagueEntity();
+        league.setId(LEAGUE_ID);
+        league.setSettings(null);
+
+        when(draftRepository.findActiveByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+        when(userRepository.findByUsername(USERNAME)).thenReturn(user);
+        when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(POKEMON, LEAGUE_ID))
+                .thenReturn(Optional.of(entry));
+        when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
+
+        handler.handle(new DraftPickCommand(USERNAME, POKEMON, LEAGUE_ID));
+
+        // Schedule must be saved with jornadas for 2 players (2 jornadas total)
+        ArgumentCaptor<ScheduleEntity> scheduleCaptor = ArgumentCaptor.forClass(ScheduleEntity.class);
+        verify(scheduleRepository).save(scheduleCaptor.capture());
+        ScheduleEntity savedSchedule = scheduleCaptor.getValue();
+        assertThat(savedSchedule.getLeagueId()).isEqualTo(LEAGUE_ID);
+        assertThat(savedSchedule.getJornadas()).isNotEmpty();
+        // 1 player → BYE added → 2 players → 1 round per leg × 2 legs = 2 jornadas, but the
+        // BYE match is excluded → 0 real matches per jornada (just 2 empty jornadas structure)
+        // What matters is that the schedule is persisted for the league
+        assertThat(savedSchedule.getJornadas()).hasSize(2);
     }
 
     @Test
