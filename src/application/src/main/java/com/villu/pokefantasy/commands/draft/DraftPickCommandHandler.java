@@ -1,5 +1,6 @@
 package com.villu.pokefantasy.commands.draft;
 
+import com.villu.pokefantasy.commands.schedule.RoundRobinScheduler;
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueSettings;
 import com.villu.pokefantasy.dto.Pokemons;
@@ -7,10 +8,12 @@ import com.villu.pokefantasy.mediator.CommandHandler;
 import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
+import com.villu.pokefantasy.repository.ScheduleRepository;
 import com.villu.pokefantasy.repository.UserRepository;
 import com.villu.pokefantasy.repository.entity.ClosedListEntity;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
 import com.villu.pokefantasy.repository.entity.DraftPick;
+import com.villu.pokefantasy.repository.entity.ScheduleEntity;
 import com.villu.pokefantasy.repository.entity.UserEntity;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
@@ -29,15 +32,18 @@ public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand,
     private final ClosedListRepository closedListRepository;
     private final UserRepository userRepository;
     private final LeagueRepository leagueRepository;
+    private final ScheduleRepository scheduleRepository;
 
     public DraftPickCommandHandler(DraftRepository draftRepository,
                                    ClosedListRepository closedListRepository,
                                    UserRepository userRepository,
-                                   LeagueRepository leagueRepository) {
+                                   LeagueRepository leagueRepository,
+                                   ScheduleRepository scheduleRepository) {
         this.draftRepository = draftRepository;
         this.closedListRepository = closedListRepository;
         this.userRepository = userRepository;
         this.leagueRepository = leagueRepository;
+        this.scheduleRepository = scheduleRepository;
     }
 
     @Override
@@ -116,12 +122,21 @@ public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand,
             throw exception;
         }
 
-        // When this pick completes the draft, lazily initialize league settings
-        // with defaults so the admin config panel has something to render.
+        // When this pick completes the draft:
+        // 1. Lazily initialize league settings with defaults.
+        // 2. Generate the round-robin match schedule (primera + segunda vuelta).
         if (draft.getStatus() == DraftStatus.COMPLETED) {
             initLeagueSettingsIfNeeded(leagueId);
+            generateLeagueSchedule(leagueId, draft.getTurnOrder());
         }
         return null;
+    }
+
+    private void generateLeagueSchedule(String leagueId, List<String> players) {
+        ScheduleEntity schedule = new ScheduleEntity();
+        schedule.setLeagueId(leagueId);
+        schedule.setJornadas(RoundRobinScheduler.generate(players));
+        scheduleRepository.save(schedule);
     }
 
     private void initLeagueSettingsIfNeeded(String leagueId) {
