@@ -42,7 +42,7 @@ class LeagueAdminGuardTest {
     @Test
     void requireLeagueAdmin_userIsNotMember_throwsForbidden() {
         LeagueEntity league = leagueWithMembers(
-                new LeagueMember("brock", LeagueRole.ADMIN)
+                new LeagueMember("brock", LeagueRole.ADMIN, 0)
         );
         when(leagueRepository.findById("league-1")).thenReturn(Optional.of(league));
 
@@ -53,7 +53,7 @@ class LeagueAdminGuardTest {
     @Test
     void requireLeagueAdmin_userIsMemberButNotAdmin_throwsForbidden() {
         LeagueEntity league = leagueWithMembers(
-                new LeagueMember("ash", LeagueRole.USER)
+                new LeagueMember("ash", LeagueRole.USER, 0)
         );
         when(leagueRepository.findById("league-1")).thenReturn(Optional.of(league));
 
@@ -64,8 +64,8 @@ class LeagueAdminGuardTest {
     @Test
     void requireLeagueAdmin_userIsAdmin_returnsLeague() {
         LeagueEntity league = leagueWithMembers(
-                new LeagueMember("ash", LeagueRole.ADMIN),
-                new LeagueMember("brock", LeagueRole.USER)
+                new LeagueMember("ash", LeagueRole.ADMIN, 0),
+                new LeagueMember("brock", LeagueRole.USER, 0)
         );
         when(leagueRepository.findById("league-1")).thenReturn(Optional.of(league));
 

@@ -54,9 +54,9 @@ class RemoveMemberFromLeagueCommandHandlerTest {
     @Test
     void handle_nonAdminRemovingOther_throwsForbidden() {
         LeagueEntity league = leagueWith("l1",
-                new LeagueMember("ash", LeagueRole.ADMIN),
-                new LeagueMember("brock", LeagueRole.USER),
-                new LeagueMember("misty", LeagueRole.USER));
+                new LeagueMember("ash", LeagueRole.ADMIN, 0),
+                new LeagueMember("brock", LeagueRole.USER, 0),
+                new LeagueMember("misty", LeagueRole.USER, 0));
         when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
 
         assertThatThrownBy(() -> handler.handle(new RemoveMemberFromLeagueCommand("l1", "brock", "misty")))
@@ -66,7 +66,7 @@ class RemoveMemberFromLeagueCommandHandlerTest {
     @Test
     void handle_targetNotMember_throwsIllegalArgument() {
         LeagueEntity league = leagueWith("l1",
-                new LeagueMember("ash", LeagueRole.ADMIN));
+                new LeagueMember("ash", LeagueRole.ADMIN, 0));
         when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
 
         assertThatThrownBy(() -> handler.handle(new RemoveMemberFromLeagueCommand("l1", "brock", "ash")))
@@ -77,7 +77,7 @@ class RemoveMemberFromLeagueCommandHandlerTest {
     @Test
     void handle_removeLastAdmin_throwsIllegalState() {
         LeagueEntity league = leagueWith("l1",
-                new LeagueMember("ash", LeagueRole.ADMIN));
+                new LeagueMember("ash", LeagueRole.ADMIN, 0));
         when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
 
         // ash trying to leave (self-leave of last admin)
@@ -89,8 +89,8 @@ class RemoveMemberFromLeagueCommandHandlerTest {
     @Test
     void handle_selfLeave_removesSuccessfully() {
         LeagueEntity league = leagueWith("l1",
-                new LeagueMember("ash", LeagueRole.ADMIN),
-                new LeagueMember("brock", LeagueRole.USER));
+                new LeagueMember("ash", LeagueRole.ADMIN, 0),
+                new LeagueMember("brock", LeagueRole.USER, 0));
         when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
         when(draftRepository.findActiveByLeagueId("l1")).thenReturn(Optional.empty());
 
@@ -102,8 +102,8 @@ class RemoveMemberFromLeagueCommandHandlerTest {
     @Test
     void handle_adminRemovesMember_removesSuccessfully() {
         LeagueEntity league = leagueWith("l1",
-                new LeagueMember("ash", LeagueRole.ADMIN),
-                new LeagueMember("brock", LeagueRole.USER));
+                new LeagueMember("ash", LeagueRole.ADMIN, 0),
+                new LeagueMember("brock", LeagueRole.USER, 0));
         when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
         when(draftRepository.findActiveByLeagueId("l1")).thenReturn(Optional.empty());
 
@@ -115,8 +115,8 @@ class RemoveMemberFromLeagueCommandHandlerTest {
     @Test
     void handle_withActiveDraft_removesPlayerFromDraft() {
         LeagueEntity league = leagueWith("l1",
-                new LeagueMember("ash", LeagueRole.ADMIN),
-                new LeagueMember("brock", LeagueRole.USER));
+                new LeagueMember("ash", LeagueRole.ADMIN, 0),
+                new LeagueMember("brock", LeagueRole.USER, 0));
         when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
 
         DraftEntity draft = new DraftEntity();
@@ -137,8 +137,8 @@ class RemoveMemberFromLeagueCommandHandlerTest {
     @Test
     void handle_withActiveDraft_playerNotInTurnOrder_stillRemoves() {
         LeagueEntity league = leagueWith("l1",
-                new LeagueMember("ash", LeagueRole.ADMIN),
-                new LeagueMember("brock", LeagueRole.USER));
+                new LeagueMember("ash", LeagueRole.ADMIN, 0),
+                new LeagueMember("brock", LeagueRole.USER, 0));
         when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
 
         DraftEntity draft = new DraftEntity();
@@ -157,8 +157,8 @@ class RemoveMemberFromLeagueCommandHandlerTest {
     @Test
     void handle_withActiveDraft_removedIndexBeforeCurrent_adjustsIndex() {
         LeagueEntity league = leagueWith("l1",
-                new LeagueMember("ash", LeagueRole.ADMIN),
-                new LeagueMember("brock", LeagueRole.USER));
+                new LeagueMember("ash", LeagueRole.ADMIN, 0),
+                new LeagueMember("brock", LeagueRole.USER, 0));
         when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
 
         DraftEntity draft = new DraftEntity();
@@ -178,8 +178,8 @@ class RemoveMemberFromLeagueCommandHandlerTest {
     @Test
     void handle_withActiveDraft_removedIndexAtCurrent_wrapsIndex() {
         LeagueEntity league = leagueWith("l1",
-                new LeagueMember("ash", LeagueRole.ADMIN),
-                new LeagueMember("brock", LeagueRole.USER));
+                new LeagueMember("ash", LeagueRole.ADMIN, 0),
+                new LeagueMember("brock", LeagueRole.USER, 0));
         when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
 
         DraftEntity draft = new DraftEntity();
@@ -199,8 +199,8 @@ class RemoveMemberFromLeagueCommandHandlerTest {
     @Test
     void handle_multipleAdmins_canRemoveOneAdmin() {
         LeagueEntity league = leagueWith("l1",
-                new LeagueMember("ash", LeagueRole.ADMIN),
-                new LeagueMember("misty", LeagueRole.ADMIN));
+                new LeagueMember("ash", LeagueRole.ADMIN, 0),
+                new LeagueMember("misty", LeagueRole.ADMIN, 0));
         when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
         when(draftRepository.findActiveByLeagueId("l1")).thenReturn(Optional.empty());
 

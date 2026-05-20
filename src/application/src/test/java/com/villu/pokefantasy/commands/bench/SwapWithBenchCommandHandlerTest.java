@@ -81,7 +81,7 @@ class SwapWithBenchCommandHandlerTest {
     @Test
     void handle_userNotMember_throwsIllegalState() {
         DraftEntity draft = draftWithStatus(DraftStatus.COMPLETED);
-        LeagueEntity league = leagueWithMembers(new LeagueMember("brock", LeagueRole.USER));
+        LeagueEntity league = leagueWithMembers(new LeagueMember("brock", LeagueRole.USER, 0));
         when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
         when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
 
@@ -93,7 +93,7 @@ class SwapWithBenchCommandHandlerTest {
     @Test
     void handle_userEntityNotFound_throwsIllegalArgument() {
         DraftEntity draft = draftWithStatus(DraftStatus.COMPLETED);
-        LeagueEntity league = leagueWithMembers(new LeagueMember(USERNAME, LeagueRole.USER));
+        LeagueEntity league = leagueWithMembers(new LeagueMember(USERNAME, LeagueRole.USER, 0));
         when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
         when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
         when(userRepository.findByUsername(USERNAME)).thenReturn(null);
@@ -106,7 +106,7 @@ class SwapWithBenchCommandHandlerTest {
     @Test
     void handle_pokemonNotInTeam_throwsIllegalArgument() {
         DraftEntity draft = draftWithStatus(DraftStatus.COMPLETED);
-        LeagueEntity league = leagueWithMembers(new LeagueMember(USERNAME, LeagueRole.USER));
+        LeagueEntity league = leagueWithMembers(new LeagueMember(USERNAME, LeagueRole.USER, 0));
         UserEntity user = userWithPokemons(new Pokemons());
         user.getPokemons().get(0).setName("squirtle");
         user.getPokemons().get(0).setLeagueId(LEAGUE_ID);
@@ -123,7 +123,7 @@ class SwapWithBenchCommandHandlerTest {
     @Test
     void handle_pokemonNotInPool_throwsIllegalArgument() {
         DraftEntity draft = completedDraftWithPick(USERNAME, GIVE, 6);
-        LeagueEntity league = leagueWithMembers(new LeagueMember(USERNAME, LeagueRole.USER));
+        LeagueEntity league = leagueWithMembers(new LeagueMember(USERNAME, LeagueRole.USER, 0));
         UserEntity user = userWithPokemon(GIVE);
 
         when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
@@ -140,8 +140,8 @@ class SwapWithBenchCommandHandlerTest {
     @Test
     void handle_pokemonAlreadyOwned_throwsIllegalState() {
         DraftEntity draft = completedDraftWithPick(USERNAME, GIVE, 6);
-        LeagueMember ashMember = new LeagueMember(USERNAME, LeagueRole.USER);
-        LeagueMember brockMember = new LeagueMember("brock", LeagueRole.USER);
+        LeagueMember ashMember = new LeagueMember(USERNAME, LeagueRole.USER, 0);
+        LeagueMember brockMember = new LeagueMember("brock", LeagueRole.USER, 0);
         LeagueEntity league = leagueWithMembers(ashMember, brockMember);
 
         UserEntity ash = userWithPokemon(GIVE);
@@ -165,7 +165,7 @@ class SwapWithBenchCommandHandlerTest {
     @Test
     void handle_happyPath_swapsUserPokemonAndUpdatesDraftPick() {
         DraftEntity draft = completedDraftWithPick(USERNAME, GIVE, 6);
-        LeagueEntity league = leagueWithMembers(new LeagueMember(USERNAME, LeagueRole.USER));
+        LeagueEntity league = leagueWithMembers(new LeagueMember(USERNAME, LeagueRole.USER, 0));
         UserEntity user = userWithPokemon(GIVE);
         ClosedListEntity entry = closedListEntry(TAKE, 25);
 

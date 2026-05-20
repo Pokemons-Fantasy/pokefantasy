@@ -41,7 +41,7 @@ class UpdateLeagueSettingsCommandHandlerTest {
     private LeagueEntity leagueWithAdmin(String adminName) {
         LeagueEntity l = new LeagueEntity();
         l.setId("l1");
-        l.setMembers(List.of(new LeagueMember(adminName, LeagueRole.ADMIN)));
+        l.setMembers(List.of(new LeagueMember(adminName, LeagueRole.ADMIN, 0)));
         return l;
     }
 

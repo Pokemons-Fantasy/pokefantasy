@@ -171,8 +171,16 @@ CSS design tokens in `src/index.css`. Animation utilities: `.animate-in`, `.stag
 
 ## Roadmap
 
-**Done**: JWT auth, closed list + tiers, draft + 10 Pokémon/player limit, production deploy, login/register/home UI, pool selection page, league system with per-league roles, cancel draft, expel/leave league (cleans draft picks + adjusts turn order), teams view (TeamsPage), bench system (1-for-1 swap), keep-alive ping.
+**Done**: JWT auth, closed list + tiers, draft + 10 Pokémon/player limit, production deploy, login/register/home UI, pool selection page, league system with per-league roles, cancel draft, expel/leave league (cleans draft picks + adjusts turn order), teams view (TeamsPage), bench system (1-for-1 swap), keep-alive ping (every 5 min with retry), Redis cache skip on startup if already populated, auto-tier assignment on draft start (BST-relative quintiles, S/A/B/C/D), tier badges in pool / draft / teams UI, league settings with per-tier coin prices (priceTierS/A/B/C/D, stored — logic deferred), round-robin calendar (primera + segunda vuelta, auto-generated on draft completion), admin records match results, seed script for complete demo league (8 players, 128 pool, 80 picks, 48 bench).
 
-**Pending**: Redis cache optimisation — skip PokeAPI call on startup if cache is already populated.
-
-**Deferred** (after core is stable): coins, rounds, steals, player-to-player trades.
+**Next** (in order):
+1. **Coin balance per player** — balance per league, starts at 0, grows with wins/losses using `coinsPerWin`/`coinsPerLoss` settings. Each player can see their own coins but **not rivals'**.
+2. **Paid bench swaps** — bench swap costs coins based on the tier of the incoming Pokémon (`priceTierX`).
+3. **Admin: manual tier adjustment** — admin can promote a Pokémon to a higher tier; the lowest-BST Pokémon currently in that tier is automatically demoted one tier down (bumped out), and the promoted Pokémon becomes the first entry in the new tier. Keeps total tier counts balanced.
+4. **Sticky own-team panel in TeamsPage** — when browsing rivals' teams or the bench, the current user's team stays pinned/visible so they can compare their Pokémon against opponents without scrolling back up. Especially important when the user is first in the list.
+5. **Pokémon steal system** — a player with enough coins can steal a Pokémon from a rival's team. Rules:
+   - Each player sets a **steal price** for each of their own Pokémon (default = `priceTierX` for that tier).
+   - The buyer pays the steal price from their coin balance; the original owner receives **double** the steal price as compensation.
+   - A stolen Pokémon is **steal-locked until the next jornada** — it cannot be stolen again until all matches of the current jornada have a recorded result (status COMPLETED for every match in that round).
+   - The stolen Pokémon moves to the thief's team; the victim gets it replaced by nothing (or optionally picks from bench — TBD).
+6. **Player-to-player trades** — 1-for-1 swap between two players (with optional coin cost, both sides must confirm).

@@ -48,7 +48,7 @@ class StartDraftCommandHandlerTest {
     private void allowAdmin() {
         LeagueEntity league = new LeagueEntity();
         league.setId(LEAGUE_ID);
-        league.setMembers(List.of(new LeagueMember(ADMIN, LeagueRole.ADMIN)));
+        league.setMembers(List.of(new LeagueMember(ADMIN, LeagueRole.ADMIN, 0)));
         when(leagueAdminGuard.requireLeagueAdmin(LEAGUE_ID, ADMIN)).thenReturn(league);
         when(draftRepository.findActiveByLeagueId(LEAGUE_ID)).thenReturn(Optional.empty());
     }

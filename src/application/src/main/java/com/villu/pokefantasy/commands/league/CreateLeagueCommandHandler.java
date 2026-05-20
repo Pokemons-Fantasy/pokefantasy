@@ -33,7 +33,7 @@ public class CreateLeagueCommandHandler implements CommandHandler<CreateLeagueCo
         league.setName(command.name());
         league.setCreatedBy(command.creatorUsername());
         league.setStatus(LeagueStatus.SETUP);
-        league.setMembers(new ArrayList<>(List.of(new LeagueMember(command.creatorUsername(), LeagueRole.ADMIN))));
+        league.setMembers(new ArrayList<>(List.of(new LeagueMember(command.creatorUsername(), LeagueRole.ADMIN, 0))));
 
         return leagueRepository.save(league).getId();
     }

@@ -4,6 +4,7 @@ import com.villu.pokefantasy.commands.league.LeagueFacade;
 import com.villu.pokefantasy.request.league.AddMemberRequest;
 import com.villu.pokefantasy.request.league.CreateLeagueRequest;
 import com.villu.pokefantasy.request.league.UpdateLeagueSettingsRequest;
+import com.villu.pokefantasy.response.CoinBalanceResponse;
 import com.villu.pokefantasy.response.LeagueDetailResponse;
 import com.villu.pokefantasy.response.LeagueResponse;
 import com.villu.pokefantasy.response.LeagueSettingsResponse;
@@ -72,5 +73,12 @@ public class LeagueController {
                 request.getPriceTierC(), request.getPriceTierD(),
                 userDetails.getUsername());
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{leagueId}/my-coins")
+    public ResponseEntity<CoinBalanceResponse> getMyCoinBalance(@PathVariable String leagueId,
+                                                                @AuthenticationPrincipal UserDetails userDetails) throws Exception {
+        int coins = leagueFacade.getMyCoinBalance(leagueId, userDetails.getUsername());
+        return ResponseEntity.ok(CoinBalanceResponse.builder().coins(coins).build());
     }
 }

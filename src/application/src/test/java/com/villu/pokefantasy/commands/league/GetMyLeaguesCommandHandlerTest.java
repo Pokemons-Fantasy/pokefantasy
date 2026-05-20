@@ -43,8 +43,8 @@ class GetMyLeaguesCommandHandlerTest {
         league.setCreatedBy("ash");
         league.setStatus(LeagueStatus.ACTIVE);
         league.setMembers(new ArrayList<>(List.of(
-                new LeagueMember("ash", com.villu.pokefantasy.dto.LeagueRole.ADMIN),
-                new LeagueMember("brock", com.villu.pokefantasy.dto.LeagueRole.USER)
+                new LeagueMember("ash", com.villu.pokefantasy.dto.LeagueRole.ADMIN, 0),
+                new LeagueMember("brock", com.villu.pokefantasy.dto.LeagueRole.USER, 0)
         )));
         when(leagueRepository.findByMemberUsername("ash")).thenReturn(List.of(league));
 
