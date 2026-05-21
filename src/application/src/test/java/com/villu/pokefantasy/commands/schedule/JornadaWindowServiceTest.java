@@ -113,12 +113,13 @@ class JornadaWindowServiceTest {
     }
 
     @Test
-    void isSwapWindowOpen_noStartDate_returnsFalse() {
+    void isSwapWindowOpen_noStartDate_returnsTrue() {
+        // No seasonStartDate configured → no time restriction → window is open
         JornadaWindowService svc = serviceAt(LocalDateTime.of(2026, 6, 3, 10, 0));
         Jornada j = jornada(1, null, MatchStatus.PENDING); // no startDate
         ScheduleEntity schedule = scheduleWithJornadas(j);
 
-        assertThat(svc.isSwapWindowOpen(schedule)).isFalse();
+        assertThat(svc.isSwapWindowOpen(schedule)).isTrue();
     }
 
     // -------------------------------------------------------------------------
