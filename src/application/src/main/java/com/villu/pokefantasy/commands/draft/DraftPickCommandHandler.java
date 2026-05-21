@@ -13,6 +13,7 @@ import com.villu.pokefantasy.repository.UserRepository;
 import com.villu.pokefantasy.repository.entity.ClosedListEntity;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
 import com.villu.pokefantasy.repository.entity.DraftPick;
+import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity;
 import com.villu.pokefantasy.repository.entity.UserEntity;
 import org.springframework.dao.OptimisticLockingFailureException;
@@ -26,7 +27,7 @@ import java.util.Objects;
 @Service
 public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand, Void> {
 
-    private static final int MAX_POKEMONS_PER_USER = 10;
+    private static final int DEFAULT_MAX_TEAM_SIZE = 10;
 
     private final DraftRepository draftRepository;
     private final ClosedListRepository closedListRepository;
@@ -74,11 +75,15 @@ public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand,
             throw new IllegalArgumentException("User not found: " + username);
         }
 
+        // Read maxTeamSize from league settings (falls back to DEFAULT_MAX_TEAM_SIZE for existing leagues)
+        LeagueEntity league = leagueRepository.findById(leagueId).orElse(null);
+        int maxTeamSize = resolveMaxTeamSize(league);
+
         long picksInDraft = draft.getPicks().stream()
                 .filter(p -> username.equals(p.getUsername()))
                 .count();
-        if (picksInDraft >= MAX_POKEMONS_PER_USER) {
-            throw new IllegalStateException("User already has the maximum of " + MAX_POKEMONS_PER_USER + " Pokémon in this league");
+        if (picksInDraft >= maxTeamSize) {
+            throw new IllegalStateException("User already has the maximum of " + maxTeamSize + " Pokémon in this league");
         }
 
         List<Pokemons> currentPokemons = user.getPokemons() != null ? user.getPokemons() : new ArrayList<>();
@@ -111,7 +116,7 @@ public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand,
                 entry.getPokemonId(), draft.getCurrentRound(), Instant.now());
         draft.getPicks().add(pick);
 
-        advanceTurn(draft);
+        advanceTurn(draft, maxTeamSize);
         try {
             draftRepository.save(draft);
         } catch (OptimisticLockingFailureException exception) {
@@ -126,7 +131,7 @@ public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand,
         // 1. Lazily initialize league settings with defaults.
         // 2. Generate the round-robin match schedule (primera + segunda vuelta).
         if (draft.getStatus() == DraftStatus.COMPLETED) {
-            initLeagueSettingsIfNeeded(leagueId);
+            initLeagueSettingsIfNeeded(league);
             generateLeagueSchedule(leagueId, draft.getTurnOrder());
         }
         return null;
@@ -139,13 +144,19 @@ public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand,
         scheduleRepository.save(schedule);
     }
 
-    private void initLeagueSettingsIfNeeded(String leagueId) {
-        leagueRepository.findById(leagueId).ifPresent(league -> {
-            if (league.getSettings() == null) {
-                league.setSettings(LeagueSettings.defaults());
-                leagueRepository.save(league);
-            }
-        });
+    private int resolveMaxTeamSize(LeagueEntity league) {
+        if (league != null && league.getSettings() != null) {
+            Integer max = league.getSettings().getMaxTeamSize();
+            if (max != null && max > 0) return max;
+        }
+        return DEFAULT_MAX_TEAM_SIZE;
+    }
+
+    private void initLeagueSettingsIfNeeded(LeagueEntity league) {
+        if (league != null && league.getSettings() == null) {
+            league.setSettings(LeagueSettings.defaults());
+            leagueRepository.save(league);
+        }
     }
 
     private void removeAddedPokemon(UserEntity user, List<Pokemons> currentPokemons, Pokemons pokemon, String leagueId) {
@@ -155,11 +166,11 @@ public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand,
         }
     }
 
-    private void advanceTurn(DraftEntity draft) {
+    private void advanceTurn(DraftEntity draft, int maxRounds) {
         int nextIndex = draft.getCurrentTurnIndex() + 1;
         if (nextIndex >= draft.getTurnOrder().size()) {
             int nextRound = draft.getCurrentRound() + 1;
-            if (nextRound > MAX_POKEMONS_PER_USER) {
+            if (nextRound > maxRounds) {
                 draft.setStatus(DraftStatus.COMPLETED);
             } else {
                 draft.setCurrentRound(nextRound);

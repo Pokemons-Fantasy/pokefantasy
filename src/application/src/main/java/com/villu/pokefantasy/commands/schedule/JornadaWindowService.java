@@ -116,7 +116,7 @@ public class JornadaWindowService {
         Jornada active = activeOpt.get();
 
         if (active.getStartDate() == null) {
-            return false; // admin hasn't set seasonStartDate yet
+            return true; // no dates configured yet → no time restriction
         }
 
         // Check that the previous jornada (if any) is fully completed

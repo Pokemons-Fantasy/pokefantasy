@@ -105,10 +105,39 @@ class DraftPickCommandHandlerTest {
         UserEntity user = new UserEntity();
         when(draftRepository.findActiveByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
         when(userRepository.findByUsername(USERNAME)).thenReturn(user);
+        // No league stub → resolves to DEFAULT_MAX_TEAM_SIZE (10)
 
         assertThatThrownBy(() -> handler.handle(new DraftPickCommand(USERNAME, POKEMON, LEAGUE_ID)))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("maximum");
+    }
+
+    @Test
+    void handle_customMaxTeamSize_allowsMorePicksThanDefault() {
+        // League configured with maxTeamSize=20 → 10 picks should NOT yet be the limit
+        List<DraftPick> picks = new ArrayList<>();
+        for (int i = 0; i < 10; i++) {
+            picks.add(new DraftPick(USERNAME, "poke" + i, i, 1, Instant.now()));
+        }
+        DraftEntity draft = activeDraft(List.of(USERNAME), 0, 11, picks);
+        UserEntity user = new UserEntity();
+        user.setPokemons(new ArrayList<>());
+        ClosedListEntity entry = closedListEntry(POKEMON, 25);
+
+        LeagueEntity league = new LeagueEntity();
+        league.setId(LEAGUE_ID);
+        league.setSettings(LeagueSettings.builder().maxTeamSize(20).coinsPerWin(100).coinsPerLoss(50).build());
+
+        when(draftRepository.findActiveByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+        when(userRepository.findByUsername(USERNAME)).thenReturn(user);
+        when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(POKEMON, LEAGUE_ID))
+                .thenReturn(Optional.of(entry));
+        when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
+
+        // Should succeed (10 picks < maxTeamSize 20)
+        handler.handle(new DraftPickCommand(USERNAME, POKEMON, LEAGUE_ID));
+
+        verify(userRepository).updateUserWithPokemons(any());
     }
 
     @Test
