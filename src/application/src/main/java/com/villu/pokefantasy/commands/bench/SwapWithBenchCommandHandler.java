@@ -2,7 +2,9 @@ package com.villu.pokefantasy.commands.bench;
 
 import com.villu.pokefantasy.commands.schedule.JornadaWindowService;
 import com.villu.pokefantasy.dto.DraftStatus;
+import com.villu.pokefantasy.dto.LeagueSettings;
 import com.villu.pokefantasy.dto.Pokemons;
+import com.villu.pokefantasy.dto.Tier;
 import com.villu.pokefantasy.mediator.CommandHandler;
 import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
@@ -13,6 +15,7 @@ import com.villu.pokefantasy.repository.entity.ClosedListEntity;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
 import com.villu.pokefantasy.repository.entity.DraftPick;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
+import com.villu.pokefantasy.repository.entity.LeagueMember;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity;
 import com.villu.pokefantasy.repository.entity.UserEntity;
 import org.springframework.stereotype.Service;
@@ -101,6 +104,23 @@ public class SwapWithBenchCommandHandler implements CommandHandler<SwapWithBench
             throw new IllegalStateException("'" + pokemonToTake + "' is not available on the bench");
         }
 
+        // Coin check: deduct coins if the tier has a non-zero price
+        LeagueSettings settings = league.getSettings();
+        int price = priceForTier(settings, benchEntry.getTier());
+        if (price > 0) {
+            LeagueMember member = league.getMembers().stream()
+                    .filter(m -> username.equals(m.getUsername()))
+                    .findFirst()
+                    .orElseThrow();
+            if (member.getCoinBalance() < price) {
+                throw new IllegalStateException(
+                        "No tienes suficientes monedas. Necesitas " + price +
+                        " pero tienes " + member.getCoinBalance() + ".");
+            }
+            member.setCoinBalance(member.getCoinBalance() - price);
+            leagueRepository.save(league);
+        }
+
         currentPokemons.remove(toGive);
 
         Pokemons newPokemon = new Pokemons();
@@ -127,6 +147,18 @@ public class SwapWithBenchCommandHandler implements CommandHandler<SwapWithBench
         draftRepository.save(draft);
 
         return null;
+    }
+
+    private int priceForTier(LeagueSettings settings, Tier tier) {
+        if (settings == null || tier == null) return 0;
+        Integer price = switch (tier) {
+            case S -> settings.getPriceTierS();
+            case A -> settings.getPriceTierA();
+            case B -> settings.getPriceTierB();
+            case C -> settings.getPriceTierC();
+            case D -> settings.getPriceTierD();
+        };
+        return price != null ? price : 0;
     }
 
     @Override
