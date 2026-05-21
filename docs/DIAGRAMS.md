@@ -46,6 +46,11 @@ erDiagram
         Integer priceTierD
         String  seasonStartDate "YYYY-MM-DD"
         Integer maxTeamSize "default 20"
+        Integer tierPctS "% pool en tier S (def 20)"
+        Integer tierPctA "% pool en tier A (def 20)"
+        Integer tierPctB "% pool en tier B (def 20)"
+        Integer tierPctC "% pool en tier C (def 20)"
+        Integer tierPctD "% pool en tier D (def 20)"
     }
     ClosedListEntity {
         String id PK
@@ -126,8 +131,9 @@ flowchart TD
 
     subgraph POST_DRAFT["⚙️ Post-draft setup"]
         H --> I[Calendario generado\nprimera + segunda vuelta\nround-robin]
-        H --> J[Admin configura settings\nmonedas · precios tier · maxTeamSize]
-        J --> K[Admin introduce seasonStartDate]
+        H --> J[Admin configura settings\nmonedas · precios tier · maxTeamSize\n% de pool por tier S/A/B/C/D]
+        J --> J2[Guardado recalcula tiers del pool\nvia TierAssignmentService]
+        J2 --> K[Admin introduce seasonStartDate]
         K --> L[Jornadas obtienen fechas\njornada N = startDate + N-1 semanas]
     end
 
@@ -161,9 +167,9 @@ flowchart TD
 
     subgraph FUTURO["🔮 Próximos pasos"]
         direction LR
-        F4["📌 Panel propio fijo\n  en TeamsPage"]
         F5["🤝 Trades entre jugadores\n  1×1 opcional + monedas"]
         F6["📋 Activity feed\n  log de movimientos"]
+        F7["🖥️ Rediseño pantalla\n  de configuración"]
     end
 
     style N fill:#d1fae5,stroke:#10b981,color:#064e3b
@@ -173,11 +179,12 @@ flowchart TD
     style X fill:#d1fae5,stroke:#10b981,color:#064e3b
     style Y fill:#d1fae5,stroke:#10b981,color:#064e3b
     style Z fill:#d1fae5,stroke:#10b981,color:#064e3b
+    style J2 fill:#d1fae5,stroke:#10b981,color:#064e3b
     style TIER_ADJ fill:#f0fdf4,stroke:#10b981
     style FUTURO fill:#f9fafb,stroke:#e5e7eb
-    style F4 fill:#f0fdf4,stroke:#22c55e,color:#14532d
     style F5 fill:#ede9fe,stroke:#8b5cf6,color:#4c1d95
     style F6 fill:#ede9fe,stroke:#8b5cf6,color:#4c1d95
+    style F7 fill:#ede9fe,stroke:#8b5cf6,color:#4c1d95
 ```
 
 ---
@@ -200,11 +207,13 @@ flowchart TD
 | Swap de banca de pago (tier parity + net coin change) | ✅ Completo |
 | Sistema de robos entre jugadores | ✅ Completo |
 | **Ajuste manual de tiers por admin** (cascada bidireccional) | ✅ Completo |
-| **Panel propio fijo en TeamsPage** | 🔲 Pendiente |
+| **Panel propio fijo en TeamsPage** (sticky + colapsable) | ✅ Completo |
+| **Porcentajes de tier configurables** (S/A/B/C/D, suma 100) | ✅ Completo |
+| **Recálculo automático de tiers al guardar** (`TierAssignmentService`) | ✅ Completo |
 | **Trades entre jugadores** | 🔲 Pendiente |
 | **Activity feed / panel de movimientos** | 🔲 Pendiente |
 | **Rediseño pantalla de configuración** | 🔲 Pendiente |
 
 ---
 
-_Última actualización: 2026-05-21_
+_Última actualización: 2026-05-22_
