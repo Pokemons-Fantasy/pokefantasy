@@ -2,13 +2,18 @@ package com.villu.pokefantasy.commands.league;
 
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueRole;
+import com.villu.pokefantasy.dto.MatchStatus;
 import com.villu.pokefantasy.exception.ForbiddenOperationException;
 import com.villu.pokefantasy.league.LeagueAdminGuard;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
+import com.villu.pokefantasy.repository.ScheduleRepository;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import com.villu.pokefantasy.repository.entity.LeagueMember;
+import com.villu.pokefantasy.repository.entity.ScheduleEntity;
+import com.villu.pokefantasy.repository.entity.ScheduleEntity.Jornada;
+import com.villu.pokefantasy.repository.entity.ScheduleEntity.Match;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -16,6 +21,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -30,12 +36,14 @@ class UpdateLeagueSettingsCommandHandlerTest {
     @Mock private LeagueRepository leagueRepository;
     @Mock private DraftRepository draftRepository;
     @Mock private LeagueAdminGuard leagueAdminGuard;
+    @Mock private ScheduleRepository scheduleRepository;
 
     private UpdateLeagueSettingsCommandHandler handler;
 
     @BeforeEach
     void setUp() {
-        handler = new UpdateLeagueSettingsCommandHandler(leagueRepository, draftRepository, leagueAdminGuard);
+        handler = new UpdateLeagueSettingsCommandHandler(
+                leagueRepository, draftRepository, leagueAdminGuard, scheduleRepository);
     }
 
     private LeagueEntity leagueWithAdmin(String adminName) {
@@ -47,7 +55,7 @@ class UpdateLeagueSettingsCommandHandlerTest {
 
     private static UpdateLeagueSettingsCommand cmd(Integer coinsPerWin, Integer coinsPerLoss,
                                                     Integer s, Integer a, Integer b, Integer c, Integer d) {
-        return new UpdateLeagueSettingsCommand("l1", coinsPerWin, coinsPerLoss, s, a, b, c, d, "ash");
+        return new UpdateLeagueSettingsCommand("l1", coinsPerWin, coinsPerLoss, s, a, b, c, d, null, null, "ash");
     }
 
     private static UpdateLeagueSettingsCommand validCmd() {
@@ -102,7 +110,7 @@ class UpdateLeagueSettingsCommandHandlerTest {
                 .thenThrow(new ForbiddenOperationException("not admin"));
 
         assertThatThrownBy(() -> handler.handle(
-                new UpdateLeagueSettingsCommand("l1", 100, 50, 500, 400, 300, 200, 100, "brock")))
+                new UpdateLeagueSettingsCommand("l1", 100, 50, 500, 400, 300, 200, 100, null, null, "brock")))
                 .isInstanceOf(ForbiddenOperationException.class);
     }
 
@@ -149,6 +157,37 @@ class UpdateLeagueSettingsCommandHandlerTest {
         assertThat(captor.getValue().getSettings().getPriceTierB()).isEqualTo(300);
         assertThat(captor.getValue().getSettings().getPriceTierC()).isEqualTo(200);
         assertThat(captor.getValue().getSettings().getPriceTierD()).isEqualTo(100);
+    }
+
+    @Test
+    void handle_seasonStartDate_updatesJornadaDates() throws Exception {
+        LeagueEntity league = leagueWithAdmin("ash");
+        when(leagueAdminGuard.requireLeagueAdmin("l1", "ash")).thenReturn(league);
+
+        DraftEntity draft = new DraftEntity();
+        draft.setStatus(DraftStatus.COMPLETED);
+        when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.of(draft));
+
+        // Build a schedule with 2 jornadas (no startDate yet)
+        Match m1 = new Match("mid1", "ash", "brock", null, MatchStatus.PENDING);
+        Jornada j1 = new Jornada(1, new ArrayList<>(List.of(m1)), null);
+        Match m2 = new Match("mid2", "brock", "ash", null, MatchStatus.PENDING);
+        Jornada j2 = new Jornada(2, new ArrayList<>(List.of(m2)), null);
+        ScheduleEntity schedule = new ScheduleEntity();
+        schedule.setLeagueId("l1");
+        schedule.setJornadas(new ArrayList<>(List.of(j1, j2)));
+        when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
+
+        UpdateLeagueSettingsCommand cmd = new UpdateLeagueSettingsCommand(
+                "l1", 100, 50, 500, 400, 300, 200, 100, "2026-06-06", 20, "ash");
+        handler.handle(cmd);
+
+        // Schedule should be saved with updated dates
+        ArgumentCaptor<ScheduleEntity> scheduleCaptor = ArgumentCaptor.forClass(ScheduleEntity.class);
+        verify(scheduleRepository).save(scheduleCaptor.capture());
+        ScheduleEntity saved = scheduleCaptor.getValue();
+        assertThat(saved.getJornadas().get(0).getStartDate()).isEqualTo("2026-06-06");
+        assertThat(saved.getJornadas().get(1).getStartDate()).isEqualTo("2026-06-13");
     }
 
     @Test

@@ -6,9 +6,12 @@ import com.villu.pokefantasy.league.LeagueAdminGuard;
 import com.villu.pokefantasy.mediator.CommandHandler;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
+import com.villu.pokefantasy.repository.ScheduleRepository;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import org.springframework.stereotype.Service;
+
+import java.time.LocalDate;
 
 @Service
 public class UpdateLeagueSettingsCommandHandler
@@ -17,13 +20,16 @@ public class UpdateLeagueSettingsCommandHandler
     private final LeagueRepository leagueRepository;
     private final DraftRepository draftRepository;
     private final LeagueAdminGuard leagueAdminGuard;
+    private final ScheduleRepository scheduleRepository;
 
     public UpdateLeagueSettingsCommandHandler(LeagueRepository leagueRepository,
                                               DraftRepository draftRepository,
-                                              LeagueAdminGuard leagueAdminGuard) {
+                                              LeagueAdminGuard leagueAdminGuard,
+                                              ScheduleRepository scheduleRepository) {
         this.leagueRepository = leagueRepository;
         this.draftRepository = draftRepository;
         this.leagueAdminGuard = leagueAdminGuard;
+        this.scheduleRepository = scheduleRepository;
     }
 
     @Override
@@ -53,6 +59,10 @@ public class UpdateLeagueSettingsCommandHandler
                     "La configuración solo se puede editar tras completar el draft");
         }
 
+        if (command.maxTeamSize() != null && command.maxTeamSize() < 10) {
+            throw new IllegalArgumentException("maxTeamSize must be >= 10");
+        }
+
         league.setSettings(LeagueSettings.builder()
                 .coinsPerWin(command.coinsPerWin())
                 .coinsPerLoss(command.coinsPerLoss())
@@ -61,9 +71,24 @@ public class UpdateLeagueSettingsCommandHandler
                 .priceTierB(command.priceTierB())
                 .priceTierC(command.priceTierC())
                 .priceTierD(command.priceTierD())
+                .seasonStartDate(command.seasonStartDate())
+                .maxTeamSize(command.maxTeamSize() != null ? command.maxTeamSize() : 20)
                 .build());
 
         leagueRepository.save(league);
+
+        // If seasonStartDate was set, retroactively assign weekly dates to all jornadas
+        if (command.seasonStartDate() != null) {
+            scheduleRepository.findByLeagueId(command.leagueId()).ifPresent(schedule -> {
+                LocalDate firstDate = LocalDate.parse(command.seasonStartDate());
+                schedule.getJornadas().forEach(j -> {
+                    int weekIndex = j.getRoundNumber() - 1;
+                    j.setStartDate(firstDate.plusWeeks(weekIndex).toString());
+                });
+                scheduleRepository.save(schedule);
+            });
+        }
+
         return null;
     }
 

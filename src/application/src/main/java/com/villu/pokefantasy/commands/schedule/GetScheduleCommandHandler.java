@@ -14,9 +14,12 @@ import java.util.stream.Collectors;
 public class GetScheduleCommandHandler implements CommandHandler<GetScheduleCommand, ScheduleResponse> {
 
     private final ScheduleRepository scheduleRepository;
+    private final JornadaWindowService jornadaWindowService;
 
-    public GetScheduleCommandHandler(ScheduleRepository scheduleRepository) {
+    public GetScheduleCommandHandler(ScheduleRepository scheduleRepository,
+                                     JornadaWindowService jornadaWindowService) {
         this.scheduleRepository = scheduleRepository;
+        this.jornadaWindowService = jornadaWindowService;
     }
 
     @Override
@@ -32,19 +35,28 @@ public class GetScheduleCommandHandler implements CommandHandler<GetScheduleComm
         List<ScheduleResponse.JornadaResponse> jornadas = entity.getJornadas() == null
                 ? List.of()
                 : entity.getJornadas().stream()
-                        .map(j -> ScheduleResponse.JornadaResponse.builder()
-                                .roundNumber(j.getRoundNumber())
-                                .matches(j.getMatches() == null ? List.of() :
-                                        j.getMatches().stream()
-                                                .map(m -> ScheduleResponse.MatchResponse.builder()
-                                                        .id(m.getId())
-                                                        .player1(m.getPlayer1())
-                                                        .player2(m.getPlayer2())
-                                                        .winnerUsername(m.getWinnerUsername())
-                                                        .status(m.getStatus())
-                                                        .build())
-                                                .collect(Collectors.toList()))
-                                .build())
+                        .map(j -> {
+                            String stealDeadline = j.getStartDate() != null
+                                    ? jornadaWindowService.getStealDeadline(j.getStartDate()).toString() : null;
+                            String swapDeadline = j.getStartDate() != null
+                                    ? jornadaWindowService.getSwapDeadline(j.getStartDate()).toString() : null;
+                            return ScheduleResponse.JornadaResponse.builder()
+                                    .roundNumber(j.getRoundNumber())
+                                    .startDate(j.getStartDate())
+                                    .stealDeadline(stealDeadline)
+                                    .swapDeadline(swapDeadline)
+                                    .matches(j.getMatches() == null ? List.of() :
+                                            j.getMatches().stream()
+                                                    .map(m -> ScheduleResponse.MatchResponse.builder()
+                                                            .id(m.getId())
+                                                            .player1(m.getPlayer1())
+                                                            .player2(m.getPlayer2())
+                                                            .winnerUsername(m.getWinnerUsername())
+                                                            .status(m.getStatus())
+                                                            .build())
+                                                    .collect(Collectors.toList()))
+                                    .build();
+                        })
                         .collect(Collectors.toList());
 
         return ScheduleResponse.builder()

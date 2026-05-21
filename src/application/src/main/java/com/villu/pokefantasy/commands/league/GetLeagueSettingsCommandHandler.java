@@ -35,6 +35,8 @@ public class GetLeagueSettingsCommandHandler
                 .priceTierB(settings.getPriceTierB())
                 .priceTierC(settings.getPriceTierC())
                 .priceTierD(settings.getPriceTierD())
+                .seasonStartDate(settings.getSeasonStartDate())
+                .maxTeamSize(settings.getMaxTeamSize())
                 .build();
     }
 

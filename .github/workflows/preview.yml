@@ -1,0 +1,64 @@
+name: Preview Deploy
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write  # force-push a staging
+  issues: write    # comentar en la PR
+
+jobs:
+  deploy-preview:
+    # Solo si el comentario es en una PR y contiene "/deploy"
+    if: |
+      github.event.issue.pull_request != null &&
+      contains(github.event.comment.body, '/deploy')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Obtener rama de la PR
+        id: pr
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            });
+            core.setOutput('branch', pr.head.ref);
+            core.setOutput('sha', pr.head.sha.slice(0, 7));
+
+      - name: Force-push rama PR → staging
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin ${{ steps.pr.outputs.branch }}
+          git checkout ${{ steps.pr.outputs.branch }}
+          git push origin HEAD:staging --force
+
+      - name: Comentar URL de staging en la PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: [
+                '🚀 **Preview deployment iniciado** · commit `${{ steps.pr.outputs.sha }}`',
+                '',
+                '📡 **URL staging**: https://pokefantasy-staging.onrender.com',
+                '',
+                '> ⏳ Render tarda ~2-3 min en construir la imagen Docker.',
+                '> 💤 Si el servicio estaba dormido (free tier), añade ~50 s de cold start en la primera petición.',
+                '> 🔄 Para actualizar tras un nuevo push, escribe `/deploy` de nuevo.'
+              ].join('\n')
+            });

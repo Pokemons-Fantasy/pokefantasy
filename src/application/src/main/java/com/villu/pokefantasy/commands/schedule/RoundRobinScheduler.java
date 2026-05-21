@@ -5,6 +5,7 @@ import com.villu.pokefantasy.repository.entity.ScheduleEntity;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity.Jornada;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity.Match;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -13,6 +14,9 @@ import java.util.UUID;
  * Generates a round-robin schedule (primera vuelta + segunda vuelta) for a list of players.
  * Uses the polygon/circle method: fix position 0, rotate the rest.
  * Odd number of players: a "BYE" is added to make it even; matches against BYE are skipped.
+ *
+ * If firstJornadaDate is provided, each jornada gets a startDate assigned:
+ *   jornada N → firstJornadaDate + (N-1) weeks
  */
 public class RoundRobinScheduler {
 
@@ -20,7 +24,13 @@ public class RoundRobinScheduler {
 
     private RoundRobinScheduler() {}
 
+    /** Generate schedule without dates (backward-compatible). */
     public static List<Jornada> generate(List<String> players) {
+        return generate(players, null);
+    }
+
+    /** Generate schedule, optionally assigning a startDate to each jornada. */
+    public static List<Jornada> generate(List<String> players, LocalDate firstJornadaDate) {
         if (players == null || players.isEmpty()) {
             return List.of();
         }
@@ -33,16 +43,19 @@ public class RoundRobinScheduler {
         int n = list.size();
         int roundsPerLeg = n - 1;
 
-        List<Jornada> primerVuelta = generateLeg(list, n, roundsPerLeg, 1);
-        List<Jornada> segundaVuelta = mirrorLeg(primerVuelta, roundsPerLeg + 1);
+        List<Jornada> primerVuelta = generateLeg(list, n, roundsPerLeg, 1, firstJornadaDate);
+        int segundaVueltaStart = roundsPerLeg + 1;
+        LocalDate segundaVueltaOffset = firstJornadaDate != null
+                ? firstJornadaDate.plusWeeks(roundsPerLeg) : null;
+        List<Jornada> segundaVuelta = mirrorLeg(primerVuelta, segundaVueltaStart, segundaVueltaOffset);
 
         List<Jornada> all = new ArrayList<>(primerVuelta);
         all.addAll(segundaVuelta);
         return all;
     }
 
-    private static List<Jornada> generateLeg(List<String> original, int n, int rounds, int startRound) {
-        // Work on a mutable copy for rotation
+    private static List<Jornada> generateLeg(List<String> original, int n, int rounds,
+                                              int startRound, LocalDate firstDate) {
         List<String> list = new ArrayList<>(original);
         List<Jornada> jornadas = new ArrayList<>();
 
@@ -55,7 +68,9 @@ public class RoundRobinScheduler {
                     matches.add(new Match(UUID.randomUUID().toString(), p1, p2, null, MatchStatus.PENDING));
                 }
             }
-            jornadas.add(new Jornada(startRound + round, matches));
+            String startDate = firstDate != null
+                    ? firstDate.plusWeeks(round).toString() : null;
+            jornadas.add(new Jornada(startRound + round, matches, startDate));
 
             // Rotate: move last element to position 1 (position 0 stays fixed)
             String last = list.remove(n - 1);
@@ -65,16 +80,21 @@ public class RoundRobinScheduler {
         return jornadas;
     }
 
-    private static List<Jornada> mirrorLeg(List<Jornada> primerVuelta, int startRound) {
+    private static List<Jornada> mirrorLeg(List<Jornada> primerVuelta, int startRound,
+                                            LocalDate firstDate) {
         List<Jornada> segundaVuelta = new ArrayList<>();
         for (int i = 0; i < primerVuelta.size(); i++) {
             Jornada original = primerVuelta.get(i);
             List<Match> mirroredMatches = new ArrayList<>();
             for (Match m : original.getMatches()) {
-                // Swap player1 and player2 for the second leg
-                mirroredMatches.add(new Match(UUID.randomUUID().toString(), m.getPlayer2(), m.getPlayer1(), null, MatchStatus.PENDING));
+                mirroredMatches.add(new Match(
+                        UUID.randomUUID().toString(),
+                        m.getPlayer2(), m.getPlayer1(),
+                        null, MatchStatus.PENDING));
             }
-            segundaVuelta.add(new Jornada(startRound + i, mirroredMatches));
+            String startDate = firstDate != null
+                    ? firstDate.plusWeeks(i).toString() : null;
+            segundaVuelta.add(new Jornada(startRound + i, mirroredMatches, startDate));
         }
         return segundaVuelta;
     }
