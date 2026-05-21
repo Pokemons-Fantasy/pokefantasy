@@ -240,6 +240,111 @@ class StealPokemonCommandHandlerTest {
         assertThat(saved.getCustomStealPrice()).isEqualTo(800);
     }
 
+    // ── Tier A price used when no customStealPrice ────────────────────────────
+
+    @Test
+    void handle_tierAPokemon_insufficientCoins_throws() {
+        // tier A price = 200, stealer only has 50 → throws at balance check
+        // This ensures case A in priceForTier switch is covered
+        DraftEntity draft = completedDraftWithPick(VICTIM, TARGET, 6);
+        ScheduleEntity schedule = scheduleWithActiveJornada(1);
+        LeagueEntity league = leagueWithTwoMembers(50, 0);
+        league.setSettings(LeagueSettings.builder().priceTierA(200).build());
+        ClosedListEntity entry = closedListEntry(TARGET, 6, Tier.A);
+
+        when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+        when(scheduleRepository.findByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(schedule));
+        when(jornadaWindowService.isStealWindowOpen(schedule)).thenReturn(true);
+        when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
+        when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TARGET, LEAGUE_ID))
+                .thenReturn(Optional.of(entry));
+
+        assertThatThrownBy(() -> handler.handle(new StealPokemonCommand(LEAGUE_ID, STEALER, TARGET)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("suficientes monedas");
+    }
+
+    // ── Tier B — stealer has null pokemons (ternary branch) ───────────────────
+
+    @Test
+    void handle_stealerNullPokemons_createsNewList() {
+        // Stealer exists but getPokemons()==null → handler must create a new ArrayList
+        // Also covers case B in priceForTier switch
+        DraftEntity draft = completedDraftWithPick(VICTIM, TARGET, 6);
+        ScheduleEntity schedule = scheduleWithActiveJornada(1);
+        LeagueEntity league = leagueWithTwoMembers(1000, 500);
+        league.setSettings(LeagueSettings.builder().priceTierB(100).build());
+        ClosedListEntity entry = closedListEntry(TARGET, 6, Tier.B);
+
+        when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+        when(scheduleRepository.findByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(schedule));
+        when(jornadaWindowService.isStealWindowOpen(schedule)).thenReturn(true);
+        when(jornadaWindowService.getActiveJornada(schedule)).thenReturn(
+                Optional.of(schedule.getJornadas().get(0)));
+        when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
+        when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TARGET, LEAGUE_ID))
+                .thenReturn(Optional.of(entry));
+
+        UserEntity stealerUser = new UserEntity();
+        stealerUser.setName(STEALER);
+        stealerUser.setPokemons(null); // ← null pokemons: forces the else-branch on line 137
+
+        UserEntity victimUser = userWithPokemon(VICTIM, TARGET);
+        when(userRepository.findByUsername(STEALER)).thenReturn(stealerUser);
+        when(userRepository.findByUsername(VICTIM)).thenReturn(victimUser);
+
+        handler.handle(new StealPokemonCommand(LEAGUE_ID, STEALER, TARGET));
+
+        // Pokemon was added to the newly-created empty list
+        assertThat(stealerUser.getPokemons()).anyMatch(p -> TARGET.equals(p.getName()));
+    }
+
+    // ── Tier C price used ─────────────────────────────────────────────────────
+
+    @Test
+    void handle_tierCPokemon_insufficientCoins_throws() {
+        // tier C price = 75, stealer only has 10 → covers case C in priceForTier switch
+        DraftEntity draft = completedDraftWithPick(VICTIM, TARGET, 6);
+        ScheduleEntity schedule = scheduleWithActiveJornada(1);
+        LeagueEntity league = leagueWithTwoMembers(10, 0);
+        league.setSettings(LeagueSettings.builder().priceTierC(75).build());
+        ClosedListEntity entry = closedListEntry(TARGET, 6, Tier.C);
+
+        when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+        when(scheduleRepository.findByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(schedule));
+        when(jornadaWindowService.isStealWindowOpen(schedule)).thenReturn(true);
+        when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
+        when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TARGET, LEAGUE_ID))
+                .thenReturn(Optional.of(entry));
+
+        assertThatThrownBy(() -> handler.handle(new StealPokemonCommand(LEAGUE_ID, STEALER, TARGET)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("suficientes monedas");
+    }
+
+    // ── Tier D price used ─────────────────────────────────────────────────────
+
+    @Test
+    void handle_tierDPokemon_insufficientCoins_throws() {
+        // tier D price = 25, stealer only has 0 → covers case D in priceForTier switch
+        DraftEntity draft = completedDraftWithPick(VICTIM, TARGET, 6);
+        ScheduleEntity schedule = scheduleWithActiveJornada(1);
+        LeagueEntity league = leagueWithTwoMembers(0, 0);
+        league.setSettings(LeagueSettings.builder().priceTierD(25).build());
+        ClosedListEntity entry = closedListEntry(TARGET, 6, Tier.D);
+
+        when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+        when(scheduleRepository.findByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(schedule));
+        when(jornadaWindowService.isStealWindowOpen(schedule)).thenReturn(true);
+        when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
+        when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TARGET, LEAGUE_ID))
+                .thenReturn(Optional.of(entry));
+
+        assertThatThrownBy(() -> handler.handle(new StealPokemonCommand(LEAGUE_ID, STEALER, TARGET)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("suficientes monedas");
+    }
+
     @Test
     void commandType_returnsCorrectClass() {
         assertThat(handler.commandType()).isEqualTo(StealPokemonCommand.class);

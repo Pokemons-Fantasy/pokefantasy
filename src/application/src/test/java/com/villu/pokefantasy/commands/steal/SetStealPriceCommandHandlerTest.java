@@ -137,6 +137,64 @@ class SetStealPriceCommandHandlerTest {
                 .hasMessageContaining("suficientes monedas");
     }
 
+    // ── Negative price ────────────────────────────────────────────────────────
+
+    @Test
+    void handle_negativePrice_throws() {
+        // Throws before any repository call → no stubs needed
+        assertThatThrownBy(() -> handler.handle(new SetStealPriceCommand(LEAGUE_ID, USERNAME, POKEMON, -1)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("no puede ser negativo");
+    }
+
+    // ── Tier C price used ─────────────────────────────────────────────────────
+
+    @Test
+    void handle_tierCPokemon_raisesPrice() {
+        // Covers case C in priceForTier switch
+        int tierCPrice = 50;
+        int newPrice = 120;
+
+        DraftEntity draft = draftWithPick(USERNAME, POKEMON, null);
+        LeagueEntity league = leagueWithMember(1000);
+        league.setSettings(LeagueSettings.builder().priceTierC(tierCPrice).build());
+        ClosedListEntity entry = closedListEntry(POKEMON, Tier.C);
+
+        when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+        when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
+        when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(POKEMON, LEAGUE_ID))
+                .thenReturn(Optional.of(entry));
+
+        handler.handle(new SetStealPriceCommand(LEAGUE_ID, USERNAME, POKEMON, newPrice));
+
+        LeagueMember member = getMember(league);
+        assertThat(member.getCoinBalance()).isEqualTo(930); // 1000 - 70
+    }
+
+    // ── Tier D price used ─────────────────────────────────────────────────────
+
+    @Test
+    void handle_tierDPokemon_raisesPrice() {
+        // Covers case D in priceForTier switch
+        int tierDPrice = 25;
+        int newPrice = 60;
+
+        DraftEntity draft = draftWithPick(USERNAME, POKEMON, null);
+        LeagueEntity league = leagueWithMember(500);
+        league.setSettings(LeagueSettings.builder().priceTierD(tierDPrice).build());
+        ClosedListEntity entry = closedListEntry(POKEMON, Tier.D);
+
+        when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+        when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
+        when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(POKEMON, LEAGUE_ID))
+                .thenReturn(Optional.of(entry));
+
+        handler.handle(new SetStealPriceCommand(LEAGUE_ID, USERNAME, POKEMON, newPrice));
+
+        LeagueMember member = getMember(league);
+        assertThat(member.getCoinBalance()).isEqualTo(465); // 500 - 35
+    }
+
     @Test
     void commandType_returnsCorrectClass() {
         assertThat(handler.commandType()).isEqualTo(SetStealPriceCommand.class);
