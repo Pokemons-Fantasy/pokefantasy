@@ -13,4 +13,8 @@ public class DraftPickResponse {
     private Integer pokemonId;
     private int round;
     private Instant pickedAt;
+    /** Custom steal price set by owner. null = use priceTierX default. */
+    private Integer customStealPrice;
+    /** Round number of active jornada when stolen. null = not locked. */
+    private Integer lockedUntilRound;
 }

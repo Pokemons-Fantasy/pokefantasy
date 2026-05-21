@@ -99,7 +99,7 @@ class DraftPickCommandHandlerTest {
     void handle_maxPokemonsReached_throwsIllegalState() {
         List<DraftPick> picks = new ArrayList<>();
         for (int i = 0; i < 10; i++) {
-            picks.add(new DraftPick(USERNAME, "poke" + i, i, 1, Instant.now()));
+            picks.add(new DraftPick(USERNAME, "poke" + i, i, 1, Instant.now(), null, null));
         }
         DraftEntity draft = activeDraft(List.of(USERNAME), 0, 1, picks);
         UserEntity user = new UserEntity();
@@ -117,7 +117,7 @@ class DraftPickCommandHandlerTest {
         // League configured with maxTeamSize=20 → 10 picks should NOT yet be the limit
         List<DraftPick> picks = new ArrayList<>();
         for (int i = 0; i < 10; i++) {
-            picks.add(new DraftPick(USERNAME, "poke" + i, i, 1, Instant.now()));
+            picks.add(new DraftPick(USERNAME, "poke" + i, i, 1, Instant.now(), null, null));
         }
         DraftEntity draft = activeDraft(List.of(USERNAME), 0, 11, picks);
         UserEntity user = new UserEntity();
@@ -143,7 +143,7 @@ class DraftPickCommandHandlerTest {
     @Test
     void handle_pokemonAlreadyPicked_throwsIllegalArgument() {
         List<DraftPick> picks = new ArrayList<>();
-        picks.add(new DraftPick("brock", POKEMON, 25, 1, Instant.now()));
+        picks.add(new DraftPick("brock", POKEMON, 25, 1, Instant.now(), null, null));
         DraftEntity draft = activeDraft(List.of(USERNAME), 0, 1, picks);
         UserEntity user = new UserEntity();
         when(draftRepository.findActiveByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));

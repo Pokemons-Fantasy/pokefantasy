@@ -81,7 +81,7 @@ class GetDraftStatusCommandHandlerTest {
     @Test
     void handle_withPicks_mapsPicksCorrectly() {
         Instant now = Instant.now();
-        DraftPick pick = new DraftPick("ash", "pikachu", 25, 1, now);
+        DraftPick pick = new DraftPick("ash", "pikachu", 25, 1, now, null, null);
         DraftEntity draft = buildDraft(DraftStatus.IN_PROGRESS, List.of("ash"), 0, 1, List.of(pick));
         when(draftRepository.findActiveByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
 

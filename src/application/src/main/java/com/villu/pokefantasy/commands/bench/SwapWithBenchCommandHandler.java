@@ -104,20 +104,32 @@ public class SwapWithBenchCommandHandler implements CommandHandler<SwapWithBench
             throw new IllegalStateException("'" + pokemonToTake + "' is not available on the bench");
         }
 
-        // Coin check: deduct coins if the tier has a non-zero price
+        // Tier parity check + net coin change
+        ClosedListEntity giveEntry = closedListRepository
+                .findByPokemonNameIgnoreCaseAndLeagueId(pokemonToGive, leagueId)
+                .orElse(null); // null → treat as tier D (rank 4, price 0)
+
+        Tier giveTier = giveEntry != null ? giveEntry.getTier() : null;
+        if (tierRank(giveTier) > tierRank(benchEntry.getTier())) {
+            throw new IllegalStateException(
+                    "No puedes intercambiar un pokémon de tier " + giveEntry.getTier() +
+                    " por uno de tier " + benchEntry.getTier() +
+                    ". Debes entregar un pokémon de igual o mejor tier.");
+        }
+
         LeagueSettings settings = league.getSettings();
-        int price = priceForTier(settings, benchEntry.getTier());
-        if (price > 0) {
-            LeagueMember member = league.getMembers().stream()
-                    .filter(m -> username.equals(m.getUsername()))
-                    .findFirst()
-                    .orElseThrow();
-            if (member.getCoinBalance() < price) {
-                throw new IllegalStateException(
-                        "No tienes suficientes monedas. Necesitas " + price +
-                        " pero tienes " + member.getCoinBalance() + ".");
-            }
-            member.setCoinBalance(member.getCoinBalance() - price);
+        int priceGive = priceForTier(settings, giveTier);
+        int priceTake = priceForTier(settings, benchEntry.getTier());
+        int net = priceGive - priceTake; // positive = player receives coins; negative = player pays
+
+        LeagueMember member = getMember(league, username);
+        if (net < 0 && member.getCoinBalance() < -net) {
+            throw new IllegalStateException(
+                    "No tienes suficientes monedas. Necesitas " + (-net) +
+                    " pero tienes " + member.getCoinBalance() + ".");
+        }
+        if (net != 0) {
+            member.setCoinBalance(member.getCoinBalance() + net);
             leagueRepository.save(league);
         }
 
@@ -139,14 +151,27 @@ public class SwapWithBenchCommandHandler implements CommandHandler<SwapWithBench
         for (int i = 0; i < picks.size(); i++) {
             DraftPick pick = picks.get(i);
             if (username.equals(pick.getUsername()) && pokemonToGive.equalsIgnoreCase(pick.getPokemonName())) {
-                picks.set(i, new DraftPick(username, benchEntry.getPokemonName(),
-                        benchEntry.getPokemonId(), pick.getRound(), pick.getPickedAt()));
+                DraftPick newPick = new DraftPick(username, benchEntry.getPokemonName(),
+                        benchEntry.getPokemonId(), pick.getRound(), pick.getPickedAt(), null, null);
+                picks.set(i, newPick);
                 break;
             }
         }
         draftRepository.save(draft);
 
         return null;
+    }
+
+    private int tierRank(Tier tier) {
+        if (tier == null) return 4;
+        return switch (tier) { case S -> 0; case A -> 1; case B -> 2; case C -> 3; case D -> 4; };
+    }
+
+    private LeagueMember getMember(LeagueEntity league, String username) {
+        return league.getMembers().stream()
+                .filter(m -> username.equals(m.getUsername()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("Member not found: " + username));
     }
 
     private int priceForTier(LeagueSettings settings, Tier tier) {
