@@ -1,5 +1,7 @@
 package com.villu.pokefantasy.commands.bench;
 
+import com.villu.pokefantasy.dto.LeagueSettings;
+import com.villu.pokefantasy.dto.Tier;
 import com.villu.pokefantasy.mediator.CommandHandler;
 import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
@@ -42,14 +44,32 @@ public class GetBenchCommandHandler implements CommandHandler<GetBenchCommand, L
                 .map(p -> p.getName().toLowerCase())
                 .collect(Collectors.toSet());
 
+        LeagueSettings settings = league.getSettings();
+
         return closedListRepository.findAllByLeagueId(leagueId).stream()
                 .filter(entry -> !ownedPokemonNames.contains(entry.getPokemonName().toLowerCase()))
-                .map(entry -> BenchEntryResponse.builder()
-                        .pokemonId(entry.getPokemonId())
-                        .pokemonName(entry.getPokemonName())
-                        .sprite(entry.getSprite())
-                        .build())
+                .map(entry -> {
+                    int price = priceForTier(settings, entry.getTier());
+                    return BenchEntryResponse.builder()
+                            .pokemonId(entry.getPokemonId())
+                            .pokemonName(entry.getPokemonName())
+                            .sprite(entry.getSprite())
+                            .tier(entry.getTier() != null ? entry.getTier().name() : null)
+                            .price(price)
+                            .build();
+                })
                 .toList();
+    }
+
+    private int priceForTier(LeagueSettings settings, Tier tier) {
+        if (settings == null || tier == null) return 0;
+        return switch (tier) {
+            case S -> settings.getPriceTierS() != null ? settings.getPriceTierS() : 0;
+            case A -> settings.getPriceTierA() != null ? settings.getPriceTierA() : 0;
+            case B -> settings.getPriceTierB() != null ? settings.getPriceTierB() : 0;
+            case C -> settings.getPriceTierC() != null ? settings.getPriceTierC() : 0;
+            case D -> settings.getPriceTierD() != null ? settings.getPriceTierD() : 0;
+        };
     }
 
     @Override
