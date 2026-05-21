@@ -71,6 +71,7 @@ public class LeagueController {
         leagueFacade.updateSettings(leagueId, request.getCoinsPerWin(), request.getCoinsPerLoss(),
                 request.getPriceTierS(), request.getPriceTierA(), request.getPriceTierB(),
                 request.getPriceTierC(), request.getPriceTierD(),
+                request.getSeasonStartDate(), request.getMaxTeamSize(),
                 userDetails.getUsername());
         return ResponseEntity.noContent().build();
     }

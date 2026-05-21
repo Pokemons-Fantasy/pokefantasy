@@ -17,4 +17,6 @@ public class LeagueSettingsResponse {
     private Integer priceTierB;
     private Integer priceTierC;
     private Integer priceTierD;
+    private String seasonStartDate;
+    private Integer maxTeamSize;
 }

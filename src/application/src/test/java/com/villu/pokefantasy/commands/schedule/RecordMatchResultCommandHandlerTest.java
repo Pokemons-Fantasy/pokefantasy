@@ -3,15 +3,18 @@ package com.villu.pokefantasy.commands.schedule;
 import com.villu.pokefantasy.dto.LeagueRole;
 import com.villu.pokefantasy.dto.LeagueSettings;
 import com.villu.pokefantasy.dto.MatchStatus;
+import com.villu.pokefantasy.dto.Pokemons;
 import com.villu.pokefantasy.exception.ForbiddenOperationException;
 import com.villu.pokefantasy.league.LeagueAdminGuard;
 import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.ScheduleRepository;
+import com.villu.pokefantasy.repository.UserRepository;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import com.villu.pokefantasy.repository.entity.LeagueMember;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity.Jornada;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity.Match;
+import com.villu.pokefantasy.repository.entity.UserEntity;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,8 +28,8 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.*;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class RecordMatchResultCommandHandlerTest {
@@ -34,6 +37,7 @@ class RecordMatchResultCommandHandlerTest {
     @Mock private ScheduleRepository scheduleRepository;
     @Mock private LeagueAdminGuard leagueAdminGuard;
     @Mock private LeagueRepository leagueRepository;
+    @Mock private UserRepository userRepository;
 
     private RecordMatchResultCommandHandler handler;
 
@@ -45,7 +49,11 @@ class RecordMatchResultCommandHandlerTest {
 
     @BeforeEach
     void setUp() {
-        handler = new RecordMatchResultCommandHandler(scheduleRepository, leagueAdminGuard, leagueRepository);
+        handler = new RecordMatchResultCommandHandler(
+                scheduleRepository, leagueAdminGuard, leagueRepository, userRepository);
+        // Default: both players have pokémon in the league (forfeit check passes)
+        lenient().when(userRepository.findByUsername(PLAYER1)).thenReturn(userWithPokemon(PLAYER1));
+        lenient().when(userRepository.findByUsername(PLAYER2)).thenReturn(userWithPokemon(PLAYER2));
     }
 
     @Test
@@ -161,6 +169,33 @@ class RecordMatchResultCommandHandlerTest {
     }
 
     @Test
+    void handle_loserHasNoPokemon_forfeitConfirmed() {
+        // Loser has 0 pokémon → forfeit; the declared winner is still valid.
+        // checkForfeit only verifies the WINNER has pokémon, so loser's count is irrelevant here.
+        when(leagueAdminGuard.requireLeagueAdmin(LEAGUE_ID, ADMIN)).thenReturn(leagueWithSettings(100, 50));
+        when(scheduleRepository.findByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(scheduleWithMatch(MATCH_ID)));
+        // lenient default stubs handle: PLAYER1 (winner) has pokémon → check passes
+
+        // Should NOT throw — forfeit is valid
+        handler.handle(new RecordMatchResultCommand(LEAGUE_ID, MATCH_ID, PLAYER1, ADMIN));
+
+        verify(scheduleRepository).save(any());
+    }
+
+    @Test
+    void handle_winnerHasNoPokemon_throwsIllegalArgument() {
+        when(leagueAdminGuard.requireLeagueAdmin(LEAGUE_ID, ADMIN)).thenReturn(leagueWithSettings(100, 50));
+        when(scheduleRepository.findByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(scheduleWithMatch(MATCH_ID)));
+        // Override: declared winner has no pokémon → reject
+        when(userRepository.findByUsername(PLAYER1)).thenReturn(userWithNoPokemon());
+
+        assertThatThrownBy(() -> handler.handle(
+                new RecordMatchResultCommand(LEAGUE_ID, MATCH_ID, PLAYER1, ADMIN)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("no tiene Pokémon");
+    }
+
+    @Test
     void commandType_returnsCorrectClass() {
         assertThat(handler.commandType()).isEqualTo(RecordMatchResultCommand.class);
     }
@@ -169,12 +204,29 @@ class RecordMatchResultCommandHandlerTest {
 
     private ScheduleEntity scheduleWithMatch(String matchId) {
         Match match = new Match(matchId, PLAYER1, PLAYER2, null, MatchStatus.PENDING);
-        Jornada jornada = new Jornada(1, new ArrayList<>(List.of(match)));
+        Jornada jornada = new Jornada(1, new ArrayList<>(List.of(match)), null);
         ScheduleEntity schedule = new ScheduleEntity();
         schedule.setId("s1");
         schedule.setLeagueId(LEAGUE_ID);
         schedule.setJornadas(new ArrayList<>(List.of(jornada)));
         return schedule;
+    }
+
+    private UserEntity userWithPokemon(String username) {
+        Pokemons p = new Pokemons();
+        p.setName("pikachu");
+        p.setLeagueId(LEAGUE_ID);
+        UserEntity user = new UserEntity();
+        user.setName(username);
+        user.setPokemons(new ArrayList<>(List.of(p)));
+        return user;
+    }
+
+    private UserEntity userWithNoPokemon() {
+        UserEntity user = new UserEntity();
+        user.setName("someone");
+        user.setPokemons(new ArrayList<>());
+        return user;
     }
 
     private LeagueEntity leagueWithSettings(Integer coinsPerWin, Integer coinsPerLoss) {

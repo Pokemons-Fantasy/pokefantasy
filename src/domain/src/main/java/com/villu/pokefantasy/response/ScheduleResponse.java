@@ -24,6 +24,9 @@ public class ScheduleResponse {
     public static class JornadaResponse {
         private int roundNumber;
         private List<MatchResponse> matches;
+        private String startDate;      // "YYYY-MM-DD", null if not configured
+        private String stealDeadline;  // "YYYY-MM-DDTHH:mm:ss", null if no startDate
+        private String swapDeadline;   // "YYYY-MM-DDTHH:mm:ss", null if no startDate
     }
 
     @Data

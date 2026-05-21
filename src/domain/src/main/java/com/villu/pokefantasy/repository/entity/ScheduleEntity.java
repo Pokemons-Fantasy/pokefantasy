@@ -26,6 +26,7 @@ public class ScheduleEntity {
     public static class Jornada {
         private int roundNumber;
         private List<Match> matches;
+        private String startDate;   // ISO "YYYY-MM-DD", null until admin sets seasonStartDate
     }
 
     @Data

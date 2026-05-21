@@ -18,6 +18,8 @@ public class LeagueSettings {
     private Integer priceTierB;
     private Integer priceTierC;
     private Integer priceTierD;
+    private String seasonStartDate;  // ISO "YYYY-MM-DD", null until admin sets it
+    private Integer maxTeamSize;     // post-draft team cap (default 20)
 
     public static LeagueSettings defaults() {
         return LeagueSettings.builder()
@@ -28,6 +30,8 @@ public class LeagueSettings {
                 .priceTierB(0)
                 .priceTierC(0)
                 .priceTierD(0)
+                .seasonStartDate(null)
+                .maxTeamSize(20)
                 .build();
     }
 }

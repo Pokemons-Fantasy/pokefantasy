@@ -84,7 +84,7 @@ class LeagueFacadeTest {
 
     @Test
     void updateSettings_sendsUpdateLeagueSettingsCommand() throws Exception {
-        facade.updateSettings("l1", 200, 30, 500, 400, 300, 200, 100, "ash");
+        facade.updateSettings("l1", 200, 30, 500, 400, 300, 200, 100, null, null, "ash");
 
         ArgumentCaptor<UpdateLeagueSettingsCommand> captor = ArgumentCaptor.forClass(UpdateLeagueSettingsCommand.class);
         verify(mediator).send(captor.capture());

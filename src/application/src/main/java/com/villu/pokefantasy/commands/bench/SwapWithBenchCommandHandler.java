@@ -1,16 +1,19 @@
 package com.villu.pokefantasy.commands.bench;
 
+import com.villu.pokefantasy.commands.schedule.JornadaWindowService;
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.Pokemons;
 import com.villu.pokefantasy.mediator.CommandHandler;
 import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
+import com.villu.pokefantasy.repository.ScheduleRepository;
 import com.villu.pokefantasy.repository.UserRepository;
 import com.villu.pokefantasy.repository.entity.ClosedListEntity;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
 import com.villu.pokefantasy.repository.entity.DraftPick;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
+import com.villu.pokefantasy.repository.entity.ScheduleEntity;
 import com.villu.pokefantasy.repository.entity.UserEntity;
 import org.springframework.stereotype.Service;
 
@@ -26,15 +29,21 @@ public class SwapWithBenchCommandHandler implements CommandHandler<SwapWithBench
     private final ClosedListRepository closedListRepository;
     private final LeagueRepository leagueRepository;
     private final UserRepository userRepository;
+    private final ScheduleRepository scheduleRepository;
+    private final JornadaWindowService jornadaWindowService;
 
     public SwapWithBenchCommandHandler(DraftRepository draftRepository,
                                        ClosedListRepository closedListRepository,
                                        LeagueRepository leagueRepository,
-                                       UserRepository userRepository) {
+                                       UserRepository userRepository,
+                                       ScheduleRepository scheduleRepository,
+                                       JornadaWindowService jornadaWindowService) {
         this.draftRepository = draftRepository;
         this.closedListRepository = closedListRepository;
         this.leagueRepository = leagueRepository;
         this.userRepository = userRepository;
+        this.scheduleRepository = scheduleRepository;
+        this.jornadaWindowService = jornadaWindowService;
     }
 
     @Override
@@ -47,6 +56,14 @@ public class SwapWithBenchCommandHandler implements CommandHandler<SwapWithBench
         DraftEntity draft = draftRepository.findLatestByLeagueId(leagueId)
                 .filter(d -> d.getStatus() == DraftStatus.COMPLETED)
                 .orElseThrow(() -> new IllegalStateException("Swaps are only allowed after the draft is completed"));
+
+        // Check swap window (only enforced when a schedule with dates exists)
+        ScheduleEntity schedule = scheduleRepository.findByLeagueId(leagueId).orElse(null);
+        if (schedule != null && !jornadaWindowService.isSwapWindowOpen(schedule)) {
+            throw new IllegalStateException(
+                    "El intercambio con la banca no está permitido en este momento. " +
+                    "El plazo cerró el viernes a las 16:00 o los resultados de la jornada anterior aún no están completos.");
+        }
 
         LeagueEntity league = leagueRepository.findById(leagueId)
                 .orElseThrow(() -> new IllegalArgumentException("League not found: " + leagueId));

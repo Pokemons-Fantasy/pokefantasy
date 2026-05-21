@@ -11,4 +11,6 @@ public class UpdateLeagueSettingsRequest {
     private Integer priceTierB;
     private Integer priceTierC;
     private Integer priceTierD;
+    private String seasonStartDate;  // ISO "YYYY-MM-DD", optional
+    private Integer maxTeamSize;     // optional, default 20
 }

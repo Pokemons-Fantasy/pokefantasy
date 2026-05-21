@@ -1,17 +1,23 @@
 package com.villu.pokefantasy.commands.bench;
 
+import com.villu.pokefantasy.commands.schedule.JornadaWindowService;
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueRole;
+import com.villu.pokefantasy.dto.MatchStatus;
 import com.villu.pokefantasy.dto.Pokemons;
 import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
+import com.villu.pokefantasy.repository.ScheduleRepository;
 import com.villu.pokefantasy.repository.UserRepository;
 import com.villu.pokefantasy.repository.entity.ClosedListEntity;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
 import com.villu.pokefantasy.repository.entity.DraftPick;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import com.villu.pokefantasy.repository.entity.LeagueMember;
+import com.villu.pokefantasy.repository.entity.ScheduleEntity;
+import com.villu.pokefantasy.repository.entity.ScheduleEntity.Jornada;
+import com.villu.pokefantasy.repository.entity.ScheduleEntity.Match;
 import com.villu.pokefantasy.repository.entity.UserEntity;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -36,6 +42,8 @@ class SwapWithBenchCommandHandlerTest {
     @Mock private ClosedListRepository closedListRepository;
     @Mock private LeagueRepository leagueRepository;
     @Mock private UserRepository userRepository;
+    @Mock private ScheduleRepository scheduleRepository;
+    @Mock private JornadaWindowService jornadaWindowService;
 
     private SwapWithBenchCommandHandler handler;
 
@@ -46,7 +54,11 @@ class SwapWithBenchCommandHandlerTest {
 
     @BeforeEach
     void setUp() {
-        handler = new SwapWithBenchCommandHandler(draftRepository, closedListRepository, leagueRepository, userRepository);
+        handler = new SwapWithBenchCommandHandler(
+                draftRepository, closedListRepository, leagueRepository, userRepository,
+                scheduleRepository, jornadaWindowService);
+        // Default: no schedule → no time restriction
+        lenient().when(scheduleRepository.findByLeagueId(LEAGUE_ID)).thenReturn(Optional.empty());
     }
 
     @Test
@@ -192,6 +204,42 @@ class SwapWithBenchCommandHandlerTest {
     }
 
     @Test
+    void handle_swapWindowClosed_throwsIllegalState() {
+        DraftEntity draft = draftWithStatus(DraftStatus.COMPLETED);
+        when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+
+        // Build a schedule with a closed swap window
+        ScheduleEntity schedule = scheduleWithPendingJornada();
+        when(scheduleRepository.findByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(schedule));
+        when(jornadaWindowService.isSwapWindowOpen(schedule)).thenReturn(false);
+
+        assertThatThrownBy(() -> handler.handle(new SwapWithBenchCommand(LEAGUE_ID, USERNAME, GIVE, TAKE)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("viernes a las 16:00");
+    }
+
+    @Test
+    void handle_noSchedule_swapAllowed() {
+        // No schedule → no restriction → fall through to normal business validations
+        DraftEntity draft = draftWithStatus(DraftStatus.COMPLETED);
+        LeagueEntity league = leagueWithMembers(new LeagueMember(USERNAME, LeagueRole.USER, 0));
+        UserEntity user = userWithPokemon(GIVE);
+        ClosedListEntity entry = closedListEntry(TAKE, 25);
+
+        when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+        when(scheduleRepository.findByLeagueId(LEAGUE_ID)).thenReturn(Optional.empty());
+        when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
+        when(userRepository.findByUsername(USERNAME)).thenReturn(user);
+        when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TAKE, LEAGUE_ID))
+                .thenReturn(Optional.of(entry));
+
+        handler.handle(new SwapWithBenchCommand(LEAGUE_ID, USERNAME, GIVE, TAKE));
+
+        verify(userRepository).updateUserWithPokemons(any());
+        verify(draftRepository).save(any());
+    }
+
+    @Test
     void commandType_returnsCorrectClass() {
         assertThat(handler.commandType()).isEqualTo(SwapWithBenchCommand.class);
     }
@@ -241,5 +289,14 @@ class SwapWithBenchCommandHandlerTest {
         entry.setPokemonId(id);
         entry.setLeagueId(LEAGUE_ID);
         return entry;
+    }
+
+    private ScheduleEntity scheduleWithPendingJornada() {
+        Match match = new Match("mid1", "ash", "brock", null, MatchStatus.PENDING);
+        Jornada jornada = new Jornada(1, new ArrayList<>(List.of(match)), "2026-06-06");
+        ScheduleEntity schedule = new ScheduleEntity();
+        schedule.setLeagueId(LEAGUE_ID);
+        schedule.setJornadas(new ArrayList<>(List.of(jornada)));
+        return schedule;
     }
 }
