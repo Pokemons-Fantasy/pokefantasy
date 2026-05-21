@@ -4,6 +4,7 @@ import com.villu.pokefantasy.commands.closedlist.ClosedListFacade;
 import com.villu.pokefantasy.request.closedlist.AssignTierRequest;
 import com.villu.pokefantasy.request.closedlist.NominatePokemonRequest;
 import com.villu.pokefantasy.response.ClosedListEntryResponse;
+import com.villu.pokefantasy.response.TierAdjustmentResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -38,12 +39,11 @@ public class ClosedListController {
     }
 
     @PutMapping("/{entryId}/tier")
-    public ResponseEntity<Void> assignTier(@PathVariable String leagueId,
-                                           @PathVariable String entryId,
-                                           @AuthenticationPrincipal UserDetails userDetails,
-                                           @RequestBody AssignTierRequest request) throws Exception {
-        closedListFacade.assignTier(entryId, request.getTier(), leagueId, userDetails.getUsername());
-        return ResponseEntity.ok().build();
+    public ResponseEntity<TierAdjustmentResponse> assignTier(@PathVariable String leagueId,
+                                                              @PathVariable String entryId,
+                                                              @AuthenticationPrincipal UserDetails userDetails,
+                                                              @RequestBody AssignTierRequest request) throws Exception {
+        return ResponseEntity.ok(closedListFacade.assignTier(entryId, request.getTier(), leagueId, userDetails.getUsername()));
     }
 
     @GetMapping
