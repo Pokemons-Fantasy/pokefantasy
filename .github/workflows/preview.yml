@@ -5,8 +5,9 @@ on:
     types: [created]
 
 permissions:
-  contents: write  # force-push a staging
-  issues: write    # comentar en la PR
+  contents: write        # force-push a staging
+  issues: write          # comentar en la PR (issues API)
+  pull-requests: write   # leer datos de la PR y comentar en ella
 
 jobs:
   deploy-preview:
