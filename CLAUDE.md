@@ -14,6 +14,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Git workflow (mandatory)
 
+### Antes de empezar cualquier tarea de implementación
+
+1. **Revisar PRs abiertos** en ambos repos antes de crear ramas o tocar código:
+   ```powershell
+   $h = @{ Authorization = "Bearer $env:GITHUB_TOKEN"; Accept = "application/vnd.github+json" }
+   Invoke-RestMethod "https://api.github.com/repos/Pokemons-Fantasy/pokefantasy-web/pulls?state=open" -Headers $h | Select number,title,@{n='branch';e={$_.head.ref}}
+   Invoke-RestMethod "https://api.github.com/repos/Pokemons-Fantasy/pokefantasy/pulls?state=open"    -Headers $h | Select number,title,@{n='branch';e={$_.head.ref}}
+   ```
+   Si hay PRs abiertos, mencionarlos al usuario antes de continuar.
+
+2. **"Añadir al roadmap"** significa editar únicamente `CLAUDE.md`. No implica implementación.
+
+3. **Siempre invocar el skill `brainstorming`** antes de implementar cualquier feature nueva, aunque parezca simple.
+
+---
+
 Never push directly to `develop` (backend) or `main` (frontend). Always:
 
 ```
