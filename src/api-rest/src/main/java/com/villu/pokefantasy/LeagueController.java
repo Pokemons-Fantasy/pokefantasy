@@ -72,6 +72,8 @@ public class LeagueController {
                 request.getPriceTierS(), request.getPriceTierA(), request.getPriceTierB(),
                 request.getPriceTierC(), request.getPriceTierD(),
                 request.getSeasonStartDate(), request.getMaxTeamSize(),
+                request.getTierPctS(), request.getTierPctA(), request.getTierPctB(),
+                request.getTierPctC(), request.getTierPctD(),
                 userDetails.getUsername());
         return ResponseEntity.noContent().build();
     }

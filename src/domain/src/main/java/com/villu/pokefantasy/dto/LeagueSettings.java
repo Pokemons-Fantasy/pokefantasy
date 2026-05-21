@@ -20,6 +20,11 @@ public class LeagueSettings {
     private Integer priceTierD;
     private String seasonStartDate;  // ISO "YYYY-MM-DD", null until admin sets it
     private Integer maxTeamSize;     // post-draft team cap (default 20)
+    private Integer tierPctS;        // % of pool assigned to S tier (default 20)
+    private Integer tierPctA;        // % of pool assigned to A tier (default 20)
+    private Integer tierPctB;        // % of pool assigned to B tier (default 20)
+    private Integer tierPctC;        // % of pool assigned to C tier (default 20)
+    private Integer tierPctD;        // % of pool assigned to D tier (default 20)
 
     public static LeagueSettings defaults() {
         return LeagueSettings.builder()
@@ -32,6 +37,11 @@ public class LeagueSettings {
                 .priceTierD(0)
                 .seasonStartDate(null)
                 .maxTeamSize(20)
+                .tierPctS(20)
+                .tierPctA(20)
+                .tierPctB(20)
+                .tierPctC(20)
+                .tierPctD(20)
                 .build();
     }
 }

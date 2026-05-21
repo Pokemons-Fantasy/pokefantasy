@@ -49,15 +49,29 @@ public class UpdateLeagueSettingsCommandHandler
             throw new IllegalArgumentException("Tier prices must be >= 0");
         }
 
+        if (command.tierPctS() == null || command.tierPctA() == null || command.tierPctB() == null
+                || command.tierPctC() == null || command.tierPctD() == null) {
+            throw new IllegalArgumentException("All tier percentages are required");
+        }
+        if (command.tierPctS() < 0 || command.tierPctA() < 0 || command.tierPctB() < 0
+                || command.tierPctC() < 0 || command.tierPctD() < 0) {
+            throw new IllegalArgumentException("Tier percentages must be >= 0");
+        }
+        int sumPct = command.tierPctS() + command.tierPctA() + command.tierPctB()
+                + command.tierPctC() + command.tierPctD();
+        if (sumPct != 100) {
+            throw new IllegalArgumentException(
+                    "Tier percentages must sum to 100 (current sum: " + sumPct + ")");
+        }
+
         LeagueEntity league = leagueAdminGuard.requireLeagueAdmin(command.leagueId(), command.requestingUsername());
 
-        DraftEntity draft = draftRepository.findLatestByLeagueId(command.leagueId())
-                .orElseThrow(() -> new IllegalStateException(
-                        "La configuración solo se puede editar tras completar el draft"));
-        if (draft.getStatus() != DraftStatus.COMPLETED) {
-            throw new IllegalStateException(
-                    "La configuración solo se puede editar tras completar el draft");
-        }
+        draftRepository.findLatestByLeagueId(command.leagueId()).ifPresent(draft -> {
+            if (draft.getStatus() == DraftStatus.IN_PROGRESS) {
+                throw new IllegalStateException(
+                        "No se pueden cambiar los ajustes con un draft en curso");
+            }
+        });
 
         if (command.maxTeamSize() != null && command.maxTeamSize() < 10) {
             throw new IllegalArgumentException("maxTeamSize must be >= 10");
@@ -73,6 +87,11 @@ public class UpdateLeagueSettingsCommandHandler
                 .priceTierD(command.priceTierD())
                 .seasonStartDate(command.seasonStartDate())
                 .maxTeamSize(command.maxTeamSize() != null ? command.maxTeamSize() : 20)
+                .tierPctS(command.tierPctS())
+                .tierPctA(command.tierPctA())
+                .tierPctB(command.tierPctB())
+                .tierPctC(command.tierPctC())
+                .tierPctD(command.tierPctD())
                 .build());
 
         leagueRepository.save(league);

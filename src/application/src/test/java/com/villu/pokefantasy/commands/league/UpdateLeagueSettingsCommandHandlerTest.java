@@ -55,11 +55,18 @@ class UpdateLeagueSettingsCommandHandlerTest {
 
     private static UpdateLeagueSettingsCommand cmd(Integer coinsPerWin, Integer coinsPerLoss,
                                                     Integer s, Integer a, Integer b, Integer c, Integer d) {
-        return new UpdateLeagueSettingsCommand("l1", coinsPerWin, coinsPerLoss, s, a, b, c, d, null, null, "ash");
+        return new UpdateLeagueSettingsCommand("l1", coinsPerWin, coinsPerLoss, s, a, b, c, d, null, null,
+                20, 20, 20, 20, 20, "ash");
     }
 
     private static UpdateLeagueSettingsCommand validCmd() {
         return cmd(200, 30, 500, 400, 300, 200, 100);
+    }
+
+    private static UpdateLeagueSettingsCommand cmdWithPcts(Integer pctS, Integer pctA, Integer pctB,
+                                                            Integer pctC, Integer pctD) {
+        return new UpdateLeagueSettingsCommand("l1", 100, 50, 500, 400, 300, 200, 100, null, null,
+                pctS, pctA, pctB, pctC, pctD, "ash");
     }
 
     @Test
@@ -110,22 +117,24 @@ class UpdateLeagueSettingsCommandHandlerTest {
                 .thenThrow(new ForbiddenOperationException("not admin"));
 
         assertThatThrownBy(() -> handler.handle(
-                new UpdateLeagueSettingsCommand("l1", 100, 50, 500, 400, 300, 200, 100, null, null, "brock")))
+                new UpdateLeagueSettingsCommand("l1", 100, 50, 500, 400, 300, 200, 100, null, null, 20, 20, 20, 20, 20, "brock")))
                 .isInstanceOf(ForbiddenOperationException.class);
     }
 
     @Test
-    void handle_noDraft_throwsIllegalState() {
-        when(leagueAdminGuard.requireLeagueAdmin("l1", "ash")).thenReturn(leagueWithAdmin("ash"));
+    void handle_noDraft_savesSettings() {
+        LeagueEntity league = leagueWithAdmin("ash");
+        when(leagueAdminGuard.requireLeagueAdmin("l1", "ash")).thenReturn(league);
         when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> handler.handle(validCmd()))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("tras completar el draft");
+        // Should not throw — settings can be edited when there is no draft yet
+        handler.handle(validCmd());
+
+        verify(leagueRepository).save(league);
     }
 
     @Test
-    void handle_draftNotCompleted_throwsIllegalState() {
+    void handle_draftInProgress_throwsIllegalState() {
         when(leagueAdminGuard.requireLeagueAdmin("l1", "ash")).thenReturn(leagueWithAdmin("ash"));
 
         DraftEntity draft = new DraftEntity();
@@ -134,7 +143,42 @@ class UpdateLeagueSettingsCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(validCmd()))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("tras completar el draft");
+                .hasMessageContaining("en curso");
+    }
+
+    @Test
+    void handle_draftPending_savesSettings() {
+        LeagueEntity league = leagueWithAdmin("ash");
+        when(leagueAdminGuard.requireLeagueAdmin("l1", "ash")).thenReturn(league);
+
+        DraftEntity draft = new DraftEntity();
+        draft.setStatus(DraftStatus.PENDING);
+        when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.of(draft));
+
+        handler.handle(validCmd());
+
+        verify(leagueRepository).save(league);
+    }
+
+    @Test
+    void handle_tierPctSumNot100_throwsIllegalArgument() {
+        assertThatThrownBy(() -> handler.handle(cmdWithPcts(30, 30, 20, 10, 5)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("sum to 100");
+    }
+
+    @Test
+    void handle_nullTierPct_throwsIllegalArgument() {
+        assertThatThrownBy(() -> handler.handle(cmdWithPcts(null, 20, 20, 20, 20)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("required");
+    }
+
+    @Test
+    void handle_negativeTierPct_throwsIllegalArgument() {
+        assertThatThrownBy(() -> handler.handle(cmdWithPcts(-10, 30, 30, 30, 20)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining(">= 0");
     }
 
     @Test
@@ -157,6 +201,8 @@ class UpdateLeagueSettingsCommandHandlerTest {
         assertThat(captor.getValue().getSettings().getPriceTierB()).isEqualTo(300);
         assertThat(captor.getValue().getSettings().getPriceTierC()).isEqualTo(200);
         assertThat(captor.getValue().getSettings().getPriceTierD()).isEqualTo(100);
+        assertThat(captor.getValue().getSettings().getTierPctS()).isEqualTo(20);
+        assertThat(captor.getValue().getSettings().getTierPctD()).isEqualTo(20);
     }
 
     @Test
@@ -179,7 +225,7 @@ class UpdateLeagueSettingsCommandHandlerTest {
         when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
 
         UpdateLeagueSettingsCommand cmd = new UpdateLeagueSettingsCommand(
-                "l1", 100, 50, 500, 400, 300, 200, 100, "2026-06-06", 20, "ash");
+                "l1", 100, 50, 500, 400, 300, 200, 100, "2026-06-06", 20, 20, 20, 20, 20, 20, "ash");
         handler.handle(cmd);
 
         // Schedule should be saved with updated dates

@@ -13,5 +13,10 @@ public record UpdateLeagueSettingsCommand(
         Integer priceTierD,
         String seasonStartDate,
         Integer maxTeamSize,
+        Integer tierPctS,
+        Integer tierPctA,
+        Integer tierPctB,
+        Integer tierPctC,
+        Integer tierPctD,
         String requestingUsername
 ) implements Command {}
