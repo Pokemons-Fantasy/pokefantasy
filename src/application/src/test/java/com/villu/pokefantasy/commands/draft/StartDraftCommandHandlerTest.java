@@ -1,17 +1,13 @@
 package com.villu.pokefantasy.commands.draft;
 
+import com.villu.pokefantasy.commands.closedlist.TierAssignmentService;
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueRole;
 import com.villu.pokefantasy.dto.LeagueSettings;
-import com.villu.pokefantasy.dto.Stat;
-import com.villu.pokefantasy.dto.StatData;
-import com.villu.pokefantasy.dto.Tier;
 import com.villu.pokefantasy.exception.ForbiddenOperationException;
 import com.villu.pokefantasy.league.LeagueAdminGuard;
-import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
-import com.villu.pokefantasy.repository.entity.ClosedListEntity;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import com.villu.pokefantasy.repository.entity.LeagueMember;
@@ -28,6 +24,8 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -35,8 +33,8 @@ class StartDraftCommandHandlerTest {
 
     @Mock private DraftRepository draftRepository;
     @Mock private LeagueAdminGuard leagueAdminGuard;
-    @Mock private ClosedListRepository closedListRepository;
     @Mock private LeagueRepository leagueRepository;
+    @Mock private TierAssignmentService tierAssignmentService;
 
     private StartDraftCommandHandler handler;
 
@@ -45,7 +43,7 @@ class StartDraftCommandHandlerTest {
 
     @BeforeEach
     void setUp() {
-        handler = new StartDraftCommandHandler(draftRepository, leagueAdminGuard, closedListRepository, leagueRepository);
+        handler = new StartDraftCommandHandler(draftRepository, leagueAdminGuard, leagueRepository, tierAssignmentService);
     }
 
     private void allowAdmin() {
@@ -56,12 +54,21 @@ class StartDraftCommandHandlerTest {
         when(draftRepository.findActiveByLeagueId(LEAGUE_ID)).thenReturn(Optional.empty());
     }
 
-    /** Stub leagueRepository for tests that exercise assignTiersToPool with a non-empty pool. */
+    /** Stub leagueRepository with default settings for tests that exercise assignTiersToPool. */
     private void allowAdminWithDefaultSettings() {
         allowAdmin();
         LeagueEntity league = new LeagueEntity();
         league.setId(LEAGUE_ID);
         // No settings set → handler falls back to LeagueSettings.defaults() (20% each)
+        when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
+    }
+
+    /** Stub leagueRepository with custom settings. */
+    private void allowAdminWithSettings(LeagueSettings settings) {
+        allowAdmin();
+        LeagueEntity league = new LeagueEntity();
+        league.setId(LEAGUE_ID);
+        league.setSettings(settings);
         when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
     }
 
@@ -157,80 +164,27 @@ class StartDraftCommandHandlerTest {
     }
 
     @Test
-    void handle_assignsTiersOnDraftStart_quintiles() {
+    void handle_assignsTiersOnDraftStart_defaultSettings() {
         allowAdminWithDefaultSettings();
-        List<ClosedListEntity> pool = List.of(
-                entityWithBst("id1", 620),
-                entityWithBst("id2", 560),
-                entityWithBst("id3", 500),
-                entityWithBst("id4", 440),
-                entityWithBst("id5", 380)
-        );
-        when(closedListRepository.findAllByLeagueId(LEAGUE_ID)).thenReturn(pool);
 
         handler.handle(new StartDraftCommand(List.of(ADMIN), LEAGUE_ID, ADMIN));
 
-        verify(closedListRepository).updateTier("id1", Tier.S);
-        verify(closedListRepository).updateTier("id2", Tier.A);
-        verify(closedListRepository).updateTier("id3", Tier.B);
-        verify(closedListRepository).updateTier("id4", Tier.C);
-        verify(closedListRepository).updateTier("id5", Tier.D);
-    }
-
-    @Test
-    void handle_emptyPool_skipsTierAssignment() {
-        allowAdmin();
-        when(closedListRepository.findAllByLeagueId(LEAGUE_ID)).thenReturn(List.of());
-
-        handler.handle(new StartDraftCommand(List.of(ADMIN), LEAGUE_ID, ADMIN));
-
-        verify(closedListRepository, never()).updateTier(any(), any());
+        // Handler reads settings and delegates to service — settings have no tierPct set,
+        // so the handler falls back to LeagueSettings.defaults() (20% each tier)
+        verify(tierAssignmentService).assignTiersToPool(eq(LEAGUE_ID), any(LeagueSettings.class));
     }
 
     @Test
     void handle_assignsTiersOnDraftStart_customPercentages() {
-        allowAdmin();
-
-        // 10 Pokémon; configure S=40%, A=30%, B=20%, C=10%, D=0%
-        // positions (i*100/10): 0,10,20,30,40,50,60,70,80,90
-        // cum = [40,70,90,100]
-        // i=0 pct=0  → S, i=1 pct=10 → S, i=2 pct=20 → S, i=3 pct=30 → S   (4 × S)
-        // i=4 pct=40 → A, i=5 pct=50 → A, i=6 pct=60 → A                    (3 × A)
-        // i=7 pct=70 → B, i=8 pct=80 → B                                     (2 × B)
-        // i=9 pct=90 → C                                                      (1 × C)
-        LeagueEntity league = new LeagueEntity();
-        league.setId(LEAGUE_ID);
         LeagueSettings settings = LeagueSettings.builder()
                 .tierPctS(40).tierPctA(30).tierPctB(20).tierPctC(10).tierPctD(0).build();
-        league.setSettings(settings);
-        when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
-
-        List<ClosedListEntity> pool = List.of(
-                entityWithBst("id01", 700), entityWithBst("id02", 680), entityWithBst("id03", 660),
-                entityWithBst("id04", 640), entityWithBst("id05", 620), entityWithBst("id06", 600),
-                entityWithBst("id07", 580), entityWithBst("id08", 560), entityWithBst("id09", 540),
-                entityWithBst("id10", 520)
-        );
-        when(closedListRepository.findAllByLeagueId(LEAGUE_ID)).thenReturn(pool);
+        allowAdminWithSettings(settings);
 
         handler.handle(new StartDraftCommand(List.of(ADMIN), LEAGUE_ID, ADMIN));
 
-        verify(closedListRepository).updateTier("id01", Tier.S);
-        verify(closedListRepository).updateTier("id02", Tier.S);
-        verify(closedListRepository).updateTier("id03", Tier.S);
-        verify(closedListRepository).updateTier("id04", Tier.S);
-        verify(closedListRepository).updateTier("id05", Tier.A);
-        verify(closedListRepository).updateTier("id06", Tier.A);
-        verify(closedListRepository).updateTier("id07", Tier.A);
-        verify(closedListRepository).updateTier("id08", Tier.B);
-        verify(closedListRepository).updateTier("id09", Tier.B);
-        verify(closedListRepository).updateTier("id10", Tier.C);
+        verify(tierAssignmentService).assignTiersToPool(eq(LEAGUE_ID), argThat(s ->
+                s.getTierPctS() == 40 && s.getTierPctA() == 30 && s.getTierPctB() == 20
+                        && s.getTierPctC() == 10 && s.getTierPctD() == 0));
     }
 
-    private static ClosedListEntity entityWithBst(String id, int bst) {
-        ClosedListEntity e = new ClosedListEntity();
-        e.setId(id);
-        e.setStats(List.of(new Stat(bst, new StatData("total", ""))));
-        return e;
-    }
 }

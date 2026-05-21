@@ -1,42 +1,37 @@
 package com.villu.pokefantasy.commands.draft;
 
+import com.villu.pokefantasy.commands.closedlist.TierAssignmentService;
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueSettings;
-import com.villu.pokefantasy.dto.Stat;
-import com.villu.pokefantasy.dto.Tier;
 import com.villu.pokefantasy.league.LeagueAdminGuard;
 import com.villu.pokefantasy.mediator.CommandHandler;
-import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
-import com.villu.pokefantasy.repository.entity.ClosedListEntity;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 @Service
 public class StartDraftCommandHandler implements CommandHandler<StartDraftCommand, Void> {
 
     private final DraftRepository draftRepository;
     private final LeagueAdminGuard leagueAdminGuard;
-    private final ClosedListRepository closedListRepository;
     private final LeagueRepository leagueRepository;
+    private final TierAssignmentService tierAssignmentService;
 
     public StartDraftCommandHandler(DraftRepository draftRepository,
                                     LeagueAdminGuard leagueAdminGuard,
-                                    ClosedListRepository closedListRepository,
-                                    LeagueRepository leagueRepository) {
+                                    LeagueRepository leagueRepository,
+                                    TierAssignmentService tierAssignmentService) {
         this.draftRepository = draftRepository;
         this.leagueAdminGuard = leagueAdminGuard;
-        this.closedListRepository = closedListRepository;
         this.leagueRepository = leagueRepository;
+        this.tierAssignmentService = tierAssignmentService;
     }
 
     @Override
@@ -80,40 +75,10 @@ public class StartDraftCommandHandler implements CommandHandler<StartDraftComman
     }
 
     private void assignTiersToPool(String leagueId) {
-        List<ClosedListEntity> pool = closedListRepository.findAllByLeagueId(leagueId);
-        if (pool.isEmpty()) return;
-
         LeagueSettings settings = leagueRepository.findById(leagueId)
                 .map(l -> l.getSettings() != null ? l.getSettings() : LeagueSettings.defaults())
                 .orElse(LeagueSettings.defaults());
-
-        int pS = settings.getTierPctS() != null ? settings.getTierPctS() : 20;
-        int pA = settings.getTierPctA() != null ? settings.getTierPctA() : 20;
-        int pB = settings.getTierPctB() != null ? settings.getTierPctB() : 20;
-        int pC = settings.getTierPctC() != null ? settings.getTierPctC() : 20;
-
-        // Cumulative thresholds: S=[0,pS), A=[pS,pS+pA), B=[pS+pA,pS+pA+pB), C=[...,pS+pA+pB+pC), D=rest
-        int[] cum = { pS, pS + pA, pS + pA + pB, pS + pA + pB + pC };
-
-        List<ClosedListEntity> sorted = pool.stream()
-                .sorted(Comparator.comparingInt(this::bst).reversed())
-                .collect(Collectors.toList());
-
-        int n = sorted.size();
-        List<Tier> tiers = List.of(Tier.S, Tier.A, Tier.B, Tier.C, Tier.D);
-        for (int i = 0; i < n; i++) {
-            int pct = i * 100 / n;  // position percentage (0-99)
-            int tierIndex = 4;      // D by default (absorbs remainder)
-            for (int t = 0; t < 4; t++) {
-                if (pct < cum[t]) { tierIndex = t; break; }
-            }
-            closedListRepository.updateTier(sorted.get(i).getId(), tiers.get(tierIndex));
-        }
-    }
-
-    private int bst(ClosedListEntity entity) {
-        if (entity.getStats() == null) return 0;
-        return entity.getStats().stream().mapToInt(Stat::getBaseStat).sum();
+        tierAssignmentService.assignTiersToPool(leagueId, settings);
     }
 
     @Override

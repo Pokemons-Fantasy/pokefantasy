@@ -1,5 +1,6 @@
 package com.villu.pokefantasy.commands.league;
 
+import com.villu.pokefantasy.commands.closedlist.TierAssignmentService;
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueSettings;
 import com.villu.pokefantasy.league.LeagueAdminGuard;
@@ -21,15 +22,18 @@ public class UpdateLeagueSettingsCommandHandler
     private final DraftRepository draftRepository;
     private final LeagueAdminGuard leagueAdminGuard;
     private final ScheduleRepository scheduleRepository;
+    private final TierAssignmentService tierAssignmentService;
 
     public UpdateLeagueSettingsCommandHandler(LeagueRepository leagueRepository,
                                               DraftRepository draftRepository,
                                               LeagueAdminGuard leagueAdminGuard,
-                                              ScheduleRepository scheduleRepository) {
+                                              ScheduleRepository scheduleRepository,
+                                              TierAssignmentService tierAssignmentService) {
         this.leagueRepository = leagueRepository;
         this.draftRepository = draftRepository;
         this.leagueAdminGuard = leagueAdminGuard;
         this.scheduleRepository = scheduleRepository;
+        this.tierAssignmentService = tierAssignmentService;
     }
 
     @Override
@@ -95,6 +99,9 @@ public class UpdateLeagueSettingsCommandHandler
                 .build());
 
         leagueRepository.save(league);
+
+        // Recalculate pool tiers using the new percentages (no-ops if pool is empty)
+        tierAssignmentService.assignTiersToPool(command.leagueId(), league.getSettings());
 
         // If seasonStartDate was set, retroactively assign weekly dates to all jornadas
         if (command.seasonStartDate() != null) {
