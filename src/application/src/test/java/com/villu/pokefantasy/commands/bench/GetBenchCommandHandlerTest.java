@@ -1,7 +1,9 @@
 package com.villu.pokefantasy.commands.bench;
 
 import com.villu.pokefantasy.dto.LeagueRole;
+import com.villu.pokefantasy.dto.LeagueSettings;
 import com.villu.pokefantasy.dto.Pokemons;
+import com.villu.pokefantasy.dto.Tier;
 import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.UserRepository;
@@ -117,7 +119,78 @@ class GetBenchCommandHandlerTest {
     }
 
     @Test
+    void handle_returnsCorrectTierAndPriceForAllTiers() {
+        LeagueEntity league = new LeagueEntity();
+        league.setId("l1");
+        league.setMembers(List.of());
+        league.setSettings(LeagueSettings.builder()
+                .priceTierS(500).priceTierA(300).priceTierB(200).priceTierC(100).priceTierD(50)
+                .build());
+        when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
+        when(closedListRepository.findAllByLeagueId("l1")).thenReturn(List.of(
+                benchEntry("mewtwo",  150, Tier.S),
+                benchEntry("dragonite", 149, Tier.A),
+                benchEntry("vaporeon",  134, Tier.B),
+                benchEntry("raichu",     26, Tier.C),
+                benchEntry("caterpie",   10, Tier.D)
+        ));
+
+        List<BenchEntryResponse> bench = handler.handle(new GetBenchCommand("l1"));
+
+        assertThat(bench).hasSize(5);
+        assertThat(bench).anyMatch(e -> "S".equals(e.getTier()) && e.getPrice() == 500);
+        assertThat(bench).anyMatch(e -> "A".equals(e.getTier()) && e.getPrice() == 300);
+        assertThat(bench).anyMatch(e -> "B".equals(e.getTier()) && e.getPrice() == 200);
+        assertThat(bench).anyMatch(e -> "C".equals(e.getTier()) && e.getPrice() == 100);
+        assertThat(bench).anyMatch(e -> "D".equals(e.getTier()) && e.getPrice() == 50);
+    }
+
+    @Test
+    void handle_nullSettings_returnsZeroPrices() {
+        LeagueEntity league = new LeagueEntity();
+        league.setId("l1");
+        league.setMembers(List.of());
+        // settings deliberately null
+        when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
+        when(closedListRepository.findAllByLeagueId("l1")).thenReturn(
+                List.of(benchEntry("pikachu", 25, Tier.A)));
+
+        List<BenchEntryResponse> bench = handler.handle(new GetBenchCommand("l1"));
+
+        assertThat(bench).hasSize(1);
+        assertThat(bench.get(0).getPrice()).isEqualTo(0);
+    }
+
+    @Test
+    void handle_nullPriceTierField_treatedAsZero() {
+        LeagueEntity league = new LeagueEntity();
+        league.setId("l1");
+        league.setMembers(List.of());
+        // priceTierS not set → null getter
+        league.setSettings(LeagueSettings.builder().build());
+        when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
+        when(closedListRepository.findAllByLeagueId("l1")).thenReturn(
+                List.of(benchEntry("mewtwo", 150, Tier.S)));
+
+        List<BenchEntryResponse> bench = handler.handle(new GetBenchCommand("l1"));
+
+        assertThat(bench).hasSize(1);
+        assertThat(bench.get(0).getPrice()).isEqualTo(0);
+    }
+
+    @Test
     void commandType_returnsCorrectClass() {
         assertThat(handler.commandType()).isEqualTo(GetBenchCommand.class);
+    }
+
+    // --- helper ---
+
+    private ClosedListEntity benchEntry(String name, int id, Tier tier) {
+        ClosedListEntity e = new ClosedListEntity();
+        e.setPokemonId(id);
+        e.setPokemonName(name);
+        e.setTier(tier);
+        e.setLeagueId("l1");
+        return e;
     }
 }

@@ -63,13 +63,14 @@ public class GetBenchCommandHandler implements CommandHandler<GetBenchCommand, L
 
     private int priceForTier(LeagueSettings settings, Tier tier) {
         if (settings == null || tier == null) return 0;
-        return switch (tier) {
-            case S -> settings.getPriceTierS() != null ? settings.getPriceTierS() : 0;
-            case A -> settings.getPriceTierA() != null ? settings.getPriceTierA() : 0;
-            case B -> settings.getPriceTierB() != null ? settings.getPriceTierB() : 0;
-            case C -> settings.getPriceTierC() != null ? settings.getPriceTierC() : 0;
-            case D -> settings.getPriceTierD() != null ? settings.getPriceTierD() : 0;
+        Integer price = switch (tier) {
+            case S -> settings.getPriceTierS();
+            case A -> settings.getPriceTierA();
+            case B -> settings.getPriceTierB();
+            case C -> settings.getPriceTierC();
+            case D -> settings.getPriceTierD();
         };
+        return price != null ? price : 0;
     }
 
     @Override

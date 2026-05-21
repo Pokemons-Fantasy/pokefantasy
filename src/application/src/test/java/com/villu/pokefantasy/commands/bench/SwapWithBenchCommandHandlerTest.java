@@ -291,6 +291,116 @@ class SwapWithBenchCommandHandlerTest {
     }
 
     @Test
+    void handle_tierS_deductsCorrectAmount() {
+        DraftEntity draft = completedDraftWithPick(USERNAME, GIVE, 6);
+        LeagueEntity league = leagueWithMembers(new LeagueMember(USERNAME, LeagueRole.USER, 600));
+        league.setSettings(LeagueSettings.builder().priceTierS(500).build());
+        UserEntity user = userWithPokemon(GIVE);
+        ClosedListEntity entry = closedListEntry(TAKE, 25);
+        entry.setTier(Tier.S);
+
+        when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+        when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
+        when(userRepository.findByUsername(USERNAME)).thenReturn(user);
+        when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TAKE, LEAGUE_ID))
+                .thenReturn(Optional.of(entry));
+
+        handler.handle(new SwapWithBenchCommand(LEAGUE_ID, USERNAME, GIVE, TAKE));
+
+        LeagueMember member = league.getMembers().stream()
+                .filter(m -> USERNAME.equals(m.getUsername())).findFirst().orElseThrow();
+        assertThat(member.getCoinBalance()).isEqualTo(100);
+        verify(leagueRepository).save(league);
+    }
+
+    @Test
+    void handle_tierB_deductsCorrectAmount() {
+        DraftEntity draft = completedDraftWithPick(USERNAME, GIVE, 6);
+        LeagueEntity league = leagueWithMembers(new LeagueMember(USERNAME, LeagueRole.USER, 300));
+        league.setSettings(LeagueSettings.builder().priceTierB(150).build());
+        UserEntity user = userWithPokemon(GIVE);
+        ClosedListEntity entry = closedListEntry(TAKE, 25);
+        entry.setTier(Tier.B);
+
+        when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+        when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
+        when(userRepository.findByUsername(USERNAME)).thenReturn(user);
+        when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TAKE, LEAGUE_ID))
+                .thenReturn(Optional.of(entry));
+
+        handler.handle(new SwapWithBenchCommand(LEAGUE_ID, USERNAME, GIVE, TAKE));
+
+        LeagueMember member = league.getMembers().stream()
+                .filter(m -> USERNAME.equals(m.getUsername())).findFirst().orElseThrow();
+        assertThat(member.getCoinBalance()).isEqualTo(150);
+    }
+
+    @Test
+    void handle_tierC_deductsCorrectAmount() {
+        DraftEntity draft = completedDraftWithPick(USERNAME, GIVE, 6);
+        LeagueEntity league = leagueWithMembers(new LeagueMember(USERNAME, LeagueRole.USER, 200));
+        league.setSettings(LeagueSettings.builder().priceTierC(75).build());
+        UserEntity user = userWithPokemon(GIVE);
+        ClosedListEntity entry = closedListEntry(TAKE, 25);
+        entry.setTier(Tier.C);
+
+        when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+        when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
+        when(userRepository.findByUsername(USERNAME)).thenReturn(user);
+        when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TAKE, LEAGUE_ID))
+                .thenReturn(Optional.of(entry));
+
+        handler.handle(new SwapWithBenchCommand(LEAGUE_ID, USERNAME, GIVE, TAKE));
+
+        LeagueMember member = league.getMembers().stream()
+                .filter(m -> USERNAME.equals(m.getUsername())).findFirst().orElseThrow();
+        assertThat(member.getCoinBalance()).isEqualTo(125);
+    }
+
+    @Test
+    void handle_nullSettings_tierSet_swapFree() {
+        DraftEntity draft = completedDraftWithPick(USERNAME, GIVE, 6);
+        LeagueEntity league = leagueWithMembers(new LeagueMember(USERNAME, LeagueRole.USER, 0));
+        // no settings set — price falls back to 0
+        UserEntity user = userWithPokemon(GIVE);
+        ClosedListEntity entry = closedListEntry(TAKE, 25);
+        entry.setTier(Tier.A);
+
+        when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+        when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
+        when(userRepository.findByUsername(USERNAME)).thenReturn(user);
+        when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TAKE, LEAGUE_ID))
+                .thenReturn(Optional.of(entry));
+
+        handler.handle(new SwapWithBenchCommand(LEAGUE_ID, USERNAME, GIVE, TAKE));
+
+        verify(leagueRepository, never()).save(any());
+        verify(userRepository).updateUserWithPokemons(any());
+    }
+
+    @Test
+    void handle_nullPriceTierField_treatedAsZero() {
+        DraftEntity draft = completedDraftWithPick(USERNAME, GIVE, 6);
+        LeagueEntity league = leagueWithMembers(new LeagueMember(USERNAME, LeagueRole.USER, 0));
+        // settings present but priceTierA not set → null
+        league.setSettings(LeagueSettings.builder().build());
+        UserEntity user = userWithPokemon(GIVE);
+        ClosedListEntity entry = closedListEntry(TAKE, 25);
+        entry.setTier(Tier.A);
+
+        when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+        when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
+        when(userRepository.findByUsername(USERNAME)).thenReturn(user);
+        when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TAKE, LEAGUE_ID))
+                .thenReturn(Optional.of(entry));
+
+        handler.handle(new SwapWithBenchCommand(LEAGUE_ID, USERNAME, GIVE, TAKE));
+
+        verify(leagueRepository, never()).save(any());
+        verify(userRepository).updateUserWithPokemons(any());
+    }
+
+    @Test
     void handle_zeroTierPrice_swapFreeRegardlessOfBalance() {
         DraftEntity draft = completedDraftWithPick(USERNAME, GIVE, 6);
         LeagueEntity league = leagueWithMembers(new LeagueMember(USERNAME, LeagueRole.USER, 0));
