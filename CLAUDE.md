@@ -138,15 +138,18 @@ POST   /v1/leagues/{id}/draft/pick                 make pick
 GET    /v1/leagues/{id}/draft                      draft status
 DELETE /v1/leagues/{id}/draft                      cancel draft
 GET    /v1/leagues/{id}/bench                      bench (unchosen pokemons)
-POST   /v1/leagues/{id}/bench/swap                 1-for-1 bench swap
+POST   /v1/leagues/{id}/bench/swap                 bench swap (tier parity + net coin change)
+POST   /v1/leagues/{id}/steal                      steal rival's pokémon
+PUT    /v1/leagues/{id}/steal-price                raise own pokémon steal price
+GET    /v1/leagues/{id}/my-coins                   own coin balance
 GET    /actuator/health                            health check (public)
 ```
 
 ## Tests
 
-The `application` module has a unit test suite (58 tests, pure Mockito, no Spring context). JaCoCo 80% gate runs on `mvn verify` at BUNDLE level across all modules.
+The `application` module has a unit test suite (255 tests, pure Mockito, no Spring context). JaCoCo 80% gate runs on `mvn verify` at BUNDLE level across all modules.
 
-**What's covered**: `CreateUserCommandHandler`, `LoginUserCommandHandler`, `StartDraftCommandHandler`, `DraftPickCommandHandler`, `GetDraftStatusCommandHandler`, `SwapWithBenchCommandHandler`, `LeagueAdminGuard`.
+**What's covered**: `CreateUserCommandHandler`, `LoginUserCommandHandler`, `StartDraftCommandHandler`, `DraftPickCommandHandler`, `GetDraftStatusCommandHandler`, `SwapWithBenchCommandHandler`, `StealPokemonCommandHandler`, `SetStealPriceCommandHandler`, `LeagueAdminGuard`.
 
 **Pattern**: all handlers use constructor injection — mock the ports and repositories, test business logic directly. No `@SpringBootTest` needed.
 
@@ -171,16 +174,9 @@ CSS design tokens in `src/index.css`. Animation utilities: `.animate-in`, `.stag
 
 ## Roadmap
 
-**Done**: JWT auth, closed list + tiers, draft + 10 Pokémon/player limit, production deploy, login/register/home UI, pool selection page, league system with per-league roles, cancel draft, expel/leave league (cleans draft picks + adjusts turn order), teams view (TeamsPage), bench system (1-for-1 swap), keep-alive ping (every 5 min with retry), Redis cache skip on startup if already populated, auto-tier assignment on draft start (BST-relative quintiles, S/A/B/C/D), tier badges in pool / draft / teams UI, league settings with per-tier coin prices (priceTierS/A/B/C/D, stored — logic deferred), round-robin calendar (primera + segunda vuelta, auto-generated on draft completion), admin records match results, seed script for complete demo league (8 players, 128 pool, 80 picks, 48 bench).
+**Done**: JWT auth, closed list + tiers, draft + 10 Pokémon/player limit, production deploy, login/register/home UI, pool selection page, league system with per-league roles, cancel draft, expel/leave league (cleans draft picks + adjusts turn order), teams view (TeamsPage), bench system (1-for-1 swap), keep-alive ping (every 5 min with retry), Redis cache skip on startup if already populated, auto-tier assignment on draft start (BST-relative quintiles, S/A/B/C/D), tier badges in pool / draft / teams UI, league settings with per-tier coin prices (priceTierS/A/B/C/D), round-robin calendar (primera + segunda vuelta, auto-generated on draft completion), admin records match results, seed script for complete demo league (8 players, 128 pool, 80 picks, 48 bench), **coin balance per player** (private, grows with wins/losses), **paid bench swaps** (tier parity rule — can't trade up; net coin change when trading down), **Pokémon steal system** (steal price = priceTierX or custom raised by owner; victim receives 2×; stolen Pokémon locked until jornada ends).
 
 **Next** (in order):
-1. **Coin balance per player** — balance per league, starts at 0, grows with wins/losses using `coinsPerWin`/`coinsPerLoss` settings. Each player can see their own coins but **not rivals'**.
-2. **Paid bench swaps** — bench swap costs coins based on the tier of the incoming Pokémon (`priceTierX`).
-3. **Admin: manual tier adjustment** — admin can promote a Pokémon to a higher tier; the lowest-BST Pokémon currently in that tier is automatically demoted one tier down (bumped out), and the promoted Pokémon becomes the first entry in the new tier. Keeps total tier counts balanced.
-4. **Sticky own-team panel in TeamsPage** — when browsing rivals' teams or the bench, the current user's team stays pinned/visible so they can compare their Pokémon against opponents without scrolling back up. Especially important when the user is first in the list.
-5. **Pokémon steal system** — a player with enough coins can steal a Pokémon from a rival's team. Rules:
-   - Each player sets a **steal price** for each of their own Pokémon (default = `priceTierX` for that tier).
-   - The buyer pays the steal price from their coin balance; the original owner receives **double** the steal price as compensation.
-   - A stolen Pokémon is **steal-locked until the next jornada** — it cannot be stolen again until all matches of the current jornada have a recorded result (status COMPLETED for every match in that round).
-   - The stolen Pokémon moves to the thief's team; the victim gets it replaced by nothing (or optionally picks from bench — TBD).
-6. **Player-to-player trades** — 1-for-1 swap between two players (with optional coin cost, both sides must confirm).
+1. **Admin: manual tier adjustment** — admin can promote a Pokémon to a higher tier; the lowest-BST Pokémon currently in that tier is automatically demoted one tier down (bumped out), and the promoted Pokémon becomes the first entry in the new tier. Keeps total tier counts balanced.
+2. **Sticky own-team panel in TeamsPage** — when browsing rivals' teams or the bench, the current user's team stays pinned/visible so they can compare their Pokémon against opponents without scrolling back up. Especially important when the user is first in the list.
+3. **Player-to-player trades** — 1-for-1 swap between two players (with optional coin cost, both sides must confirm).
