@@ -113,7 +113,7 @@ public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand,
         userRepository.updateUserWithPokemons(user);
 
         DraftPick pick = new DraftPick(username, entry.getPokemonName(),
-                entry.getPokemonId(), draft.getCurrentRound(), Instant.now());
+                entry.getPokemonId(), draft.getCurrentRound(), Instant.now(), null, null);
         draft.getPicks().add(pick);
 
         advanceTurn(draft, maxTeamSize);

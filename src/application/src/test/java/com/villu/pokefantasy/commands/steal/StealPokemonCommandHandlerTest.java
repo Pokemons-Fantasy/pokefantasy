@@ -1,0 +1,313 @@
+package com.villu.pokefantasy.commands.steal;
+
+import com.villu.pokefantasy.commands.schedule.JornadaWindowService;
+import com.villu.pokefantasy.dto.DraftStatus;
+import com.villu.pokefantasy.dto.LeagueRole;
+import com.villu.pokefantasy.dto.LeagueSettings;
+import com.villu.pokefantasy.dto.MatchStatus;
+import com.villu.pokefantasy.dto.Pokemons;
+import com.villu.pokefantasy.dto.Tier;
+import com.villu.pokefantasy.repository.ClosedListRepository;
+import com.villu.pokefantasy.repository.DraftRepository;
+import com.villu.pokefantasy.repository.LeagueRepository;
+import com.villu.pokefantasy.repository.ScheduleRepository;
+import com.villu.pokefantasy.repository.UserRepository;
+import com.villu.pokefantasy.repository.entity.ClosedListEntity;
+import com.villu.pokefantasy.repository.entity.DraftEntity;
+import com.villu.pokefantasy.repository.entity.DraftPick;
+import com.villu.pokefantasy.repository.entity.LeagueEntity;
+import com.villu.pokefantasy.repository.entity.LeagueMember;
+import com.villu.pokefantasy.repository.entity.ScheduleEntity;
+import com.villu.pokefantasy.repository.entity.ScheduleEntity.Jornada;
+import com.villu.pokefantasy.repository.entity.ScheduleEntity.Match;
+import com.villu.pokefantasy.repository.entity.UserEntity;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class StealPokemonCommandHandlerTest {
+
+    @Mock private DraftRepository draftRepository;
+    @Mock private ClosedListRepository closedListRepository;
+    @Mock private LeagueRepository leagueRepository;
+    @Mock private UserRepository userRepository;
+    @Mock private ScheduleRepository scheduleRepository;
+    @Mock private JornadaWindowService jornadaWindowService;
+
+    private StealPokemonCommandHandler handler;
+
+    private static final String LEAGUE_ID = "league-1";
+    private static final String STEALER  = "ash";
+    private static final String VICTIM   = "brock";
+    private static final String TARGET   = "charizard";
+
+    @BeforeEach
+    void setUp() {
+        handler = new StealPokemonCommandHandler(
+                draftRepository, closedListRepository, leagueRepository,
+                userRepository, scheduleRepository, jornadaWindowService);
+    }
+
+    // ── Happy path ────────────────────────────────────────────────────────────
+
+    @Test
+    void handle_happyPath_transfersPokemonAndCoins() {
+        int stealPrice = 300;
+
+        DraftEntity draft = completedDraftWithPick(VICTIM, TARGET, 6);
+        ScheduleEntity schedule = scheduleWithActiveJornada(1);
+        LeagueEntity league = leagueWithTwoMembers(1000, 500); // stealer:1000, victim:500
+        league.setSettings(LeagueSettings.builder().priceTierS(stealPrice).build());
+
+        ClosedListEntity entry = closedListEntry(TARGET, 6, Tier.S);
+
+        when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+        when(scheduleRepository.findByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(schedule));
+        when(jornadaWindowService.isStealWindowOpen(schedule)).thenReturn(true);
+        when(jornadaWindowService.getActiveJornada(schedule)).thenReturn(
+                Optional.of(schedule.getJornadas().get(0)));
+        when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
+        when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TARGET, LEAGUE_ID))
+                .thenReturn(Optional.of(entry));
+
+        UserEntity stealerUser = userWithPokemon(STEALER, "pikachu");
+        UserEntity victimUser  = userWithPokemon(VICTIM, TARGET);
+        when(userRepository.findByUsername(STEALER)).thenReturn(stealerUser);
+        when(userRepository.findByUsername(VICTIM)).thenReturn(victimUser);
+
+        handler.handle(new StealPokemonCommand(LEAGUE_ID, STEALER, TARGET));
+
+        // Coin transfer: stealer -300, victim +600
+        LeagueMember stealerMember = getMember(league, STEALER);
+        LeagueMember victimMember  = getMember(league, VICTIM);
+        assertThat(stealerMember.getCoinBalance()).isEqualTo(700);  // 1000-300
+        assertThat(victimMember.getCoinBalance()).isEqualTo(1100);  // 500+600
+
+        // Pokemon moved: stealer now has TARGET, victim lost it
+        assertThat(stealerUser.getPokemons()).anyMatch(p -> TARGET.equals(p.getName()));
+        assertThat(victimUser.getPokemons()).noneMatch(p -> TARGET.equals(p.getName()));
+
+        // Draft pick ownership transferred
+        ArgumentCaptor<DraftEntity> draftCaptor = ArgumentCaptor.forClass(DraftEntity.class);
+        verify(draftRepository).save(draftCaptor.capture());
+        DraftPick pick = draftCaptor.getValue().getPicks().stream()
+                .filter(p -> TARGET.equalsIgnoreCase(p.getPokemonName()))
+                .findFirst().orElseThrow();
+        assertThat(pick.getUsername()).isEqualTo(STEALER);
+        assertThat(pick.getLockedUntilRound()).isEqualTo(1);
+
+        verify(leagueRepository).save(league);
+        verify(userRepository, times(2)).updateUserWithPokemons(any());
+    }
+
+    // ── Steal window closed ───────────────────────────────────────────────────
+
+    @Test
+    void handle_stealWindowClosed_throws() {
+        DraftEntity draft = completedDraftWithPick(VICTIM, TARGET, 6);
+        ScheduleEntity schedule = scheduleWithActiveJornada(1);
+
+        when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+        when(scheduleRepository.findByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(schedule));
+        when(jornadaWindowService.isStealWindowOpen(schedule)).thenReturn(false);
+
+        assertThatThrownBy(() -> handler.handle(new StealPokemonCommand(LEAGUE_ID, STEALER, TARGET)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("ventana de robos");
+    }
+
+    // ── Steal own pokemon ─────────────────────────────────────────────────────
+
+    @Test
+    void handle_stealOwnPokemon_throws() {
+        // TARGET owned by STEALER — not in anyone else's team
+        DraftEntity draft = completedDraftWithPick(STEALER, TARGET, 6);
+        ScheduleEntity schedule = scheduleWithActiveJornada(1);
+        LeagueEntity league = leagueWithTwoMembers(1000, 500);
+
+        when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+        when(scheduleRepository.findByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(schedule));
+        when(jornadaWindowService.isStealWindowOpen(schedule)).thenReturn(true);
+        when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
+
+        assertThatThrownBy(() -> handler.handle(new StealPokemonCommand(LEAGUE_ID, STEALER, TARGET)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("equipo de ningún rival");
+    }
+
+    // ── Pokemon locked ────────────────────────────────────────────────────────
+
+    @Test
+    void handle_pokemonLocked_throws() {
+        // Pick has lockedUntilRound=1, and jornada 1 still has PENDING matches
+        DraftPick pick = new DraftPick(VICTIM, TARGET, 6, 1, Instant.now(), null, 1);
+        DraftEntity draft = draftWithPick(pick);
+        ScheduleEntity schedule = scheduleWithPendingJornada(1);
+        LeagueEntity league = leagueWithTwoMembers(1000, 500);
+
+        when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+        when(scheduleRepository.findByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(schedule));
+        when(jornadaWindowService.isStealWindowOpen(schedule)).thenReturn(true);
+        when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
+
+        assertThatThrownBy(() -> handler.handle(new StealPokemonCommand(LEAGUE_ID, STEALER, TARGET)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("bloqueado");
+    }
+
+    // ── Insufficient coins ────────────────────────────────────────────────────
+
+    @Test
+    void handle_insufficientCoins_throws() {
+        int stealPrice = 500;
+
+        DraftEntity draft = completedDraftWithPick(VICTIM, TARGET, 6);
+        ScheduleEntity schedule = scheduleWithActiveJornada(1);
+        LeagueEntity league = leagueWithTwoMembers(100, 0); // stealer only has 100
+        league.setSettings(LeagueSettings.builder().priceTierS(stealPrice).build());
+
+        ClosedListEntity entry = closedListEntry(TARGET, 6, Tier.S);
+
+        when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+        when(scheduleRepository.findByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(schedule));
+        when(jornadaWindowService.isStealWindowOpen(schedule)).thenReturn(true);
+        when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
+        when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TARGET, LEAGUE_ID))
+                .thenReturn(Optional.of(entry));
+
+        assertThatThrownBy(() -> handler.handle(new StealPokemonCommand(LEAGUE_ID, STEALER, TARGET)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("suficientes monedas")
+                .hasMessageContaining("500")
+                .hasMessageContaining("100");
+    }
+
+    // ── Custom steal price inherited ──────────────────────────────────────────
+
+    @Test
+    void handle_customPriceInherited() {
+        // Pick has customStealPrice=800 (owner raised it); default tier price would be 300
+        DraftPick pick = new DraftPick(VICTIM, TARGET, 6, 1, Instant.now(), 800, null);
+        DraftEntity draft = draftWithPick(pick);
+        ScheduleEntity schedule = scheduleWithActiveJornada(1);
+        LeagueEntity league = leagueWithTwoMembers(1000, 0);
+        league.setSettings(LeagueSettings.builder().priceTierS(300).build()); // default 300 but custom=800
+
+        ClosedListEntity entry = closedListEntry(TARGET, 6, Tier.S);
+
+        when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+        when(scheduleRepository.findByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(schedule));
+        when(jornadaWindowService.isStealWindowOpen(schedule)).thenReturn(true);
+        when(jornadaWindowService.getActiveJornada(schedule)).thenReturn(
+                Optional.of(schedule.getJornadas().get(0)));
+        when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
+        when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TARGET, LEAGUE_ID))
+                .thenReturn(Optional.of(entry));
+
+        UserEntity stealerUser = userWithPokemon(STEALER, "pikachu");
+        UserEntity victimUser  = userWithPokemon(VICTIM, TARGET);
+        when(userRepository.findByUsername(STEALER)).thenReturn(stealerUser);
+        when(userRepository.findByUsername(VICTIM)).thenReturn(victimUser);
+
+        handler.handle(new StealPokemonCommand(LEAGUE_ID, STEALER, TARGET));
+
+        // stealPrice used was 800 (custom), not 300 (tier default)
+        LeagueMember stealerMember = getMember(league, STEALER);
+        LeagueMember victimMember  = getMember(league, VICTIM);
+        assertThat(stealerMember.getCoinBalance()).isEqualTo(200);   // 1000-800
+        assertThat(victimMember.getCoinBalance()).isEqualTo(1600);   // 0+1600
+
+        // customStealPrice preserved on the transferred pick
+        ArgumentCaptor<DraftEntity> draftCaptor = ArgumentCaptor.forClass(DraftEntity.class);
+        verify(draftRepository).save(draftCaptor.capture());
+        DraftPick saved = draftCaptor.getValue().getPicks().stream()
+                .filter(p -> TARGET.equalsIgnoreCase(p.getPokemonName()))
+                .findFirst().orElseThrow();
+        assertThat(saved.getCustomStealPrice()).isEqualTo(800);
+    }
+
+    @Test
+    void commandType_returnsCorrectClass() {
+        assertThat(handler.commandType()).isEqualTo(StealPokemonCommand.class);
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private DraftEntity completedDraftWithPick(String username, String pokemon, int pokemonId) {
+        return draftWithPick(new DraftPick(username, pokemon, pokemonId, 1, Instant.now(), null, null));
+    }
+
+    private DraftEntity draftWithPick(DraftPick pick) {
+        DraftEntity draft = new DraftEntity();
+        draft.setId("draft-1");
+        draft.setLeagueId(LEAGUE_ID);
+        draft.setStatus(DraftStatus.COMPLETED);
+        draft.setPicks(new ArrayList<>(List.of(pick)));
+        draft.setTurnOrder(List.of(STEALER, VICTIM));
+        return draft;
+    }
+
+    /** Schedule with one jornada (no startDate → no time restriction) that has PENDING matches. */
+    private ScheduleEntity scheduleWithActiveJornada(int round) {
+        Match match = new Match("m1", STEALER, VICTIM, null, MatchStatus.PENDING);
+        Jornada jornada = new Jornada(round, new ArrayList<>(List.of(match)), null);
+        ScheduleEntity schedule = new ScheduleEntity();
+        schedule.setLeagueId(LEAGUE_ID);
+        schedule.setJornadas(new ArrayList<>(List.of(jornada)));
+        return schedule;
+    }
+
+    /** Schedule where the given jornada has PENDING matches (for lock check). */
+    private ScheduleEntity scheduleWithPendingJornada(int round) {
+        return scheduleWithActiveJornada(round);
+    }
+
+    /** League with stealer (first member) and victim (second member). */
+    private LeagueEntity leagueWithTwoMembers(int stealerBalance, int victimBalance) {
+        LeagueEntity league = new LeagueEntity();
+        league.setId(LEAGUE_ID);
+        LeagueMember stealerMember = new LeagueMember(STEALER, LeagueRole.USER, stealerBalance);
+        LeagueMember victimMember  = new LeagueMember(VICTIM,  LeagueRole.USER, victimBalance);
+        league.setMembers(new ArrayList<>(List.of(stealerMember, victimMember)));
+        return league;
+    }
+
+    private UserEntity userWithPokemon(String username, String pokemonName) {
+        Pokemons p = new Pokemons();
+        p.setName(pokemonName);
+        p.setLeagueId(LEAGUE_ID);
+        UserEntity user = new UserEntity();
+        user.setName(username);
+        user.setPokemons(new ArrayList<>(List.of(p)));
+        return user;
+    }
+
+    private ClosedListEntity closedListEntry(String name, int id, Tier tier) {
+        ClosedListEntity entry = new ClosedListEntity();
+        entry.setPokemonName(name);
+        entry.setPokemonId(id);
+        entry.setLeagueId(LEAGUE_ID);
+        entry.setTier(tier);
+        return entry;
+    }
+
+    private LeagueMember getMember(LeagueEntity league, String username) {
+        return league.getMembers().stream()
+                .filter(m -> username.equals(m.getUsername()))
+                .findFirst().orElseThrow();
+    }
+}
