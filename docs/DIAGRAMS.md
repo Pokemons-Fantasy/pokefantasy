@@ -153,21 +153,31 @@ flowchart TD
         W --> M
     end
 
+    subgraph TIER_ADJ["🔧 Ajuste manual de tiers"]
+        W --> X["Admin hace click en badge de tier\n  en TeamsPage"]
+        X --> Y["Cascada bidireccional\n  promoción: baja el de menor BST\n  degradación: sube el de mayor BST"]
+        Y --> Z["Conteos de tier equilibrados\n  TierAdjustmentResponse devuelto"]
+    end
+
     subgraph FUTURO["🔮 Próximos pasos"]
         direction LR
-        F3["🔧 Ajuste manual de tiers\n  admin sube un Pokémon\n  el más débil baja"]
         F4["📌 Panel propio fijo\n  en TeamsPage"]
         F5["🤝 Trades entre jugadores\n  1×1 opcional + monedas"]
+        F6["📋 Activity feed\n  log de movimientos"]
     end
 
     style N fill:#d1fae5,stroke:#10b981,color:#064e3b
     style O fill:#d1fae5,stroke:#10b981,color:#064e3b
     style P fill:#d1fae5,stroke:#10b981,color:#064e3b
     style Q fill:#d1fae5,stroke:#10b981,color:#064e3b
+    style X fill:#d1fae5,stroke:#10b981,color:#064e3b
+    style Y fill:#d1fae5,stroke:#10b981,color:#064e3b
+    style Z fill:#d1fae5,stroke:#10b981,color:#064e3b
+    style TIER_ADJ fill:#f0fdf4,stroke:#10b981
     style FUTURO fill:#f9fafb,stroke:#e5e7eb
-    style F3 fill:#f0fdf4,stroke:#22c55e,color:#14532d
     style F4 fill:#f0fdf4,stroke:#22c55e,color:#14532d
     style F5 fill:#ede9fe,stroke:#8b5cf6,color:#4c1d95
+    style F6 fill:#ede9fe,stroke:#8b5cf6,color:#4c1d95
 ```
 
 ---
@@ -189,9 +199,11 @@ flowchart TD
 | Jornadas con fechas + ventanas de tiempo | ✅ Completo |
 | Swap de banca de pago (tier parity + net coin change) | ✅ Completo |
 | Sistema de robos entre jugadores | ✅ Completo |
-| **Ajuste manual de tiers por admin** | 🔲 Pendiente |
+| **Ajuste manual de tiers por admin** (cascada bidireccional) | ✅ Completo |
 | **Panel propio fijo en TeamsPage** | 🔲 Pendiente |
 | **Trades entre jugadores** | 🔲 Pendiente |
+| **Activity feed / panel de movimientos** | 🔲 Pendiente |
+| **Rediseño pantalla de configuración** | 🔲 Pendiente |
 
 ---
 
