@@ -179,4 +179,5 @@ CSS design tokens in `src/index.css`. Animation utilities: `.animate-in`, `.stag
 **Next** (in order):
 1. **Admin: manual tier adjustment** — admin can promote a Pokémon to a higher tier; the lowest-BST Pokémon currently in that tier is automatically demoted one tier down (bumped out), and the promoted Pokémon becomes the first entry in the new tier. Keeps total tier counts balanced.
 2. **Sticky own-team panel in TeamsPage** — when browsing rivals' teams or the bench, the current user's team stays pinned/visible so they can compare their Pokémon against opponents without scrolling back up. Especially important when the user is first in the list.
-3. **Player-to-player trades** — 1-for-1 swap between two players (with optional coin cost, both sides must confirm).
+3. **Player-to-player trades** — 1-for-1 swap between two players with optional coin cost. Flow: player A proposes the trade (specifies their Pokémon + target Pokémon + optional coins); player B receives a notification and decides whether to accept or reject. Trade only executes if B accepts.
+4. **Activity feed / movement panel** — chronological log of all league events visible to all members: steals, bench swaps, trades, match results, tier changes, coin movements. Each entry shows who did what, which Pokémon, and the timestamp.
