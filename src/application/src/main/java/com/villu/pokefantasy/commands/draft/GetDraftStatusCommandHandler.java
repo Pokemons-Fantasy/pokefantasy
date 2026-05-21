@@ -35,6 +35,8 @@ public class GetDraftStatusCommandHandler implements CommandHandler<GetDraftStat
                         .pokemonId(pick.getPokemonId())
                         .round(pick.getRound())
                         .pickedAt(pick.getPickedAt())
+                        .customStealPrice(pick.getCustomStealPrice())
+                        .lockedUntilRound(pick.getLockedUntilRound())
                         .build())
                 .toList();
 
