@@ -1,7 +1,9 @@
 package com.villu.pokefantasy.commands.league;
 
+import com.villu.pokefantasy.commands.closedlist.TierAssignmentService;
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueRole;
+import com.villu.pokefantasy.dto.LeagueSettings;
 import com.villu.pokefantasy.dto.MatchStatus;
 import com.villu.pokefantasy.exception.ForbiddenOperationException;
 import com.villu.pokefantasy.league.LeagueAdminGuard;
@@ -27,6 +29,8 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -37,13 +41,14 @@ class UpdateLeagueSettingsCommandHandlerTest {
     @Mock private DraftRepository draftRepository;
     @Mock private LeagueAdminGuard leagueAdminGuard;
     @Mock private ScheduleRepository scheduleRepository;
+    @Mock private TierAssignmentService tierAssignmentService;
 
     private UpdateLeagueSettingsCommandHandler handler;
 
     @BeforeEach
     void setUp() {
         handler = new UpdateLeagueSettingsCommandHandler(
-                leagueRepository, draftRepository, leagueAdminGuard, scheduleRepository);
+                leagueRepository, draftRepository, leagueAdminGuard, scheduleRepository, tierAssignmentService);
     }
 
     private LeagueEntity leagueWithAdmin(String adminName) {
@@ -203,6 +208,20 @@ class UpdateLeagueSettingsCommandHandlerTest {
         assertThat(captor.getValue().getSettings().getPriceTierD()).isEqualTo(100);
         assertThat(captor.getValue().getSettings().getTierPctS()).isEqualTo(20);
         assertThat(captor.getValue().getSettings().getTierPctD()).isEqualTo(20);
+    }
+
+    @Test
+    void handle_validCommand_recalculatesPoolTiers() {
+        LeagueEntity league = leagueWithAdmin("ash");
+        when(leagueAdminGuard.requireLeagueAdmin("l1", "ash")).thenReturn(league);
+
+        DraftEntity draft = new DraftEntity();
+        draft.setStatus(DraftStatus.COMPLETED);
+        when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.of(draft));
+
+        handler.handle(validCmd());
+
+        verify(tierAssignmentService).assignTiersToPool(eq("l1"), any(LeagueSettings.class));
     }
 
     @Test
