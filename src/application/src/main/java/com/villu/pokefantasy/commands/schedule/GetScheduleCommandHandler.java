@@ -62,6 +62,8 @@ public class GetScheduleCommandHandler implements CommandHandler<GetScheduleComm
         return ScheduleResponse.builder()
                 .leagueId(entity.getLeagueId())
                 .jornadas(jornadas)
+                .stealWindowOpen(jornadaWindowService.isStealWindowOpen(entity))
+                .swapWindowOpen(jornadaWindowService.isSwapWindowOpen(entity))
                 .build();
     }
 
