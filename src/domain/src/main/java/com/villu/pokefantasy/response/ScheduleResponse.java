@@ -16,6 +16,9 @@ public class ScheduleResponse {
 
     private String leagueId;
     private List<JornadaResponse> jornadas;
+    /** Estado de las ventanas calculado por el backend (única fuente de verdad). */
+    private boolean stealWindowOpen;
+    private boolean swapWindowOpen;
 
     @Data
     @Builder
