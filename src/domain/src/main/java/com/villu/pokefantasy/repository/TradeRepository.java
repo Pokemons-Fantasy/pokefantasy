@@ -12,4 +12,6 @@ public interface TradeRepository {
     List<TradeEntity> findByLeagueIdAndParticipant(String leagueId, String username);
     /** Trades PENDING de la liga (para el auto-cancelado de propuestas en conflicto). */
     List<TradeEntity> findPendingByLeagueId(String leagueId);
+    /** Trades PENDING donde el usuario es el responder, en cualquier liga. */
+    List<TradeEntity> findPendingByResponder(String username);
 }

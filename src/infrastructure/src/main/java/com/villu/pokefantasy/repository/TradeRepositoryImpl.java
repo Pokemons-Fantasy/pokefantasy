@@ -51,4 +51,11 @@ public class TradeRepositoryImpl implements TradeRepository {
                 .and("status").is(TradeStatus.PENDING));
         return mongoTemplate.find(query, TradeEntity.class);
     }
+
+    @Override
+    public List<TradeEntity> findPendingByResponder(String username) {
+        Query query = new Query(Criteria.where("responder").is(username)
+                .and("status").is(TradeStatus.PENDING));
+        return mongoTemplate.find(query, TradeEntity.class);
+    }
 }

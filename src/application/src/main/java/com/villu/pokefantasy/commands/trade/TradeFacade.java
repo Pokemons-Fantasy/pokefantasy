@@ -26,6 +26,10 @@ public class TradeFacade {
         return mediator.send(new GetTradesCommand(leagueId, username));
     }
 
+    public List<TradeResponse> getMyPendingTrades(String username) throws Exception {
+        return mediator.send(new GetMyPendingTradesCommand(username));
+    }
+
     public void respond(String leagueId, String tradeId, String respondingUser,
                         boolean accept) throws Exception {
         mediator.send(new RespondToTradeCommand(leagueId, tradeId, respondingUser, accept));
