@@ -24,7 +24,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
    ```
    Si hay PRs abiertos, mencionarlos al usuario antes de continuar.
 
-2. **"Añadir al roadmap"** significa editar únicamente `CLAUDE.md`. No implica implementación.
+2. **"Añadir al roadmap"** significa editar `CLAUDE.md` **y** `docs/DIAGRAMS.md` (entidades, flujo de negocio y tabla de estado). Ambos archivos se actualizan siempre juntos. No implica implementación.
 
 3. **Siempre invocar el skill `brainstorming`** antes de implementar cualquier feature nueva, aunque parezca simple.
 

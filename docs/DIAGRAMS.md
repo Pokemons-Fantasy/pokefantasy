@@ -71,6 +71,20 @@ erDiagram
         int    currentTurnIndex
         int    currentRound
         Long   version "optimistic lock"
+        List~DraftPick~ draftHistory "historial original, inmutable"
+    }
+    TradeEntity {
+        String  id PK
+        String  leagueId FK
+        String  proposerUsername FK
+        String  receiverUsername FK
+        int     proposedPokemonId
+        String  proposedPokemonName
+        int     requestedPokemonId
+        String  requestedPokemonName
+        Integer coins "opcional"
+        String  status "PENDING|ACCEPTED|REJECTED|CANCELLED"
+        Instant createdAt
     }
     DraftPick_embedded {
         String  username FK
@@ -104,6 +118,7 @@ erDiagram
     LeagueEntity        ||--o{  ClosedListEntity        : "pool"
     LeagueEntity        ||--o|  DraftEntity             : "draft (1 activo)"
     DraftEntity         ||--o{  DraftPick_embedded      : "picks"
+    LeagueEntity        ||--o{  TradeEntity             : "trades"
     LeagueEntity        ||--o|  ScheduleEntity          : "schedule"
     ScheduleEntity      ||--o{  Jornada_embedded        : "jornadas"
     Jornada_embedded    ||--o{  Match_embedded          : "matches"
@@ -142,12 +157,16 @@ flowchart TD
 
         M --> N["🗡️ Ventana de ROBO\nhasta JUE 23:59\n✅ Implementado\nLadrón paga precio · dueño recibe ×2\nPokémon robado queda bloqueado la jornada"]
         M --> O["🔄 Ventana de SWAP con banca\nhasta VIE 16:00\n✅ Implementado\nRegla de tier · cambio neto de monedas"]
+        M --> TR1["🤝 Ventana de TRADES\nhasta VIE 16:00\n✅ Implementado\nA propone · B acepta/rechaza · monedas opcionales"]
 
         N -->|Precio = priceTierX o custom| P[Pokémon pasa al ladrón\nDueño recibe ×2 · pick bloqueado]
         O -->|No se puede subir de tier\nNet coins si se baja| Q[Intercambio con banca]
+        TR1 -->|Aceptado| TR2[Pokémon intercambiados\nmonedas transferidas]
+        TR1 -->|Rechazado/cancelado| M
 
         P --> R
         Q --> R
+        TR2 --> R
 
         R([Admin registra resultado]) --> S{¿Forfeit?\njugador sin Pokémon}
         S -->|Sí auto-forfeit| T[Sistema asigna ganador]
@@ -167,24 +186,26 @@ flowchart TD
 
     subgraph FUTURO["🔮 Próximos pasos"]
         direction LR
-        F5["🤝 Trades entre jugadores\n  1×1 opcional + monedas"]
-        F6["📋 Activity feed\n  log de movimientos"]
-        F7["🖥️ Rediseño pantalla\n  de configuración"]
+        F1["📋 Activity feed\n  log de movimientos"]
+        F2["🖥️ Rediseño pantalla\n  de configuración"]
+        F3["🏦 Comprar de la banca\n  con monedas"]
     end
 
     style N fill:#d1fae5,stroke:#10b981,color:#064e3b
     style O fill:#d1fae5,stroke:#10b981,color:#064e3b
     style P fill:#d1fae5,stroke:#10b981,color:#064e3b
     style Q fill:#d1fae5,stroke:#10b981,color:#064e3b
+    style TR1 fill:#d1fae5,stroke:#10b981,color:#064e3b
+    style TR2 fill:#d1fae5,stroke:#10b981,color:#064e3b
     style X fill:#d1fae5,stroke:#10b981,color:#064e3b
     style Y fill:#d1fae5,stroke:#10b981,color:#064e3b
     style Z fill:#d1fae5,stroke:#10b981,color:#064e3b
     style J2 fill:#d1fae5,stroke:#10b981,color:#064e3b
     style TIER_ADJ fill:#f0fdf4,stroke:#10b981
     style FUTURO fill:#f9fafb,stroke:#e5e7eb
-    style F5 fill:#ede9fe,stroke:#8b5cf6,color:#4c1d95
-    style F6 fill:#ede9fe,stroke:#8b5cf6,color:#4c1d95
-    style F7 fill:#ede9fe,stroke:#8b5cf6,color:#4c1d95
+    style F1 fill:#ede9fe,stroke:#8b5cf6,color:#4c1d95
+    style F2 fill:#ede9fe,stroke:#8b5cf6,color:#4c1d95
+    style F3 fill:#ede9fe,stroke:#8b5cf6,color:#4c1d95
 ```
 
 ---
@@ -210,9 +231,13 @@ flowchart TD
 | **Panel propio fijo en TeamsPage** (sticky + colapsable) | ✅ Completo |
 | **Porcentajes de tier configurables** (S/A/B/C/D, suma 100) | ✅ Completo |
 | **Recálculo automático de tiers al guardar** (`TierAssignmentService`) | ✅ Completo |
-| **Trades entre jugadores** | 🔲 Pendiente |
+| **Trades entre jugadores** (propuesta · aceptación/rechazo · monedas opcionales) | ✅ Completo |
+| **Banner global de trades pendientes** | ✅ Completo |
+| **Unificación ventanas robo/swap** (backend única fuente de verdad, `JornadaWindowService`) | ✅ Completo |
+| **Historial original del draft** (`DraftEntity.draftHistory`, inmutable ante robos/swaps/trades) | ✅ Completo |
 | **Activity feed / panel de movimientos** | 🔲 Pendiente |
 | **Rediseño pantalla de configuración** | 🔲 Pendiente |
+| **Comprar Pokémon de la banca con monedas** | 🔲 Pendiente |
 
 ---
 
