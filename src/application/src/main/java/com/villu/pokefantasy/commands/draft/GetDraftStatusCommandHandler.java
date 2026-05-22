@@ -4,6 +4,7 @@ import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.mediator.CommandHandler;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
+import com.villu.pokefantasy.repository.entity.DraftPick;
 import com.villu.pokefantasy.response.DraftPickResponse;
 import com.villu.pokefantasy.response.DraftStatusResponse;
 import org.springframework.stereotype.Service;
@@ -28,7 +29,20 @@ public class GetDraftStatusCommandHandler implements CommandHandler<GetDraftStat
 
         String currentTurn = draft.getStatus() == DraftStatus.COMPLETED ? null
                 : draft.getTurnOrder().get(draft.getCurrentTurnIndex());
-        List<DraftPickResponse> picks = draft.getPicks() == null ? Collections.emptyList() : draft.getPicks().stream()
+
+        return DraftStatusResponse.builder()
+                .id(draft.getId())
+                .status(draft.getStatus())
+                .turnOrder(draft.getTurnOrder())
+                .currentTurn(currentTurn)
+                .currentRound(draft.getCurrentRound())
+                .picks(mapPicks(draft.getPicks()))
+                .draftHistory(mapPicks(draft.getDraftHistory()))
+                .build();
+    }
+
+    private List<DraftPickResponse> mapPicks(List<DraftPick> picks) {
+        return picks == null ? Collections.emptyList() : picks.stream()
                 .map(pick -> DraftPickResponse.builder()
                         .username(pick.getUsername())
                         .pokemonName(pick.getPokemonName())
@@ -39,15 +53,6 @@ public class GetDraftStatusCommandHandler implements CommandHandler<GetDraftStat
                         .lockedUntilRound(pick.getLockedUntilRound())
                         .build())
                 .toList();
-
-        return DraftStatusResponse.builder()
-                .id(draft.getId())
-                .status(draft.getStatus())
-                .turnOrder(draft.getTurnOrder())
-                .currentTurn(currentTurn)
-                .currentRound(draft.getCurrentRound())
-                .picks(picks)
-                .build();
     }
 
     @Override

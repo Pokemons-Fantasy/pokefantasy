@@ -59,8 +59,11 @@ class SwapWithBenchCommandHandlerTest {
         handler = new SwapWithBenchCommandHandler(
                 draftRepository, closedListRepository, leagueRepository, userRepository,
                 scheduleRepository, jornadaWindowService);
-        // Default: no schedule → no time restriction
-        lenient().when(scheduleRepository.findByLeagueId(LEAGUE_ID)).thenReturn(Optional.empty());
+        // Default: schedule present con la ventana de swap abierta → la comprobación de
+        // tiempo pasa y cada test se centra en sus validaciones de negocio.
+        lenient().when(scheduleRepository.findByLeagueId(LEAGUE_ID))
+                .thenReturn(Optional.of(scheduleWithPendingJornada()));
+        lenient().when(jornadaWindowService.isSwapWindowOpen(any())).thenReturn(true);
     }
 
     @Test
@@ -221,24 +224,15 @@ class SwapWithBenchCommandHandlerTest {
     }
 
     @Test
-    void handle_noSchedule_swapAllowed() {
-        // No schedule → no restriction → fall through to normal business validations
+    void handle_noSchedule_throwsIllegalState() {
+        // Sin schedule → bloqueado, mismo comportamiento que el robo y los trades
         DraftEntity draft = draftWithStatus(DraftStatus.COMPLETED);
-        LeagueEntity league = leagueWithMembers(new LeagueMember(USERNAME, LeagueRole.USER, 0));
-        UserEntity user = userWithPokemon(GIVE);
-        ClosedListEntity entry = closedListEntry(TAKE, 25);
-
         when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
         when(scheduleRepository.findByLeagueId(LEAGUE_ID)).thenReturn(Optional.empty());
-        when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
-        when(userRepository.findByUsername(USERNAME)).thenReturn(user);
-        when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TAKE, LEAGUE_ID))
-                .thenReturn(Optional.of(entry));
 
-        handler.handle(new SwapWithBenchCommand(LEAGUE_ID, USERNAME, GIVE, TAKE));
-
-        verify(userRepository).updateUserWithPokemons(any());
-        verify(draftRepository).save(any());
+        assertThatThrownBy(() -> handler.handle(new SwapWithBenchCommand(LEAGUE_ID, USERNAME, GIVE, TAKE)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("No schedule found");
     }
 
     // ── Tier parity + net coin change ─────────────────────────────────────────
