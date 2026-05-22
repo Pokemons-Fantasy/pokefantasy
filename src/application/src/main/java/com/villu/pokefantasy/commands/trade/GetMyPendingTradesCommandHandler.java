@@ -8,24 +8,25 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 
 @Service
-public class GetTradesCommandHandler implements CommandHandler<GetTradesCommand, List<TradeResponse>> {
+public class GetMyPendingTradesCommandHandler
+        implements CommandHandler<GetMyPendingTradesCommand, List<TradeResponse>> {
 
     private final TradeRepository tradeRepository;
 
-    public GetTradesCommandHandler(TradeRepository tradeRepository) {
+    public GetMyPendingTradesCommandHandler(TradeRepository tradeRepository) {
         this.tradeRepository = tradeRepository;
     }
 
     @Override
-    public List<TradeResponse> handle(GetTradesCommand command) {
-        return tradeRepository.findByLeagueIdAndParticipant(command.leagueId(), command.username())
+    public List<TradeResponse> handle(GetMyPendingTradesCommand command) {
+        return tradeRepository.findPendingByResponder(command.username())
                 .stream()
                 .map(TradeResponseMapper::toResponse)
                 .toList();
     }
 
     @Override
-    public Class<GetTradesCommand> commandType() {
-        return GetTradesCommand.class;
+    public Class<GetMyPendingTradesCommand> commandType() {
+        return GetMyPendingTradesCommand.class;
     }
 }
