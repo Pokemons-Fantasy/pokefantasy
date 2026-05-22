@@ -144,6 +144,17 @@ class JornadaWindowServiceTest {
         assertThat(svc.isStealWindowOpen(schedule)).isFalse();
     }
 
+    @Test
+    void betweenDeadlines_stealClosedButSwapOpen() {
+        // Viernes 10:00 — tras el cierre del robo (jue 23:59), antes del de swap (vie 16:00).
+        // El robo siempre cierra antes que el swap: nunca hay robo abierto con swap cerrado.
+        JornadaWindowService svc = serviceAt(LocalDateTime.of(2026, 6, 5, 10, 0));
+        ScheduleEntity schedule = scheduleWithJornadas(pendingJornada(1, START_DATE));
+
+        assertThat(svc.isStealWindowOpen(schedule)).isFalse();
+        assertThat(svc.isSwapWindowOpen(schedule)).isTrue();
+    }
+
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------

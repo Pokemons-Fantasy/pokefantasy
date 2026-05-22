@@ -15,4 +15,6 @@ public class DraftStatusResponse {
     private String currentTurn;
     private int currentRound;
     private List<DraftPickResponse> picks;
+    /** Draft original (lo que eligió cada jugador), inmune a robos/swaps/trades. */
+    private List<DraftPickResponse> draftHistory;
 }

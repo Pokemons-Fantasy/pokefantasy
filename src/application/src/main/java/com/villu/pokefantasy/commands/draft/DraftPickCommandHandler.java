@@ -116,6 +116,14 @@ public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand,
                 entry.getPokemonId(), draft.getCurrentRound(), Instant.now(), null, null);
         draft.getPicks().add(pick);
 
+        // Registro inmutable del draft original: una copia que robos/swaps/trades nunca tocan.
+        if (draft.getDraftHistory() == null) {
+            draft.setDraftHistory(new ArrayList<>());
+        }
+        draft.getDraftHistory().add(new DraftPick(pick.getUsername(), pick.getPokemonName(),
+                pick.getPokemonId(), pick.getRound(), pick.getPickedAt(),
+                pick.getCustomStealPrice(), pick.getLockedUntilRound()));
+
         advanceTurn(draft, maxTeamSize);
         try {
             draftRepository.save(draft);

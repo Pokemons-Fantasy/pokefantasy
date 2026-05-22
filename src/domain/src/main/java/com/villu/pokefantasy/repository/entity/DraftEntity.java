@@ -20,5 +20,8 @@ public class DraftEntity {
     private int currentTurnIndex;
     private int currentRound;
     private List<DraftPick> picks;
+    /** Copia inmutable del draft original: cada pick tal como se eligió, sin las mutaciones
+     *  posteriores de robos/swaps/trades. Alimenta el historial del draft. */
+    private List<DraftPick> draftHistory;
     private String leagueId;
 }

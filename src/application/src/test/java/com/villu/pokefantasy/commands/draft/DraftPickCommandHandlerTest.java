@@ -220,6 +220,34 @@ class DraftPickCommandHandlerTest {
     }
 
     @Test
+    void handle_recordsPickInDraftHistory() {
+        DraftEntity draft = activeDraft(List.of(USERNAME, "brock"), 0, 1, new ArrayList<>());
+        UserEntity user = new UserEntity();
+        user.setPokemons(new ArrayList<>());
+        ClosedListEntity entry = closedListEntry(POKEMON, 25);
+
+        when(draftRepository.findActiveByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+        when(userRepository.findByUsername(USERNAME)).thenReturn(user);
+        when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(POKEMON, LEAGUE_ID))
+                .thenReturn(Optional.of(entry));
+
+        handler.handle(new DraftPickCommand(USERNAME, POKEMON, LEAGUE_ID));
+
+        ArgumentCaptor<DraftEntity> captor = ArgumentCaptor.forClass(DraftEntity.class);
+        verify(draftRepository).save(captor.capture());
+        DraftEntity saved = captor.getValue();
+
+        // draftHistory recoge el pick original
+        assertThat(saved.getDraftHistory()).hasSize(1);
+        DraftPick historyEntry = saved.getDraftHistory().get(0);
+        assertThat(historyEntry.getUsername()).isEqualTo(USERNAME);
+        assertThat(historyEntry.getPokemonName()).isEqualTo(POKEMON);
+        assertThat(historyEntry.getPokemonId()).isEqualTo(25);
+        // Es una copia independiente, no el mismo objeto que el pick "vivo"
+        assertThat(historyEntry).isNotSameAs(saved.getPicks().get(0));
+    }
+
+    @Test
     void handle_lastPickOfLastRound_setsStatusCompletedAndInitsDefaultSettings() {
         // 1 player, already at round 10 → next would exceed max so draft completes
         DraftEntity draft = activeDraft(List.of(USERNAME), 0, 10, new ArrayList<>());
