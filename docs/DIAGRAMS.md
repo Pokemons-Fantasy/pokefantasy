@@ -157,15 +157,18 @@ flowchart TD
 
         M --> N["🗡️ Ventana de ROBO\nhasta JUE 23:59\n✅ Implementado\nLadrón paga precio · dueño recibe ×2\nPokémon robado queda bloqueado la jornada"]
         M --> O["🔄 Ventana de SWAP con banca\nhasta VIE 16:00\n✅ Implementado\nRegla de tier · cambio neto de monedas"]
+        M --> BUY["🛒 Compra de banca\nhasta VIE 16:00\n✅ Implementado\nPrecio = priceTierX · sin entregar Pokémon\nDraftPick.round = 0"]
         M --> TR1["🤝 Ventana de TRADES\nhasta VIE 16:00\n✅ Implementado\nA propone · B acepta/rechaza · monedas opcionales"]
 
         N -->|Precio = priceTierX o custom| P[Pokémon pasa al ladrón\nDueño recibe ×2 · pick bloqueado]
         O -->|No se puede subir de tier\nNet coins si se baja| Q[Intercambio con banca]
+        BUY -->|Monedas deducidas| BUYQ[Pokémon pasa al comprador\nRound = 0 en DraftPick]
         TR1 -->|Aceptado| TR2[Pokémon intercambiados\nmonedas transferidas]
         TR1 -->|Rechazado/cancelado| M
 
         P --> R
         Q --> R
+        BUYQ --> R
         TR2 --> R
 
         R([Admin registra resultado]) --> S{¿Forfeit?\njugador sin Pokémon}
@@ -186,7 +189,6 @@ flowchart TD
 
     subgraph FUTURO["🔮 Próximos pasos"]
         direction LR
-        F1["🏦 Comprar de la banca\n  con monedas"]
         F2["🪟 Popup unificado\n  pokémon rival"]
     end
 
@@ -201,8 +203,9 @@ flowchart TD
     style Z fill:#d1fae5,stroke:#10b981,color:#064e3b
     style J2 fill:#d1fae5,stroke:#10b981,color:#064e3b
     style TIER_ADJ fill:#f0fdf4,stroke:#10b981
+    style BUY fill:#d1fae5,stroke:#10b981,color:#064e3b
+    style BUYQ fill:#d1fae5,stroke:#10b981,color:#064e3b
     style FUTURO fill:#f9fafb,stroke:#e5e7eb
-    style F1 fill:#ede9fe,stroke:#8b5cf6,color:#4c1d95
     style F2 fill:#ede9fe,stroke:#8b5cf6,color:#4c1d95
 ```
 
@@ -236,7 +239,7 @@ flowchart TD
 | **Activity feed / panel de movimientos** | ✅ Completo |
 | **Rediseño pantalla de configuración** (dos columnas, sidebar sticky, cambios pendientes) | ✅ Completo |
 | **Banners estado robo/swap** (TeamsPage muestra siempre ambos estados) | ✅ Completo |
-| **Comprar Pokémon de la banca con monedas** | 🔲 Pendiente |
+| **Comprar Pokémon de la banca con monedas** | ✅ Completo |
 | **Popup unificado en Pokémon rival** (robar o proponer trade desde el mismo modal) | 🔲 Pendiente |
 
 ---
