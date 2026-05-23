@@ -22,4 +22,8 @@ public class BenchFacade {
     public void swap(String leagueId, String username, String pokemonToGive, String pokemonToTake) throws Exception {
         mediator.send(new SwapWithBenchCommand(leagueId, username, pokemonToGive, pokemonToTake));
     }
+
+    public void buy(String leagueId, String username, String pokemonName) throws Exception {
+        mediator.send(new BuyFromBenchCommand(leagueId, username, pokemonName));
+    }
 }
