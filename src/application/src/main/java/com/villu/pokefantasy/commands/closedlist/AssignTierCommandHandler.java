@@ -1,13 +1,18 @@
 package com.villu.pokefantasy.commands.closedlist;
 
+import com.villu.pokefantasy.dto.ActivityEventType;
 import com.villu.pokefantasy.dto.Tier;
 import com.villu.pokefantasy.league.LeagueAdminGuard;
 import com.villu.pokefantasy.mediator.CommandHandler;
+import com.villu.pokefantasy.repository.ActivityEventRepository;
 import com.villu.pokefantasy.repository.ClosedListRepository;
+import com.villu.pokefantasy.repository.entity.ActivityEventEntity;
 import com.villu.pokefantasy.repository.entity.ClosedListEntity;
 import com.villu.pokefantasy.response.TierAdjustmentResponse;
 import com.villu.pokefantasy.response.TierChangeDto;
 import org.springframework.stereotype.Service;
+
+import java.time.Instant;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -19,11 +24,14 @@ public class AssignTierCommandHandler implements CommandHandler<AssignTierComman
 
     private final ClosedListRepository closedListRepository;
     private final LeagueAdminGuard leagueAdminGuard;
+    private final ActivityEventRepository activityEventRepository;
 
     public AssignTierCommandHandler(ClosedListRepository closedListRepository,
-                                    LeagueAdminGuard leagueAdminGuard) {
+                                    LeagueAdminGuard leagueAdminGuard,
+                                    ActivityEventRepository activityEventRepository) {
         this.closedListRepository = closedListRepository;
         this.leagueAdminGuard = leagueAdminGuard;
+        this.activityEventRepository = activityEventRepository;
     }
 
     @Override
@@ -61,6 +69,17 @@ public class AssignTierCommandHandler implements CommandHandler<AssignTierComman
                         .orElseThrow(),
                     change.getNewTier());
         }
+
+        // Record activity event for the primary target tier change
+        activityEventRepository.save(ActivityEventEntity.builder()
+                .leagueId(command.leagueId())
+                .type(ActivityEventType.TIER_CHANGE)
+                .actorUsername(command.requestingUsername())
+                .pokemonName(entry.getPokemonName())
+                .fromTier(fromTier != null ? fromTier.name() : null)
+                .toTier(toTier.name())
+                .createdAt(Instant.now())
+                .build());
 
         return TierAdjustmentResponse.builder().changes(changes).build();
     }

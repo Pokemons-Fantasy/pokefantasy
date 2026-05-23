@@ -1,9 +1,12 @@
 package com.villu.pokefantasy.commands.closedlist;
 
+import com.villu.pokefantasy.dto.ActivityEventType;
 import com.villu.pokefantasy.dto.Stat;
 import com.villu.pokefantasy.dto.Tier;
 import com.villu.pokefantasy.league.LeagueAdminGuard;
+import com.villu.pokefantasy.repository.ActivityEventRepository;
 import com.villu.pokefantasy.repository.ClosedListRepository;
+import com.villu.pokefantasy.repository.entity.ActivityEventEntity;
 import com.villu.pokefantasy.repository.entity.ClosedListEntity;
 import com.villu.pokefantasy.response.TierAdjustmentResponse;
 import com.villu.pokefantasy.response.TierChangeDto;
@@ -26,6 +29,7 @@ class AssignTierCommandHandlerTest {
 
     @Mock private ClosedListRepository closedListRepository;
     @Mock private LeagueAdminGuard leagueAdminGuard;
+    @Mock private ActivityEventRepository activityEventRepository;
 
     private AssignTierCommandHandler handler;
 
@@ -34,7 +38,7 @@ class AssignTierCommandHandlerTest {
 
     @BeforeEach
     void setUp() {
-        handler = new AssignTierCommandHandler(closedListRepository, leagueAdminGuard);
+        handler = new AssignTierCommandHandler(closedListRepository, leagueAdminGuard, activityEventRepository);
     }
 
     // ── existing validation tests ─────────────────────────────────────────────
@@ -189,6 +193,28 @@ class AssignTierCommandHandlerTest {
 
         assertThat(result.getChanges()).isNotEmpty();
         verify(leagueAdminGuard).requireLeagueAdmin(LEAGUE, ADMIN);
+    }
+
+    @Test
+    void handle_validPromotion_savesActivityEvent() {
+        ClosedListEntity target = entry("e-target", "machamp", Tier.B, 505, LEAGUE);
+        ClosedListEntity victimA = entry("e-victim", "alakazam", Tier.A, 490, LEAGUE);
+
+        when(closedListRepository.findById("e-target")).thenReturn(Optional.of(target));
+        when(closedListRepository.findAllByLeagueId(LEAGUE)).thenReturn(List.of(target, victimA));
+
+        handler.handle(new AssignTierCommand("e-target", Tier.A, LEAGUE, ADMIN));
+
+        ArgumentCaptor<ActivityEventEntity> captor = ArgumentCaptor.forClass(ActivityEventEntity.class);
+        verify(activityEventRepository).save(captor.capture());
+        ActivityEventEntity saved = captor.getValue();
+        assertThat(saved.getType()).isEqualTo(ActivityEventType.TIER_CHANGE);
+        assertThat(saved.getLeagueId()).isEqualTo(LEAGUE);
+        assertThat(saved.getActorUsername()).isEqualTo(ADMIN);
+        assertThat(saved.getPokemonName()).isEqualTo("machamp");
+        assertThat(saved.getFromTier()).isEqualTo("B");
+        assertThat(saved.getToTier()).isEqualTo("A");
+        assertThat(saved.getCreatedAt()).isNotNull();
     }
 
     @Test

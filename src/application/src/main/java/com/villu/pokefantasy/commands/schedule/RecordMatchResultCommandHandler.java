@@ -1,17 +1,22 @@
 package com.villu.pokefantasy.commands.schedule;
 
+import com.villu.pokefantasy.dto.ActivityEventType;
 import com.villu.pokefantasy.dto.LeagueSettings;
 import com.villu.pokefantasy.dto.MatchStatus;
 import com.villu.pokefantasy.league.LeagueAdminGuard;
 import com.villu.pokefantasy.mediator.CommandHandler;
+import com.villu.pokefantasy.repository.ActivityEventRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.ScheduleRepository;
 import com.villu.pokefantasy.repository.UserRepository;
+import com.villu.pokefantasy.repository.entity.ActivityEventEntity;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import com.villu.pokefantasy.repository.entity.LeagueMember;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity;
 import com.villu.pokefantasy.repository.entity.UserEntity;
 import org.springframework.stereotype.Service;
+
+import java.time.Instant;
 
 @Service
 public class RecordMatchResultCommandHandler implements CommandHandler<RecordMatchResultCommand, Void> {
@@ -20,15 +25,18 @@ public class RecordMatchResultCommandHandler implements CommandHandler<RecordMat
     private final LeagueAdminGuard leagueAdminGuard;
     private final LeagueRepository leagueRepository;
     private final UserRepository userRepository;
+    private final ActivityEventRepository activityEventRepository;
 
     public RecordMatchResultCommandHandler(ScheduleRepository scheduleRepository,
                                            LeagueAdminGuard leagueAdminGuard,
                                            LeagueRepository leagueRepository,
-                                           UserRepository userRepository) {
+                                           UserRepository userRepository,
+                                           ActivityEventRepository activityEventRepository) {
         this.scheduleRepository = scheduleRepository;
         this.leagueAdminGuard = leagueAdminGuard;
         this.leagueRepository = leagueRepository;
         this.userRepository = userRepository;
+        this.activityEventRepository = activityEventRepository;
     }
 
     @Override
@@ -53,11 +61,13 @@ public class RecordMatchResultCommandHandler implements CommandHandler<RecordMat
                 : match.getPlayer1();
         checkForfeit(command.leagueId(), command.winnerUsername(), loserUsername);
 
+        int roundNumber = findRoundNumber(schedule, command.matchId());
+
         match.setWinnerUsername(command.winnerUsername());
         match.setStatus(MatchStatus.COMPLETED);
         scheduleRepository.save(schedule);
 
-        distributeCoins(league, command.winnerUsername(), loserUsername);
+        distributeCoins(league, command.winnerUsername(), loserUsername, roundNumber);
 
         return null;
     }
@@ -81,7 +91,7 @@ public class RecordMatchResultCommandHandler implements CommandHandler<RecordMat
         // If loser has 0 Pokémon → forfeit is valid, the winner is correct — no action needed
     }
 
-    private void distributeCoins(LeagueEntity league, String winner, String loser) {
+    private void distributeCoins(LeagueEntity league, String winner, String loser, int roundNumber) {
         LeagueSettings settings = league.getSettings();
         int coinsWin  = (settings != null && settings.getCoinsPerWin()  != null) ? settings.getCoinsPerWin()  : 0;
         int coinsLoss = (settings != null && settings.getCoinsPerLoss() != null) ? settings.getCoinsPerLoss() : 0;
@@ -91,6 +101,50 @@ public class RecordMatchResultCommandHandler implements CommandHandler<RecordMat
             if (m.getUsername().equals(loser))  m.setCoinBalance(m.getCoinBalance() + coinsLoss);
         }
         leagueRepository.save(league);
+
+        Instant now = Instant.now();
+        activityEventRepository.save(ActivityEventEntity.builder()
+                .leagueId(league.getId())
+                .type(ActivityEventType.MATCH_RESULT)
+                .actorUsername(winner)
+                .targetUsername(loser)
+                .roundNumber(roundNumber)
+                .createdAt(now)
+                .build());
+
+        if (coinsWin > 0) {
+            activityEventRepository.save(ActivityEventEntity.builder()
+                    .leagueId(league.getId())
+                    .type(ActivityEventType.COIN_EARNED)
+                    .actorUsername(winner)
+                    .coinsAmount(coinsWin)
+                    .roundNumber(roundNumber)
+                    .createdAt(now)
+                    .build());
+        }
+        if (coinsLoss > 0) {
+            activityEventRepository.save(ActivityEventEntity.builder()
+                    .leagueId(league.getId())
+                    .type(ActivityEventType.COIN_EARNED)
+                    .actorUsername(loser)
+                    .coinsAmount(coinsLoss)
+                    .roundNumber(roundNumber)
+                    .createdAt(now)
+                    .build());
+        }
+    }
+
+    private int findRoundNumber(ScheduleEntity schedule, String matchId) {
+        if (schedule.getJornadas() == null) return 0;
+        for (ScheduleEntity.Jornada jornada : schedule.getJornadas()) {
+            if (jornada.getMatches() == null) continue;
+            for (ScheduleEntity.Match m : jornada.getMatches()) {
+                if (matchId.equals(m.getId())) {
+                    return jornada.getRoundNumber();
+                }
+            }
+        }
+        return 0;
     }
 
     private ScheduleEntity.Match findMatch(ScheduleEntity schedule, String matchId) {
