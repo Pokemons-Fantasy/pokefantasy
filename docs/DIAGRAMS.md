@@ -186,9 +186,8 @@ flowchart TD
 
     subgraph FUTURO["🔮 Próximos pasos"]
         direction LR
-        F1["📋 Activity feed\n  log de movimientos"]
-        F2["🖥️ Rediseño pantalla\n  de configuración"]
-        F3["🏦 Comprar de la banca\n  con monedas"]
+        F1["🏦 Comprar de la banca\n  con monedas"]
+        F2["🪟 Popup unificado\n  pokémon rival"]
     end
 
     style N fill:#d1fae5,stroke:#10b981,color:#064e3b
@@ -205,7 +204,6 @@ flowchart TD
     style FUTURO fill:#f9fafb,stroke:#e5e7eb
     style F1 fill:#ede9fe,stroke:#8b5cf6,color:#4c1d95
     style F2 fill:#ede9fe,stroke:#8b5cf6,color:#4c1d95
-    style F3 fill:#ede9fe,stroke:#8b5cf6,color:#4c1d95
 ```
 
 ---
@@ -235,10 +233,12 @@ flowchart TD
 | **Banner global de trades pendientes** | ✅ Completo |
 | **Unificación ventanas robo/swap** (backend única fuente de verdad, `JornadaWindowService`) | ✅ Completo |
 | **Historial original del draft** (`DraftEntity.draftHistory`, inmutable ante robos/swaps/trades) | ✅ Completo |
-| **Activity feed / panel de movimientos** | 🔲 Pendiente |
-| **Rediseño pantalla de configuración** | 🔲 Pendiente |
+| **Activity feed / panel de movimientos** | ✅ Completo |
+| **Rediseño pantalla de configuración** (dos columnas, sidebar sticky, cambios pendientes) | ✅ Completo |
+| **Banners estado robo/swap** (TeamsPage muestra siempre ambos estados) | ✅ Completo |
 | **Comprar Pokémon de la banca con monedas** | 🔲 Pendiente |
+| **Popup unificado en Pokémon rival** (robar o proponer trade desde el mismo modal) | 🔲 Pendiente |
 
 ---
 
-_Última actualización: 2026-05-22_
+_Última actualización: 2026-05-23_
