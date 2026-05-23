@@ -1,18 +1,21 @@
 package com.villu.pokefantasy.commands.trade;
 
 import com.villu.pokefantasy.commands.schedule.JornadaWindowService;
+import com.villu.pokefantasy.dto.ActivityEventType;
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.MatchStatus;
 import com.villu.pokefantasy.dto.Pokemons;
 import com.villu.pokefantasy.dto.TradeStatus;
 import com.villu.pokefantasy.exception.ForbiddenOperationException;
 import com.villu.pokefantasy.mediator.CommandHandler;
+import com.villu.pokefantasy.repository.ActivityEventRepository;
 import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.ScheduleRepository;
 import com.villu.pokefantasy.repository.TradeRepository;
 import com.villu.pokefantasy.repository.UserRepository;
+import com.villu.pokefantasy.repository.entity.ActivityEventEntity;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
 import com.villu.pokefantasy.repository.entity.DraftPick;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
@@ -37,6 +40,7 @@ public class RespondToTradeCommandHandler implements CommandHandler<RespondToTra
     private final UserRepository userRepository;
     private final ClosedListRepository closedListRepository;
     private final JornadaWindowService jornadaWindowService;
+    private final ActivityEventRepository activityEventRepository;
 
     public RespondToTradeCommandHandler(TradeRepository tradeRepository,
                                         DraftRepository draftRepository,
@@ -44,7 +48,8 @@ public class RespondToTradeCommandHandler implements CommandHandler<RespondToTra
                                         LeagueRepository leagueRepository,
                                         UserRepository userRepository,
                                         ClosedListRepository closedListRepository,
-                                        JornadaWindowService jornadaWindowService) {
+                                        JornadaWindowService jornadaWindowService,
+                                        ActivityEventRepository activityEventRepository) {
         this.tradeRepository = tradeRepository;
         this.draftRepository = draftRepository;
         this.scheduleRepository = scheduleRepository;
@@ -52,6 +57,7 @@ public class RespondToTradeCommandHandler implements CommandHandler<RespondToTra
         this.userRepository = userRepository;
         this.closedListRepository = closedListRepository;
         this.jornadaWindowService = jornadaWindowService;
+        this.activityEventRepository = activityEventRepository;
     }
 
     @Override
@@ -142,6 +148,17 @@ public class RespondToTradeCommandHandler implements CommandHandler<RespondToTra
         // 5. Auto-cancelar propuestas en conflicto
         cancelConflicting(leagueId, trade.getId(),
                 trade.getProposerPokemonName(), trade.getResponderPokemonName());
+
+        // 6. Activity event
+        activityEventRepository.save(ActivityEventEntity.builder()
+                .leagueId(leagueId)
+                .type(ActivityEventType.TRADE_COMPLETED)
+                .actorUsername(trade.getProposer())
+                .targetUsername(trade.getResponder())
+                .pokemonName(trade.getProposerPokemonName())
+                .pokemonName2(trade.getResponderPokemonName())
+                .createdAt(now)
+                .build());
     }
 
     private DraftPick findPickOrInvalidate(DraftEntity draft, TradeEntity trade,

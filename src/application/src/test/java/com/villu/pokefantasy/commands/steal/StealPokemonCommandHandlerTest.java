@@ -1,17 +1,20 @@
 package com.villu.pokefantasy.commands.steal;
 
 import com.villu.pokefantasy.commands.schedule.JornadaWindowService;
+import com.villu.pokefantasy.dto.ActivityEventType;
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueRole;
 import com.villu.pokefantasy.dto.LeagueSettings;
 import com.villu.pokefantasy.dto.MatchStatus;
 import com.villu.pokefantasy.dto.Pokemons;
 import com.villu.pokefantasy.dto.Tier;
+import com.villu.pokefantasy.repository.ActivityEventRepository;
 import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.ScheduleRepository;
 import com.villu.pokefantasy.repository.UserRepository;
+import com.villu.pokefantasy.repository.entity.ActivityEventEntity;
 import com.villu.pokefantasy.repository.entity.ClosedListEntity;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
 import com.villu.pokefantasy.repository.entity.DraftPick;
@@ -47,6 +50,7 @@ class StealPokemonCommandHandlerTest {
     @Mock private UserRepository userRepository;
     @Mock private ScheduleRepository scheduleRepository;
     @Mock private JornadaWindowService jornadaWindowService;
+    @Mock private ActivityEventRepository activityEventRepository;
 
     private StealPokemonCommandHandler handler;
 
@@ -59,7 +63,8 @@ class StealPokemonCommandHandlerTest {
     void setUp() {
         handler = new StealPokemonCommandHandler(
                 draftRepository, closedListRepository, leagueRepository,
-                userRepository, scheduleRepository, jornadaWindowService);
+                userRepository, scheduleRepository, jornadaWindowService,
+                activityEventRepository);
     }
 
     // ── Happy path ────────────────────────────────────────────────────────────
@@ -348,6 +353,41 @@ class StealPokemonCommandHandlerTest {
     @Test
     void commandType_returnsCorrectClass() {
         assertThat(handler.commandType()).isEqualTo(StealPokemonCommand.class);
+    }
+
+    @Test
+    void handle_happyPath_savesActivityEvent() {
+        int stealPrice = 300;
+
+        DraftEntity draft = completedDraftWithPick(VICTIM, TARGET, 6);
+        ScheduleEntity schedule = scheduleWithActiveJornada(1);
+        LeagueEntity league = leagueWithTwoMembers(1000, 500);
+        league.setSettings(LeagueSettings.builder().priceTierS(stealPrice).build());
+        ClosedListEntity entry = closedListEntry(TARGET, 6, Tier.S);
+
+        when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+        when(scheduleRepository.findByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(schedule));
+        when(jornadaWindowService.isStealWindowOpen(schedule)).thenReturn(true);
+        when(jornadaWindowService.getActiveJornada(schedule)).thenReturn(
+                Optional.of(schedule.getJornadas().get(0)));
+        when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
+        when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TARGET, LEAGUE_ID))
+                .thenReturn(Optional.of(entry));
+        when(userRepository.findByUsername(STEALER)).thenReturn(userWithPokemon(STEALER, "pikachu"));
+        when(userRepository.findByUsername(VICTIM)).thenReturn(userWithPokemon(VICTIM, TARGET));
+
+        handler.handle(new StealPokemonCommand(LEAGUE_ID, STEALER, TARGET));
+
+        ArgumentCaptor<ActivityEventEntity> captor = ArgumentCaptor.forClass(ActivityEventEntity.class);
+        verify(activityEventRepository).save(captor.capture());
+        ActivityEventEntity saved = captor.getValue();
+        assertThat(saved.getType()).isEqualTo(ActivityEventType.STEAL);
+        assertThat(saved.getLeagueId()).isEqualTo(LEAGUE_ID);
+        assertThat(saved.getActorUsername()).isEqualTo(STEALER);
+        assertThat(saved.getTargetUsername()).isEqualTo(VICTIM);
+        assertThat(saved.getPokemonName()).isEqualTo(TARGET);
+        assertThat(saved.getCoinsAmount()).isEqualTo(stealPrice);
+        assertThat(saved.getCreatedAt()).isNotNull();
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

@@ -1,16 +1,19 @@
 package com.villu.pokefantasy.commands.steal;
 
 import com.villu.pokefantasy.commands.schedule.JornadaWindowService;
+import com.villu.pokefantasy.dto.ActivityEventType;
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueSettings;
 import com.villu.pokefantasy.dto.Pokemons;
 import com.villu.pokefantasy.dto.Tier;
 import com.villu.pokefantasy.mediator.CommandHandler;
+import com.villu.pokefantasy.repository.ActivityEventRepository;
 import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.ScheduleRepository;
 import com.villu.pokefantasy.repository.UserRepository;
+import com.villu.pokefantasy.repository.entity.ActivityEventEntity;
 import com.villu.pokefantasy.repository.entity.ClosedListEntity;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
 import com.villu.pokefantasy.repository.entity.DraftPick;
@@ -35,19 +38,22 @@ public class StealPokemonCommandHandler implements CommandHandler<StealPokemonCo
     private final UserRepository userRepository;
     private final ScheduleRepository scheduleRepository;
     private final JornadaWindowService jornadaWindowService;
+    private final ActivityEventRepository activityEventRepository;
 
     public StealPokemonCommandHandler(DraftRepository draftRepository,
                                       ClosedListRepository closedListRepository,
                                       LeagueRepository leagueRepository,
                                       UserRepository userRepository,
                                       ScheduleRepository scheduleRepository,
-                                      JornadaWindowService jornadaWindowService) {
+                                      JornadaWindowService jornadaWindowService,
+                                      ActivityEventRepository activityEventRepository) {
         this.draftRepository = draftRepository;
         this.closedListRepository = closedListRepository;
         this.leagueRepository = leagueRepository;
         this.userRepository = userRepository;
         this.scheduleRepository = scheduleRepository;
         this.jornadaWindowService = jornadaWindowService;
+        this.activityEventRepository = activityEventRepository;
     }
 
     @Override
@@ -162,6 +168,17 @@ public class StealPokemonCommandHandler implements CommandHandler<StealPokemonCo
         // customStealPrice is intentionally preserved (inherited by new owner)
 
         draftRepository.save(draft);
+
+        activityEventRepository.save(ActivityEventEntity.builder()
+                .leagueId(leagueId)
+                .type(ActivityEventType.STEAL)
+                .actorUsername(stealer)
+                .targetUsername(victim)
+                .pokemonName(targetName)
+                .coinsAmount(stealPrice)
+                .createdAt(Instant.now())
+                .build());
+
         return null;
     }
 

@@ -1,17 +1,20 @@
 package com.villu.pokefantasy.commands.bench;
 
 import com.villu.pokefantasy.commands.schedule.JornadaWindowService;
+import com.villu.pokefantasy.dto.ActivityEventType;
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueRole;
 import com.villu.pokefantasy.dto.LeagueSettings;
 import com.villu.pokefantasy.dto.MatchStatus;
 import com.villu.pokefantasy.dto.Pokemons;
 import com.villu.pokefantasy.dto.Tier;
+import com.villu.pokefantasy.repository.ActivityEventRepository;
 import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.ScheduleRepository;
 import com.villu.pokefantasy.repository.UserRepository;
+import com.villu.pokefantasy.repository.entity.ActivityEventEntity;
 import com.villu.pokefantasy.repository.entity.ClosedListEntity;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
 import com.villu.pokefantasy.repository.entity.DraftPick;
@@ -46,6 +49,7 @@ class SwapWithBenchCommandHandlerTest {
     @Mock private UserRepository userRepository;
     @Mock private ScheduleRepository scheduleRepository;
     @Mock private JornadaWindowService jornadaWindowService;
+    @Mock private ActivityEventRepository activityEventRepository;
 
     private SwapWithBenchCommandHandler handler;
 
@@ -58,7 +62,7 @@ class SwapWithBenchCommandHandlerTest {
     void setUp() {
         handler = new SwapWithBenchCommandHandler(
                 draftRepository, closedListRepository, leagueRepository, userRepository,
-                scheduleRepository, jornadaWindowService);
+                scheduleRepository, jornadaWindowService, activityEventRepository);
         // Default: schedule present con la ventana de swap abierta → la comprobación de
         // tiempo pasa y cada test se centra en sus validaciones de negocio.
         lenient().when(scheduleRepository.findByLeagueId(LEAGUE_ID))
@@ -501,6 +505,32 @@ class SwapWithBenchCommandHandlerTest {
 
         verify(leagueRepository, never()).save(any());
         verify(userRepository).updateUserWithPokemons(any());
+    }
+
+    @Test
+    void handle_happyPath_savesActivityEvent() {
+        DraftEntity draft = completedDraftWithPick(USERNAME, GIVE, 6);
+        LeagueEntity league = leagueWithMembers(new LeagueMember(USERNAME, LeagueRole.USER, 0));
+        UserEntity user = userWithPokemon(GIVE);
+        ClosedListEntity entry = closedListEntry(TAKE, 25);
+
+        when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+        when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
+        when(userRepository.findByUsername(USERNAME)).thenReturn(user);
+        when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TAKE, LEAGUE_ID))
+                .thenReturn(Optional.of(entry));
+
+        handler.handle(new SwapWithBenchCommand(LEAGUE_ID, USERNAME, GIVE, TAKE));
+
+        ArgumentCaptor<ActivityEventEntity> captor = ArgumentCaptor.forClass(ActivityEventEntity.class);
+        verify(activityEventRepository).save(captor.capture());
+        ActivityEventEntity saved = captor.getValue();
+        assertThat(saved.getType()).isEqualTo(ActivityEventType.BENCH_SWAP);
+        assertThat(saved.getLeagueId()).isEqualTo(LEAGUE_ID);
+        assertThat(saved.getActorUsername()).isEqualTo(USERNAME);
+        assertThat(saved.getPokemonName()).isEqualTo(GIVE);
+        assertThat(saved.getPokemonName2()).isEqualTo(TAKE);
+        assertThat(saved.getCreatedAt()).isNotNull();
     }
 
     @Test

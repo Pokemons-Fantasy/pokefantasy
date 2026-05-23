@@ -1,18 +1,21 @@
 package com.villu.pokefantasy.commands.trade;
 
 import com.villu.pokefantasy.commands.schedule.JornadaWindowService;
+import com.villu.pokefantasy.dto.ActivityEventType;
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueRole;
 import com.villu.pokefantasy.dto.MatchStatus;
 import com.villu.pokefantasy.dto.Pokemons;
 import com.villu.pokefantasy.dto.TradeStatus;
 import com.villu.pokefantasy.exception.ForbiddenOperationException;
+import com.villu.pokefantasy.repository.ActivityEventRepository;
 import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.ScheduleRepository;
 import com.villu.pokefantasy.repository.TradeRepository;
 import com.villu.pokefantasy.repository.UserRepository;
+import com.villu.pokefantasy.repository.entity.ActivityEventEntity;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
 import com.villu.pokefantasy.repository.entity.DraftPick;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
@@ -54,6 +57,7 @@ class RespondToTradeCommandHandlerTest {
     @Mock private UserRepository userRepository;
     @Mock private ClosedListRepository closedListRepository;
     @Mock private JornadaWindowService jornadaWindowService;
+    @Mock private ActivityEventRepository activityEventRepository;
 
     private RespondToTradeCommandHandler handler;
 
@@ -61,7 +65,8 @@ class RespondToTradeCommandHandlerTest {
     void setUp() {
         handler = new RespondToTradeCommandHandler(
                 tradeRepository, draftRepository, scheduleRepository,
-                leagueRepository, userRepository, closedListRepository, jornadaWindowService);
+                leagueRepository, userRepository, closedListRepository, jornadaWindowService,
+                activityEventRepository);
     }
 
     private TradeEntity pendingTrade() {
@@ -341,6 +346,49 @@ class RespondToTradeCommandHandlerTest {
 
         assertThat(otherTrade.getStatus()).isEqualTo(TradeStatus.CANCELLED);
         verify(tradeRepository).save(otherTrade);
+    }
+
+    @Test
+    void handle_accept_savesTradeCompletedActivityEvent() {
+        TradeEntity trade = pendingTrade();
+        when(tradeRepository.findById("t1")).thenReturn(Optional.of(trade));
+
+        DraftEntity draft = new DraftEntity();
+        draft.setStatus(DraftStatus.COMPLETED);
+        DraftPick ashPick = new DraftPick("ash", "pikachu", 25, 1, Instant.now(), null, null);
+        DraftPick brockPick = new DraftPick("brock", "onix", 95, 1, Instant.now(), null, null);
+        draft.setPicks(new ArrayList<>(List.of(ashPick, brockPick)));
+        when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.of(draft));
+
+        ScheduleEntity schedule = new ScheduleEntity();
+        when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
+        when(jornadaWindowService.isSwapWindowOpen(schedule)).thenReturn(true);
+        when(jornadaWindowService.getActiveJornada(schedule))
+                .thenReturn(Optional.of(new Jornada(3, new ArrayList<>(), null)));
+
+        LeagueEntity league = new LeagueEntity();
+        league.setMembers(List.of(
+                new LeagueMember("ash", LeagueRole.USER, 500),
+                new LeagueMember("brock", LeagueRole.USER, 200)));
+        when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
+
+        when(userRepository.findByUsername("ash")).thenReturn(userWith("ash", "pikachu", 25));
+        when(userRepository.findByUsername("brock")).thenReturn(userWith("brock", "onix", 95));
+        when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(anyString(), eq("l1")))
+                .thenReturn(Optional.empty());
+        when(tradeRepository.findPendingByLeagueId("l1")).thenReturn(List.of(trade));
+
+        handler.handle(new RespondToTradeCommand("l1", "t1", "brock", true));
+
+        ArgumentCaptor<ActivityEventEntity> captor = ArgumentCaptor.forClass(ActivityEventEntity.class);
+        verify(activityEventRepository).save(captor.capture());
+        ActivityEventEntity saved = captor.getValue();
+        assertThat(saved.getType()).isEqualTo(ActivityEventType.TRADE_COMPLETED);
+        assertThat(saved.getActorUsername()).isEqualTo("ash");
+        assertThat(saved.getTargetUsername()).isEqualTo("brock");
+        assertThat(saved.getPokemonName()).isEqualTo("pikachu");
+        assertThat(saved.getPokemonName2()).isEqualTo("onix");
+        assertThat(saved.getCreatedAt()).isNotNull();
     }
 
     @Test

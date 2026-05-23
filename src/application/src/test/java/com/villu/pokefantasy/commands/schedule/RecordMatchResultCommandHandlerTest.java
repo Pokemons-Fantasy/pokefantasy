@@ -1,14 +1,17 @@
 package com.villu.pokefantasy.commands.schedule;
 
+import com.villu.pokefantasy.dto.ActivityEventType;
 import com.villu.pokefantasy.dto.LeagueRole;
 import com.villu.pokefantasy.dto.LeagueSettings;
 import com.villu.pokefantasy.dto.MatchStatus;
 import com.villu.pokefantasy.dto.Pokemons;
 import com.villu.pokefantasy.exception.ForbiddenOperationException;
 import com.villu.pokefantasy.league.LeagueAdminGuard;
+import com.villu.pokefantasy.repository.ActivityEventRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.ScheduleRepository;
 import com.villu.pokefantasy.repository.UserRepository;
+import com.villu.pokefantasy.repository.entity.ActivityEventEntity;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import com.villu.pokefantasy.repository.entity.LeagueMember;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity;
@@ -38,6 +41,7 @@ class RecordMatchResultCommandHandlerTest {
     @Mock private LeagueAdminGuard leagueAdminGuard;
     @Mock private LeagueRepository leagueRepository;
     @Mock private UserRepository userRepository;
+    @Mock private ActivityEventRepository activityEventRepository;
 
     private RecordMatchResultCommandHandler handler;
 
@@ -50,7 +54,8 @@ class RecordMatchResultCommandHandlerTest {
     @BeforeEach
     void setUp() {
         handler = new RecordMatchResultCommandHandler(
-                scheduleRepository, leagueAdminGuard, leagueRepository, userRepository);
+                scheduleRepository, leagueAdminGuard, leagueRepository, userRepository,
+                activityEventRepository);
         // Default: both players have pokémon in the league (forfeit check passes)
         lenient().when(userRepository.findByUsername(PLAYER1)).thenReturn(userWithPokemon(PLAYER1));
         lenient().when(userRepository.findByUsername(PLAYER2)).thenReturn(userWithPokemon(PLAYER2));
@@ -193,6 +198,44 @@ class RecordMatchResultCommandHandlerTest {
                 new RecordMatchResultCommand(LEAGUE_ID, MATCH_ID, PLAYER1, ADMIN)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("no tiene Pokémon");
+    }
+
+    @Test
+    void handle_validResult_savesMatchResultAndCoinEarnedActivityEvents() {
+        LeagueEntity league = leagueWithSettings(100, 50);
+        when(leagueAdminGuard.requireLeagueAdmin(LEAGUE_ID, ADMIN)).thenReturn(league);
+        when(scheduleRepository.findByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(scheduleWithMatch(MATCH_ID)));
+
+        handler.handle(new RecordMatchResultCommand(LEAGUE_ID, MATCH_ID, PLAYER1, ADMIN));
+
+        ArgumentCaptor<ActivityEventEntity> captor = ArgumentCaptor.forClass(ActivityEventEntity.class);
+        verify(activityEventRepository, times(3)).save(captor.capture());
+
+        List<ActivityEventEntity> saved = captor.getAllValues();
+        assertThat(saved).anyMatch(e -> e.getType() == ActivityEventType.MATCH_RESULT
+                && PLAYER1.equals(e.getActorUsername())
+                && PLAYER2.equals(e.getTargetUsername())
+                && e.getRoundNumber() == 1);
+        assertThat(saved).anyMatch(e -> e.getType() == ActivityEventType.COIN_EARNED
+                && PLAYER1.equals(e.getActorUsername())
+                && e.getCoinsAmount() == 100);
+        assertThat(saved).anyMatch(e -> e.getType() == ActivityEventType.COIN_EARNED
+                && PLAYER2.equals(e.getActorUsername())
+                && e.getCoinsAmount() == 50);
+    }
+
+    @Test
+    void handle_zeroCoins_noCoinsEarnedEvents() {
+        LeagueEntity league = leagueWithSettings(0, 0);
+        when(leagueAdminGuard.requireLeagueAdmin(LEAGUE_ID, ADMIN)).thenReturn(league);
+        when(scheduleRepository.findByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(scheduleWithMatch(MATCH_ID)));
+
+        handler.handle(new RecordMatchResultCommand(LEAGUE_ID, MATCH_ID, PLAYER1, ADMIN));
+
+        ArgumentCaptor<ActivityEventEntity> captor = ArgumentCaptor.forClass(ActivityEventEntity.class);
+        verify(activityEventRepository).save(captor.capture());
+        // Only the MATCH_RESULT event, no COIN_EARNED since coins=0
+        assertThat(captor.getValue().getType()).isEqualTo(ActivityEventType.MATCH_RESULT);
     }
 
     @Test
