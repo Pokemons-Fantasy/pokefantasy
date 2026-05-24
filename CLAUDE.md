@@ -222,3 +222,7 @@ CSS design tokens in `src/index.css`. Animation utilities: `.animate-in`, `.stag
 4. **Link de invitación** — `POST /v1/leagues/{id}/invite` genera un token de un solo uso (TTL 48 h, guardado en Redis) que al visitarse auto-añade al usuario a la liga sin que el admin tenga que añadirlo manualmente.
 
 5. **Endpoint de estadísticas de temporada** — `GET /v1/leagues/{id}/season-stats` agrega: MVP por jugador (Pokémon con más victorias según el historial de resultados), racha actual (streak), porcentaje de victorias. Alimentaría mejoras futuras de la página de standings.
+
+**Next — Mobile** (cuando estén terminadas las mejoras de frontend):
+
+1. **App móvil con Capacitor** — envolver el React existente en un contenedor nativo para generar apps instalables en iOS (App Store) y Android (Play Store). Reutiliza toda la codebase actual sin reescribir nada. Pasos: `npm install @capacitor/core @capacitor/cli @capacitor/ios @capacitor/android` → `npx cap init` → `npm run build && npx cap sync` → abrir proyectos Xcode / Android Studio y compilar. Prerequisito: responsive CSS completo (item #1 del bloque frontend). Requiere cuenta Apple Developer ($99/año) para publicar en App Store.
