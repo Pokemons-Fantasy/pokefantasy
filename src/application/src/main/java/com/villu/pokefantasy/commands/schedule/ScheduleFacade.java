@@ -1,7 +1,9 @@
 package com.villu.pokefantasy.commands.schedule;
 
+import com.villu.pokefantasy.commands.standings.GetStandingsCommand;
 import com.villu.pokefantasy.mediator.Mediator;
 import com.villu.pokefantasy.response.ScheduleResponse;
+import com.villu.pokefantasy.response.StandingsResponse;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -20,5 +22,9 @@ public class ScheduleFacade {
     public void recordResult(String leagueId, String matchId, String winnerUsername,
                              String requestingUsername) throws Exception {
         mediator.send(new RecordMatchResultCommand(leagueId, matchId, winnerUsername, requestingUsername));
+    }
+
+    public StandingsResponse getStandings(String leagueId) throws Exception {
+        return mediator.send(new GetStandingsCommand(leagueId));
     }
 }
