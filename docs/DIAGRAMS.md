@@ -189,7 +189,6 @@ flowchart TD
 
     subgraph FUTURO["🔮 Próximos pasos"]
         direction LR
-        F2["🪟 Popup unificado\n  pokémon rival"]
         F3["📋 Exportar equipo\n  a Pokémon Showdown"]
     end
 
@@ -207,7 +206,6 @@ flowchart TD
     style BUY fill:#d1fae5,stroke:#10b981,color:#064e3b
     style BUYQ fill:#d1fae5,stroke:#10b981,color:#064e3b
     style FUTURO fill:#f9fafb,stroke:#e5e7eb
-    style F2 fill:#ede9fe,stroke:#8b5cf6,color:#4c1d95
     style F3 fill:#ede9fe,stroke:#8b5cf6,color:#4c1d95
 ```
 
@@ -242,7 +240,7 @@ flowchart TD
 | **Rediseño pantalla de configuración** (dos columnas, sidebar sticky, cambios pendientes) | ✅ Completo |
 | **Banners estado robo/swap** (TeamsPage muestra siempre ambos estados) | ✅ Completo |
 | **Comprar Pokémon de la banca con monedas** | ✅ Completo |
-| **Popup unificado en Pokémon rival** (robar o proponer trade desde el mismo modal) | 🔲 Pendiente |
+| **Popup unificado en Pokémon rival** (robar o proponer trade desde el mismo modal) | ✅ Completo |
 | **Exportar equipo a Pokémon Showdown** (botón en TeamsPage; genera texto en formato Showdown para importar al simulador de combates) | 🔲 Pendiente |
 
 ---
