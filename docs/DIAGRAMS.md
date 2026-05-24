@@ -189,7 +189,7 @@ flowchart TD
 
     subgraph FUTURO["🔮 Próximos pasos"]
         direction LR
-        F3["📋 Exportar equipo\n  a Pokémon Showdown"]
+        F3["💡 Por definir"]
     end
 
     style N fill:#d1fae5,stroke:#10b981,color:#064e3b
@@ -241,7 +241,7 @@ flowchart TD
 | **Banners estado robo/swap** (TeamsPage muestra siempre ambos estados) | ✅ Completo |
 | **Comprar Pokémon de la banca con monedas** | ✅ Completo |
 | **Popup unificado en Pokémon rival** (robar o proponer trade desde el mismo modal) | ✅ Completo |
-| **Exportar equipo a Pokémon Showdown** (botón en TeamsPage; genera texto en formato Showdown para importar al simulador de combates) | 🔲 Pendiente |
+| **Exportar equipo a Pokémon Showdown** (botón en TeamsPage; genera texto en formato Showdown para importar al simulador de combates) | ✅ Completo |
 
 ---
 
