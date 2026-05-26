@@ -242,9 +242,15 @@ flowchart TD
 | **Rediseño pantalla de configuración** (dos columnas, sidebar sticky, cambios pendientes) | ✅ Completo |
 | **Banners estado robo/swap** (TeamsPage muestra siempre ambos estados) | ✅ Completo |
 | **Comprar Pokémon de la banca con monedas** | ✅ Completo |
-| **Popup unificado en Pokémon rival** (robar o proponer trade desde el mismo modal) | 🔲 Pendiente |
-| **Exportar equipo a Pokémon Showdown** (botón en TeamsPage; genera texto en formato Showdown para importar al simulador de combates) | 🔲 Pendiente |
+| **Popup unificado en Pokémon rival** (`RivalActionModal` con Robar + Proponer trade) | ✅ Completo |
+| **Exportar equipo a Pokémon Showdown** (botón en TeamsPage, copia al portapapeles, solo especies) | ✅ Completo |
+| **TeamsPage refactor** (1503 → 696 líneas; 5 modales extraídos; `sprites.ts` + `tiers.ts`) | ✅ Completo |
+| **Sistema centralizado de toasts** (`toastStore` Zustand, `ToastContainer`, auto-dismiss) | ✅ Completo |
+| **Página de clasificación** (`StandingsPage`; endpoint `GET /standings`; tabla W/D/monedas) | ✅ Completo |
+| **Modal de detalle de Pokémon** (sprite grande, tipos con pastillas, stats base, tier — en pool, draft, equipos y banca) | ✅ Completo |
+| **versión 1.0.0** (badge `v1.0.0` bottom-right en frontend; pom.xml sin SNAPSHOT) | ✅ Completo |
+| **Fix spring-boot-maven-plugin** (version 4.0.2 en `boot/pom.xml`) | ✅ Completo |
 
 ---
 
-_Última actualización: 2026-05-23_
+_Última actualización: 2026-05-26_
