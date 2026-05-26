@@ -2,7 +2,6 @@ package com.villu.pokefantasy.commands.draft;
 
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueSettings;
-import com.villu.pokefantasy.mediator.Mediator;
 import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
@@ -32,7 +31,7 @@ class AutoPickDraftCommandHandlerTest {
     @Mock private DraftRepository draftRepository;
     @Mock private ClosedListRepository closedListRepository;
     @Mock private LeagueRepository leagueRepository;
-    @Mock private Mediator mediator;
+    @Mock private DraftPickCommandHandler draftPickCommandHandler;
 
     private AutoPickDraftCommandHandler handler;
 
@@ -41,7 +40,7 @@ class AutoPickDraftCommandHandlerTest {
     @BeforeEach
     void setUp() {
         handler = new AutoPickDraftCommandHandler(
-                draftRepository, closedListRepository, leagueRepository, mediator);
+                draftRepository, closedListRepository, leagueRepository, draftPickCommandHandler);
     }
 
     private DraftEntity inProgressDraft(Instant turnStartedAt) {
@@ -98,7 +97,7 @@ class AutoPickDraftCommandHandlerTest {
     }
 
     @Test
-    void handle_timerExpired_delegatesPickToMediator() throws Exception {
+    void handle_timerExpired_delegatesPickToHandler() throws Exception {
         // turnStartedAt = 10 seconds ago, timer = 5s → already expired
         DraftEntity draft = inProgressDraft(Instant.now().minusSeconds(10));
         draft.setPicks(new ArrayList<>(List.of(
@@ -115,7 +114,7 @@ class AutoPickDraftCommandHandlerTest {
         handler.handle(new AutoPickDraftCommand(LEAGUE_ID));
 
         ArgumentCaptor<DraftPickCommand> captor = ArgumentCaptor.forClass(DraftPickCommand.class);
-        verify(mediator).send(captor.capture());
+        verify(draftPickCommandHandler).handle(captor.capture());
         DraftPickCommand sent = captor.getValue();
         assertThat(sent.username()).isEqualTo("ash");
         assertThat(sent.pokemonName()).isIn("pikachu", "charmander"); // not bulbasaur (already picked)

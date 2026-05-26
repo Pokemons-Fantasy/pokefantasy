@@ -3,7 +3,6 @@ package com.villu.pokefantasy.commands.draft;
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueSettings;
 import com.villu.pokefantasy.mediator.CommandHandler;
-import com.villu.pokefantasy.mediator.Mediator;
 import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
@@ -24,20 +23,20 @@ public class AutoPickDraftCommandHandler implements CommandHandler<AutoPickDraft
     private final DraftRepository draftRepository;
     private final ClosedListRepository closedListRepository;
     private final LeagueRepository leagueRepository;
-    private final Mediator mediator;
+    private final DraftPickCommandHandler draftPickCommandHandler;
 
     public AutoPickDraftCommandHandler(DraftRepository draftRepository,
                                        ClosedListRepository closedListRepository,
                                        LeagueRepository leagueRepository,
-                                       Mediator mediator) {
+                                       DraftPickCommandHandler draftPickCommandHandler) {
         this.draftRepository = draftRepository;
         this.closedListRepository = closedListRepository;
         this.leagueRepository = leagueRepository;
-        this.mediator = mediator;
+        this.draftPickCommandHandler = draftPickCommandHandler;
     }
 
     @Override
-    public Void handle(AutoPickDraftCommand command) {
+    public Void handle(AutoPickDraftCommand command) throws Exception {
         DraftEntity draft = draftRepository.findActiveByLeagueId(command.leagueId())
                 .orElseThrow(() -> new IllegalStateException("No active draft found for league: " + command.leagueId()));
 
@@ -81,11 +80,7 @@ public class AutoPickDraftCommandHandler implements CommandHandler<AutoPickDraft
         String randomPokemon = available.get(new Random().nextInt(available.size())).getPokemonName();
 
         // Delegate to the standard pick flow (validates, records, advances turn, generates schedule if completed)
-        try {
-            mediator.send(new DraftPickCommand(currentPlayer, randomPokemon, command.leagueId()));
-        } catch (Exception e) {
-            throw new IllegalStateException("Auto-pick failed: " + e.getMessage(), e);
-        }
+        draftPickCommandHandler.handle(new DraftPickCommand(currentPlayer, randomPokemon, command.leagueId()));
         return null;
     }
 
