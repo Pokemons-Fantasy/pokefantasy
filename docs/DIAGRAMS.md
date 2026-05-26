@@ -250,7 +250,9 @@ flowchart TD
 | **Modal de detalle de Pokémon** (sprite grande, tipos con pastillas, stats base, tier — en pool, draft, equipos y banca) | ✅ Completo |
 | **versión 1.0.0** (badge `v1.0.0` bottom-right en frontend; pom.xml sin SNAPSHOT) | ✅ Completo |
 | **Fix spring-boot-maven-plugin** (version 4.0.2 en `boot/pom.xml`) | ✅ Completo |
+| **Skeleton screens** (`SkeletonGrid` + `SkeletonTable`; reemplaza Cargando... en 10 páginas/componentes) | ✅ Completo |
+| **Diseño responsive para móvil** (media queries < 480 px; TeamsPage y resto de páginas) | 🔲 Pendiente |
 
 ---
 
-_Última actualización: 2026-05-26_
+_Última actualización: 2026-05-27_

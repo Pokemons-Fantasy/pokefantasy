@@ -209,6 +209,8 @@ CSS design tokens in `src/index.css`. Animation utilities: `.animate-in`, `.stag
 
 7. **Actualizaciones en tiempo real del draft (SSE)** — reemplazar el polling de 5 s en `DraftPage` por una conexión `EventSource` a un endpoint SSE del backend. Requiere: (a) backend SSE `GET /v1/leagues/{id}/draft/events`; (b) frontend sustituir `refetchInterval: 5000` por hook `useSSE`. Reduce latencia de turno a <1 s y elimina carga innecesaria.
 
+8. **Diseño responsive para móvil** — adaptar todas las páginas para viewports estrechos (< 480 px). Problemas visibles en iPhone 12 Pro (390 px): cabecera desbordada, grid de pokémon en 3 columnas demasiado estrecho, paddings excesivos. Solución: media queries en `index.css` para reducir columnas de pokemon grid de 3 a 2 en móvil, compactar headers (ocultar texto secundario, reducir padding), ajustar font-sizes. Solo CSS + pequeños ajustes de JSX; sin cambios de backend.
+
 **Next — Backend** (cuando se retome):
 
 1. **SSE para el draft** — endpoint `GET /v1/leagues/{id}/draft/events` que emite un evento cada vez que cambia el estado del draft (pick realizado, draft completado). Usa `SseEmitter` de Spring. Dependencia del item #8 de frontend.
@@ -223,4 +225,4 @@ CSS design tokens in `src/index.css`. Animation utilities: `.animate-in`, `.stag
 
 **Next — Mobile** (cuando estén terminadas las mejoras de frontend):
 
-1. **App móvil con Capacitor** — envolver el React existente en un contenedor nativo para generar apps instalables en iOS (App Store) y Android (Play Store). Reutiliza toda la codebase actual sin reescribir nada. Pasos: `npm install @capacitor/core @capacitor/cli @capacitor/ios @capacitor/android` → `npx cap init` → `npm run build && npx cap sync` → abrir proyectos Xcode / Android Studio y compilar. Prerequisito: responsive CSS completo (item #1 del bloque frontend). Requiere cuenta Apple Developer ($99/año) para publicar en App Store.
+1. **App móvil con Capacitor** — envolver el React existente en un contenedor nativo para generar apps instalables en iOS (App Store) y Android (Play Store). Reutiliza toda la codebase actual sin reescribir nada. Pasos: `npm install @capacitor/core @capacitor/cli @capacitor/ios @capacitor/android` → `npx cap init` → `npm run build && npx cap sync` → abrir proyectos Xcode / Android Studio y compilar. Prerequisito: responsive CSS completo (item #8 del bloque frontend). Requiere cuenta Apple Developer ($99/año) para publicar en App Store.
