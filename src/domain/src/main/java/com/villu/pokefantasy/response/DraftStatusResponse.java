@@ -4,6 +4,7 @@ import com.villu.pokefantasy.dto.DraftStatus;
 import lombok.Builder;
 import lombok.Data;
 
+import java.time.Instant;
 import java.util.List;
 
 @Data
@@ -17,4 +18,6 @@ public class DraftStatusResponse {
     private List<DraftPickResponse> picks;
     /** Draft original (lo que eligió cada jugador), inmune a robos/swaps/trades. */
     private List<DraftPickResponse> draftHistory;
+    /** Deadline for the current turn; null if timer is disabled or draft not in progress. */
+    private Instant turnDeadline;
 }

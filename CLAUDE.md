@@ -153,6 +153,7 @@ POST   /v1/leagues/{id}/draft/start                start draft
 POST   /v1/leagues/{id}/draft/pick                 make pick
 GET    /v1/leagues/{id}/draft                      draft status
 DELETE /v1/leagues/{id}/draft                      cancel draft
+POST   /v1/leagues/{id}/draft/auto-pick             auto-pick random pokemon when turn timer expires
 GET    /v1/leagues/{id}/bench                      bench (unchosen pokemons)
 POST   /v1/leagues/{id}/bench/swap                 bench swap (tier parity + net coin change)
 POST   /v1/leagues/{id}/bench/buy                  buy bench pokémon with coins (round=0 sentinel)

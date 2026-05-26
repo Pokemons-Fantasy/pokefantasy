@@ -30,4 +30,8 @@ public class DraftFacade {
     public void cancelDraft(String leagueId, String requestingUsername) throws Exception {
         mediator.send(new CancelDraftCommand(leagueId, requestingUsername));
     }
+
+    public void autoPick(String leagueId) throws Exception {
+        mediator.send(new AutoPickDraftCommand(leagueId));
+    }
 }

@@ -42,6 +42,7 @@ public class GetLeagueSettingsCommandHandler
                 .tierPctB(settings.getTierPctB() != null ? settings.getTierPctB() : 20)
                 .tierPctC(settings.getTierPctC() != null ? settings.getTierPctC() : 20)
                 .tierPctD(settings.getTierPctD() != null ? settings.getTierPctD() : 20)
+                .turnTimerSeconds(settings.getTurnTimerSeconds() != null ? settings.getTurnTimerSeconds() : 0)
                 .build();
     }
 

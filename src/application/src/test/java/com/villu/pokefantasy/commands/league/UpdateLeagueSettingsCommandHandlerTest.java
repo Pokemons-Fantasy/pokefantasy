@@ -61,7 +61,7 @@ class UpdateLeagueSettingsCommandHandlerTest {
     private static UpdateLeagueSettingsCommand cmd(Integer coinsPerWin, Integer coinsPerLoss,
                                                     Integer s, Integer a, Integer b, Integer c, Integer d) {
         return new UpdateLeagueSettingsCommand("l1", coinsPerWin, coinsPerLoss, s, a, b, c, d, null, null,
-                20, 20, 20, 20, 20, "ash");
+                20, 20, 20, 20, 20, null, "ash");
     }
 
     private static UpdateLeagueSettingsCommand validCmd() {
@@ -71,7 +71,7 @@ class UpdateLeagueSettingsCommandHandlerTest {
     private static UpdateLeagueSettingsCommand cmdWithPcts(Integer pctS, Integer pctA, Integer pctB,
                                                             Integer pctC, Integer pctD) {
         return new UpdateLeagueSettingsCommand("l1", 100, 50, 500, 400, 300, 200, 100, null, null,
-                pctS, pctA, pctB, pctC, pctD, "ash");
+                pctS, pctA, pctB, pctC, pctD, null, "ash");
     }
 
     @Test
@@ -122,7 +122,7 @@ class UpdateLeagueSettingsCommandHandlerTest {
                 .thenThrow(new ForbiddenOperationException("not admin"));
 
         assertThatThrownBy(() -> handler.handle(
-                new UpdateLeagueSettingsCommand("l1", 100, 50, 500, 400, 300, 200, 100, null, null, 20, 20, 20, 20, 20, "brock")))
+                new UpdateLeagueSettingsCommand("l1", 100, 50, 500, 400, 300, 200, 100, null, null, 20, 20, 20, 20, 20, null, "brock")))
                 .isInstanceOf(ForbiddenOperationException.class);
     }
 
@@ -244,7 +244,7 @@ class UpdateLeagueSettingsCommandHandlerTest {
         when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
 
         UpdateLeagueSettingsCommand cmd = new UpdateLeagueSettingsCommand(
-                "l1", 100, 50, 500, 400, 300, 200, 100, "2026-06-06", 20, 20, 20, 20, 20, 20, "ash");
+                "l1", 100, 50, 500, 400, 300, 200, 100, "2026-06-06", 20, 20, 20, 20, 20, 20, null, "ash");
         handler.handle(cmd);
 
         // Schedule should be saved with updated dates

@@ -46,4 +46,10 @@ public class DraftController {
         draftFacade.cancelDraft(leagueId, userDetails.getUsername());
         return ResponseEntity.ok().build();
     }
+
+    @PostMapping("/auto-pick")
+    public ResponseEntity<Void> autoPick(@PathVariable String leagueId) throws Exception {
+        draftFacade.autoPick(leagueId);
+        return ResponseEntity.ok().build();
+    }
 }

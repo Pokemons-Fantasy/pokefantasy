@@ -18,5 +18,6 @@ public record UpdateLeagueSettingsCommand(
         Integer tierPctB,
         Integer tierPctC,
         Integer tierPctD,
+        Integer turnTimerSeconds,
         String requestingUsername
 ) implements Command {}

@@ -18,4 +18,5 @@ public class UpdateLeagueSettingsRequest {
     private Integer tierPctB;        // % of pool for B tier (default 20)
     private Integer tierPctC;        // % of pool for C tier (default 20)
     private Integer tierPctD;        // % of pool for D tier (default 20)
+    private Integer turnTimerSeconds; // seconds per turn; 0 = disabled
 }
