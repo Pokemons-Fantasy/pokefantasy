@@ -197,17 +197,19 @@ CSS design tokens in `src/index.css`. Animation utilities: `.animate-in`, `.stag
 
 1. **Skeletons de carga** — sustituir todos los `<p>Cargando...</p>` por skeleton screens (filas grises animadas). Mejora la percepción de velocidad sin tocar el backend. Patrón: clase `.skeleton` ya existe en `index.css`; crear componente `SkeletonTable` y `SkeletonGrid` reutilizables.
 
-2. **Confirmación de pick en el draft** — al clicar un Pokémon durante el draft, mostrar un mini-modal de confirmación ("¿Confirmas elegir X?") antes de llamar a `draftPick`. Evita picks accidentales. Solo frontend: añadir estado `pendingPick` en `DraftPage`, reutilizar el patrón de modal existente.
+2. **Diseño responsive para móvil** — adaptar todas las páginas para viewports estrechos (< 480 px). Problemas visibles en iPhone 12 Pro (390 px): cabecera desbordada, grid de pokémon en 3 columnas demasiado estrecho, paddings excesivos. Solución: media queries en `index.css` para reducir columnas de pokemon grid de 3 a 2 en móvil, compactar headers (ocultar texto secundario, reducir padding), ajustar font-sizes. Solo CSS + pequeños ajustes de JSX; sin cambios de backend. Prerequisito para el bloque Mobile (Capacitor).
 
-3. **Temporizador de turno en el draft** — cuenta atrás visible para el jugador en turno (configurable por el admin en LeagueSettings, p.ej. 120 s). Si expira, el turno pasa automáticamente. Requiere: (a) campo `turnTimerSeconds` en `LeagueSettings` + `LeagueSettingsEntity`; (b) lógica de auto-skip en `DraftPickCommandHandler` al consultar el tiempo transcurrido desde `currentTurnStartedAt`; (c) timer visual en `DraftPage` que consuma el campo `turnDeadline` que devuelva `getDraftStatus`.
+3. **Confirmación de pick en el draft** — al clicar un Pokémon durante el draft, mostrar un mini-modal de confirmación ("¿Confirmas elegir X?") antes de llamar a `draftPick`. Evita picks accidentales. Solo frontend: añadir estado `pendingPick` en `DraftPage`, reutilizar el patrón de modal existente.
 
-4. **Filtro/búsqueda en TeamsPage** — barra de búsqueda por nombre de Pokémon y filtro por tier en la vista de equipos rival. Solo frontend: `useState` para el filtro, aplicar sobre el array de picks antes de renderizar las tarjetas.
+4. **Temporizador de turno en el draft** — cuenta atrás visible para el jugador en turno (configurable por el admin en LeagueSettings, p.ej. 120 s). Si expira, el turno pasa automáticamente. Requiere: (a) campo `turnTimerSeconds` en `LeagueSettings` + `LeagueSettingsEntity`; (b) lógica de auto-skip en `DraftPickCommandHandler` al consultar el tiempo transcurrido desde `currentTurnStartedAt`; (c) timer visual en `DraftPage` que consuma el campo `turnDeadline` que devuelva `getDraftStatus`.
 
-5. **Modo claro / Dark-light toggle** — botón en el header para alternar entre el tema oscuro actual y un tema claro. Solo frontend: añadir clase `theme-light` al `<html>`, reemplazar los valores de `--bg`, `--surface`, `--text-*` con CSS custom properties que se sobreescriban bajo `.theme-light`. Persistir elección en `localStorage`.
+5. **Filtro/búsqueda en TeamsPage** — barra de búsqueda por nombre de Pokémon y filtro por tier en la vista de equipos rival. Solo frontend: `useState` para el filtro, aplicar sobre el array de picks antes de renderizar las tarjetas.
 
-6. **Página de perfil de jugador** — ruta `/leagues/:leagueId/player/:username` con: equipo actual, picks del draft histórico, W/L, monedas. No requiere endpoint nuevo; los datos vienen de `getDraftStatus` + `getStandings`. Solo frontend.
+6. **Modo claro / Dark-light toggle** — botón en el header para alternar entre el tema oscuro actual y un tema claro. Solo frontend: añadir clase `theme-light` al `<html>`, reemplazar los valores de `--bg`, `--surface`, `--text-*` con CSS custom properties que se sobreescriban bajo `.theme-light`. Persistir elección en `localStorage`.
 
-7. **Actualizaciones en tiempo real del draft (SSE)** — reemplazar el polling de 5 s en `DraftPage` por una conexión `EventSource` a un endpoint SSE del backend. Requiere: (a) backend SSE `GET /v1/leagues/{id}/draft/events`; (b) frontend sustituir `refetchInterval: 5000` por hook `useSSE`. Reduce latencia de turno a <1 s y elimina carga innecesaria.
+7. **Página de perfil de jugador** — ruta `/leagues/:leagueId/player/:username` con: equipo actual, picks del draft histórico, W/L, monedas. No requiere endpoint nuevo; los datos vienen de `getDraftStatus` + `getStandings`. Solo frontend.
+
+8. **Actualizaciones en tiempo real del draft (SSE)** — reemplazar el polling de 5 s en `DraftPage` por una conexión `EventSource` a un endpoint SSE del backend. Requiere: (a) backend SSE `GET /v1/leagues/{id}/draft/events`; (b) frontend sustituir `refetchInterval: 5000` por hook `useSSE`. Reduce latencia de turno a <1 s y elimina carga innecesaria.
 
 **Next — Backend** (cuando se retome):
 
@@ -223,4 +225,4 @@ CSS design tokens in `src/index.css`. Animation utilities: `.animate-in`, `.stag
 
 **Next — Mobile** (cuando estén terminadas las mejoras de frontend):
 
-1. **App móvil con Capacitor** — envolver el React existente en un contenedor nativo para generar apps instalables en iOS (App Store) y Android (Play Store). Reutiliza toda la codebase actual sin reescribir nada. Pasos: `npm install @capacitor/core @capacitor/cli @capacitor/ios @capacitor/android` → `npx cap init` → `npm run build && npx cap sync` → abrir proyectos Xcode / Android Studio y compilar. Prerequisito: responsive CSS completo (item #1 del bloque frontend). Requiere cuenta Apple Developer ($99/año) para publicar en App Store.
+1. **App móvil con Capacitor** — envolver el React existente en un contenedor nativo para generar apps instalables en iOS (App Store) y Android (Play Store). Reutiliza toda la codebase actual sin reescribir nada. Pasos: `npm install @capacitor/core @capacitor/cli @capacitor/ios @capacitor/android` → `npx cap init` → `npm run build && npx cap sync` → abrir proyectos Xcode / Android Studio y compilar. Prerequisito: responsive CSS completo (item #2 del bloque frontend). Requiere cuenta Apple Developer ($99/año) para publicar en App Store.
