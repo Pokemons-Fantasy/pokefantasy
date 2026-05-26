@@ -47,12 +47,13 @@ public class LeagueFacade {
                                String seasonStartDate, Integer maxTeamSize,
                                Integer tierPctS, Integer tierPctA, Integer tierPctB,
                                Integer tierPctC, Integer tierPctD,
+                               Integer turnTimerSeconds,
                                String requestingUsername) throws Exception {
         mediator.send(new UpdateLeagueSettingsCommand(leagueId, coinsPerWin, coinsPerLoss,
                 priceTierS, priceTierA, priceTierB, priceTierC, priceTierD,
                 seasonStartDate, maxTeamSize,
                 tierPctS, tierPctA, tierPctB, tierPctC, tierPctD,
-                requestingUsername));
+                turnTimerSeconds, requestingUsername));
     }
 
     public int getMyCoinBalance(String leagueId, String requestingUsername) throws Exception {

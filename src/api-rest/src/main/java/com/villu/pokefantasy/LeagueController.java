@@ -74,6 +74,7 @@ public class LeagueController {
                 request.getSeasonStartDate(), request.getMaxTeamSize(),
                 request.getTierPctS(), request.getTierPctA(), request.getTierPctB(),
                 request.getTierPctC(), request.getTierPctD(),
+                request.getTurnTimerSeconds(),
                 userDetails.getUsername());
         return ResponseEntity.noContent().build();
     }

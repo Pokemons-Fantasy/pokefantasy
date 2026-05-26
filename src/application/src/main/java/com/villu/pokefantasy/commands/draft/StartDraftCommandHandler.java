@@ -10,6 +10,7 @@ import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -68,6 +69,7 @@ public class StartDraftCommandHandler implements CommandHandler<StartDraftComman
         draft.setCurrentRound(1);
         draft.setPicks(new ArrayList<>());
         draft.setLeagueId(command.leagueId());
+        draft.setCurrentTurnStartedAt(Instant.now());
 
         draftRepository.save(draft);
         assignTiersToPool(command.leagueId());

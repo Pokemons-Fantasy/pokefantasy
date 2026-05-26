@@ -125,6 +125,7 @@ public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand,
                 pick.getCustomStealPrice(), pick.getLockedUntilRound()));
 
         advanceTurn(draft, maxTeamSize);
+        draft.setCurrentTurnStartedAt(Instant.now());
         try {
             draftRepository.save(draft);
         } catch (OptimisticLockingFailureException exception) {

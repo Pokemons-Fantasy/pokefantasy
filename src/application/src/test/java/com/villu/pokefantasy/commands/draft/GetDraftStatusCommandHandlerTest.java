@@ -2,6 +2,7 @@ package com.villu.pokefantasy.commands.draft;
 
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.repository.DraftRepository;
+import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
 import com.villu.pokefantasy.repository.entity.DraftPick;
 import com.villu.pokefantasy.response.DraftStatusResponse;
@@ -23,6 +24,7 @@ import static org.mockito.Mockito.when;
 class GetDraftStatusCommandHandlerTest {
 
     @Mock private DraftRepository draftRepository;
+    @Mock private LeagueRepository leagueRepository;
 
     private GetDraftStatusCommandHandler handler;
 
@@ -30,7 +32,7 @@ class GetDraftStatusCommandHandlerTest {
 
     @BeforeEach
     void setUp() {
-        handler = new GetDraftStatusCommandHandler(draftRepository);
+        handler = new GetDraftStatusCommandHandler(draftRepository, leagueRepository);
     }
 
     @Test

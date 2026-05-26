@@ -25,6 +25,7 @@ public class LeagueSettings {
     private Integer tierPctB;        // % of pool assigned to B tier (default 20)
     private Integer tierPctC;        // % of pool assigned to C tier (default 20)
     private Integer tierPctD;        // % of pool assigned to D tier (default 20)
+    private Integer turnTimerSeconds; // seconds per turn; null or 0 = disabled
 
     public static LeagueSettings defaults() {
         return LeagueSettings.builder()
@@ -42,6 +43,7 @@ public class LeagueSettings {
                 .tierPctB(20)
                 .tierPctC(20)
                 .tierPctD(20)
+                .turnTimerSeconds(0)
                 .build();
     }
 }

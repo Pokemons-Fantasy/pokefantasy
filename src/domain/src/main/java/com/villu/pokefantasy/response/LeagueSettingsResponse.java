@@ -24,4 +24,5 @@ public class LeagueSettingsResponse {
     private Integer tierPctB;
     private Integer tierPctC;
     private Integer tierPctD;
+    private Integer turnTimerSeconds;
 }

@@ -96,6 +96,7 @@ public class UpdateLeagueSettingsCommandHandler
                 .tierPctB(command.tierPctB())
                 .tierPctC(command.tierPctC())
                 .tierPctD(command.tierPctD())
+                .turnTimerSeconds(command.turnTimerSeconds() != null ? command.turnTimerSeconds() : 0)
                 .build());
 
         leagueRepository.save(league);

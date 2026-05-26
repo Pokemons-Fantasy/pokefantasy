@@ -6,6 +6,7 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Version;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.time.Instant;
 import java.util.List;
 
 @Data
@@ -24,4 +25,6 @@ public class DraftEntity {
      *  posteriores de robos/swaps/trades. Alimenta el historial del draft. */
     private List<DraftPick> draftHistory;
     private String leagueId;
+    /** Timestamp when the current turn started; reset on each pick or auto-pick. */
+    private Instant currentTurnStartedAt;
 }
