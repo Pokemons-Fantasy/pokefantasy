@@ -34,7 +34,9 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        RequestMatcher publicPaths = request -> PUBLIC_PATHS.contains(request.getServletPath());
+        RequestMatcher publicPaths = request ->
+                PUBLIC_PATHS.contains(request.getServletPath()) ||
+                ("GET".equals(request.getMethod()) && request.getServletPath().endsWith("/draft/events"));
 
         return http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
