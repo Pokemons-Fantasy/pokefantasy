@@ -20,14 +20,13 @@ import com.villu.pokefantasy.repository.entity.DraftPick;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import com.villu.pokefantasy.repository.entity.LeagueMember;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity;
-import com.villu.pokefantasy.repository.entity.ScheduleEntity.Jornada;
 import com.villu.pokefantasy.repository.entity.UserEntity;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 @Service
 public class StealPokemonCommandHandler implements CommandHandler<StealPokemonCommand, Void> {
@@ -86,19 +85,10 @@ public class StealPokemonCommandHandler implements CommandHandler<StealPokemonCo
 
         String victim = targetPick.getUsername();
 
-        // Lock check: if stolen this jornada, it cannot be stolen again until it's completed
-        if (targetPick.getLockedUntilRound() != null) {
-            int lockedRound = targetPick.getLockedUntilRound();
-            boolean stillLocked = schedule.getJornadas().stream()
-                    .filter(j -> j.getRoundNumber() == lockedRound)
-                    .findFirst()
-                    .map(j -> j.getMatches().stream()
-                            .anyMatch(m -> com.villu.pokefantasy.dto.MatchStatus.PENDING.equals(m.getStatus())))
-                    .orElse(false);
-            if (stillLocked) {
-                throw new IllegalStateException(
-                        "'" + targetName + "' está bloqueado hasta que finalice la jornada actual.");
-            }
+        // Lock check: bloqueado 7 días desde el robo/trade
+        if (targetPick.getLockedUntil() != null && Instant.now().isBefore(targetPick.getLockedUntil())) {
+            throw new IllegalStateException(
+                    "'" + targetName + "' está bloqueado hasta " + targetPick.getLockedUntil() + ".");
         }
 
         // Compute steal price
@@ -159,11 +149,8 @@ public class StealPokemonCommandHandler implements CommandHandler<StealPokemonCo
         }
 
         // Transfer pick in draft: update username + set lock + preserve customStealPrice
-        Optional<Jornada> activeJornada = jornadaWindowService.getActiveJornada(schedule);
-        int lockedRound = activeJornada.map(Jornada::getRoundNumber).orElse(0);
-
         targetPick.setUsername(stealer);
-        targetPick.setLockedUntilRound(lockedRound);
+        targetPick.setLockedUntil(Instant.now().plus(7, ChronoUnit.DAYS));
         targetPick.setPickedAt(Instant.now());
         // customStealPrice is intentionally preserved (inherited by new owner)
 

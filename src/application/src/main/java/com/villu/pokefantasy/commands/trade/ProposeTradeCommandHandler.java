@@ -1,18 +1,15 @@
 package com.villu.pokefantasy.commands.trade;
 
 import com.villu.pokefantasy.dto.DraftStatus;
-import com.villu.pokefantasy.dto.MatchStatus;
 import com.villu.pokefantasy.dto.TradeStatus;
 import com.villu.pokefantasy.mediator.CommandHandler;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
-import com.villu.pokefantasy.repository.ScheduleRepository;
 import com.villu.pokefantasy.repository.TradeRepository;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
 import com.villu.pokefantasy.repository.entity.DraftPick;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import com.villu.pokefantasy.repository.entity.LeagueMember;
-import com.villu.pokefantasy.repository.entity.ScheduleEntity;
 import com.villu.pokefantasy.repository.entity.TradeEntity;
 import org.springframework.stereotype.Service;
 
@@ -24,16 +21,13 @@ public class ProposeTradeCommandHandler implements CommandHandler<ProposeTradeCo
     private final TradeRepository tradeRepository;
     private final DraftRepository draftRepository;
     private final LeagueRepository leagueRepository;
-    private final ScheduleRepository scheduleRepository;
 
     public ProposeTradeCommandHandler(TradeRepository tradeRepository,
                                       DraftRepository draftRepository,
-                                      LeagueRepository leagueRepository,
-                                      ScheduleRepository scheduleRepository) {
+                                      LeagueRepository leagueRepository) {
         this.tradeRepository = tradeRepository;
         this.draftRepository = draftRepository;
         this.leagueRepository = leagueRepository;
-        this.scheduleRepository = scheduleRepository;
     }
 
     @Override
@@ -66,9 +60,8 @@ public class ProposeTradeCommandHandler implements CommandHandler<ProposeTradeCo
         DraftPick proposerPick = findPick(draft, proposer, proposerPokemonName);
         DraftPick responderPick = findPick(draft, responder, responderPokemonName);
 
-        ScheduleEntity schedule = scheduleRepository.findByLeagueId(leagueId).orElse(null);
-        assertNotLocked(proposerPick, schedule, proposerPokemonName);
-        assertNotLocked(responderPick, schedule, responderPokemonName);
+        assertNotLocked(proposerPick, proposerPokemonName);
+        assertNotLocked(responderPick, responderPokemonName);
 
         if (proposerMember.getCoinBalance() < coinsOffered) {
             throw new IllegalStateException("No tienes suficientes monedas para esta oferta. Necesitas "
@@ -107,18 +100,10 @@ public class ProposeTradeCommandHandler implements CommandHandler<ProposeTradeCo
                         "'" + pokemonName + "' no está en el equipo de " + username));
     }
 
-    private void assertNotLocked(DraftPick pick, ScheduleEntity schedule, String pokemonName) {
-        if (pick.getLockedUntilRound() == null || schedule == null) return;
-        int lockedRound = pick.getLockedUntilRound();
-        boolean stillLocked = schedule.getJornadas().stream()
-                .filter(j -> j.getRoundNumber() == lockedRound)
-                .findFirst()
-                .map(j -> j.getMatches().stream()
-                        .anyMatch(m -> MatchStatus.PENDING.equals(m.getStatus())))
-                .orElse(false);
-        if (stillLocked) {
+    private void assertNotLocked(DraftPick pick, String pokemonName) {
+        if (pick.getLockedUntil() != null && Instant.now().isBefore(pick.getLockedUntil())) {
             throw new IllegalStateException(
-                    "'" + pokemonName + "' está bloqueado hasta que finalice la jornada actual.");
+                    "'" + pokemonName + "' está bloqueado hasta " + pick.getLockedUntil() + ".");
         }
     }
 
