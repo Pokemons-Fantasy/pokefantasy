@@ -1,8 +1,10 @@
 package com.villu.pokefantasy.commands.schedule;
 
+import com.villu.pokefantasy.commands.standings.GetSeasonStatsCommand;
 import com.villu.pokefantasy.commands.standings.GetStandingsCommand;
 import com.villu.pokefantasy.mediator.Mediator;
 import com.villu.pokefantasy.response.ScheduleResponse;
+import com.villu.pokefantasy.response.SeasonStatsResponse;
 import com.villu.pokefantasy.response.StandingsResponse;
 import org.springframework.stereotype.Service;
 
@@ -26,5 +28,9 @@ public class ScheduleFacade {
 
     public StandingsResponse getStandings(String leagueId) throws Exception {
         return mediator.send(new GetStandingsCommand(leagueId));
+    }
+
+    public SeasonStatsResponse getSeasonStats(String leagueId) throws Exception {
+        return mediator.send(new GetSeasonStatsCommand(leagueId));
     }
 }

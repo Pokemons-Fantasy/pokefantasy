@@ -3,6 +3,7 @@ package com.villu.pokefantasy;
 import com.villu.pokefantasy.commands.schedule.ScheduleFacade;
 import com.villu.pokefantasy.request.schedule.RecordMatchResultRequest;
 import com.villu.pokefantasy.response.ScheduleResponse;
+import com.villu.pokefantasy.response.SeasonStatsResponse;
 import com.villu.pokefantasy.response.StandingsResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -41,5 +42,10 @@ public class ScheduleController {
     @GetMapping("/{leagueId}/standings")
     public ResponseEntity<StandingsResponse> getStandings(@PathVariable String leagueId) throws Exception {
         return ResponseEntity.ok(scheduleFacade.getStandings(leagueId));
+    }
+
+    @GetMapping("/{leagueId}/season-stats")
+    public ResponseEntity<SeasonStatsResponse> getSeasonStats(@PathVariable String leagueId) throws Exception {
+        return ResponseEntity.ok(scheduleFacade.getSeasonStats(leagueId));
     }
 }
