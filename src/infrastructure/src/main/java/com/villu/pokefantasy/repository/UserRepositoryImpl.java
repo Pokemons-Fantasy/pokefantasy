@@ -8,6 +8,8 @@ import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
+
 @Component
 @Slf4j
 public class UserRepositoryImpl implements UserRepository {
@@ -46,5 +48,13 @@ public class UserRepositoryImpl implements UserRepository {
     @Override
     public void updateUserWithPokemons(UserEntity userEntity) {
         mongoTemplate.save(userEntity);
+    }
+
+    @Override
+    public List<UserEntity> findByUsernamePrefix(String prefix) {
+        Query query = new Query(
+            Criteria.where("name").regex("^" + java.util.regex.Pattern.quote(prefix), "i")
+        ).limit(20);
+        return mongoTemplate.find(query, UserEntity.class);
     }
 }
