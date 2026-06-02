@@ -59,7 +59,8 @@ public class SecurityConfig {
         config.setAllowedOriginPatterns(List.of(
                 "https://*.netlify.app",
                 "http://localhost:[*]",
-                "http://127.0.0.1:[*]"
+                "http://127.0.0.1:[*]",
+                "capacitor://localhost"
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
