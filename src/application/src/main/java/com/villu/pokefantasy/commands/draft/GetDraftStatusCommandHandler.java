@@ -68,7 +68,7 @@ public class GetDraftStatusCommandHandler implements CommandHandler<GetDraftStat
                         .round(pick.getRound())
                         .pickedAt(pick.getPickedAt())
                         .customStealPrice(pick.getCustomStealPrice())
-                        .lockedUntilRound(pick.getLockedUntilRound())
+                        .lockedUntil(pick.getLockedUntil())
                         .build())
                 .toList();
     }

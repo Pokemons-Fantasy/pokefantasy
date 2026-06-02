@@ -17,6 +17,6 @@ public class DraftPick {
     private Instant pickedAt;
     /** Custom steal price set by the owner spending coins. null = use priceTierX default. Inherited when stolen. Reset to null when returned to bench. */
     private Integer customStealPrice;
-    /** Round number of the jornada in which this pokemon was stolen. null = not locked. Locked until that jornada is fully COMPLETED. */
-    private Integer lockedUntilRound;
+    /** Timestamp hasta el que este pokémon está bloqueado (7 días desde el robo/trade). null = libre. */
+    private Instant lockedUntil;
 }

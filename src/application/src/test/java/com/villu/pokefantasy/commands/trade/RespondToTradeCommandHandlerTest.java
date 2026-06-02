@@ -4,7 +4,6 @@ import com.villu.pokefantasy.commands.schedule.JornadaWindowService;
 import com.villu.pokefantasy.dto.ActivityEventType;
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueRole;
-import com.villu.pokefantasy.dto.MatchStatus;
 import com.villu.pokefantasy.dto.Pokemons;
 import com.villu.pokefantasy.dto.TradeStatus;
 import com.villu.pokefantasy.exception.ForbiddenOperationException;
@@ -21,8 +20,6 @@ import com.villu.pokefantasy.repository.entity.DraftPick;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import com.villu.pokefantasy.repository.entity.LeagueMember;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity;
-import com.villu.pokefantasy.repository.entity.ScheduleEntity.Jornada;
-import com.villu.pokefantasy.repository.entity.ScheduleEntity.Match;
 import com.villu.pokefantasy.repository.entity.TradeEntity;
 import com.villu.pokefantasy.repository.entity.UserEntity;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,6 +30,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -122,8 +120,6 @@ class RespondToTradeCommandHandlerTest {
         ScheduleEntity schedule = new ScheduleEntity();
         when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
         when(jornadaWindowService.isSwapWindowOpen(schedule)).thenReturn(true);
-        when(jornadaWindowService.getActiveJornada(schedule))
-                .thenReturn(Optional.of(new Jornada(3, new ArrayList<>(), null)));
 
         LeagueEntity league = new LeagueEntity();
         league.setMembers(List.of(
@@ -139,11 +135,13 @@ class RespondToTradeCommandHandlerTest {
 
         handler.handle(new RespondToTradeCommand("l1", "t1", "brock", true));
 
-        // picks intercambiados y bloqueados
+        // picks intercambiados y bloqueados 7 días
         assertThat(ashPick.getUsername()).isEqualTo("brock");
         assertThat(brockPick.getUsername()).isEqualTo("ash");
-        assertThat(ashPick.getLockedUntilRound()).isEqualTo(3);
-        assertThat(brockPick.getLockedUntilRound()).isEqualTo(3);
+        assertThat(ashPick.getLockedUntil()).isNotNull();
+        assertThat(ashPick.getLockedUntil()).isAfter(Instant.now().plus(6, ChronoUnit.DAYS));
+        assertThat(brockPick.getLockedUntil()).isNotNull();
+        assertThat(brockPick.getLockedUntil()).isAfter(Instant.now().plus(6, ChronoUnit.DAYS));
         // monedas: ash paga 100, brock recibe 100
         assertThat(league.getMembers().get(0).getCoinBalance()).isEqualTo(400);
         assertThat(league.getMembers().get(1).getCoinBalance()).isEqualTo(300);
@@ -255,17 +253,14 @@ class RespondToTradeCommandHandlerTest {
         when(tradeRepository.findById("t1")).thenReturn(Optional.of(pendingTrade()));
         DraftEntity draft = new DraftEntity();
         draft.setStatus(DraftStatus.COMPLETED);
-        // ash's pikachu locked until round 3
-        DraftPick ashPick = new DraftPick("ash", "pikachu", 25, 1, Instant.now(), null, 3);
+        // ash's pikachu locked until 1 hour from now
+        DraftPick ashPick = new DraftPick("ash", "pikachu", 25, 1, Instant.now(), null,
+                Instant.now().plus(1, ChronoUnit.HOURS));
         DraftPick brockPick = new DraftPick("brock", "onix", 95, 1, Instant.now(), null, null);
         draft.setPicks(new ArrayList<>(List.of(ashPick, brockPick)));
         when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.of(draft));
 
-        // schedule with jornada 3 containing PENDING match
-        Match match = new Match("m1", "ash", "brock", null, MatchStatus.PENDING);
-        Jornada jornada = new Jornada(3, new ArrayList<>(List.of(match)), null);
         ScheduleEntity schedule = new ScheduleEntity();
-        schedule.setJornadas(new ArrayList<>(List.of(jornada)));
         when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
         when(jornadaWindowService.isSwapWindowOpen(schedule)).thenReturn(true);
 
@@ -319,8 +314,6 @@ class RespondToTradeCommandHandlerTest {
         ScheduleEntity schedule = new ScheduleEntity();
         when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
         when(jornadaWindowService.isSwapWindowOpen(schedule)).thenReturn(true);
-        when(jornadaWindowService.getActiveJornada(schedule))
-                .thenReturn(Optional.of(new Jornada(3, new ArrayList<>(), null)));
 
         LeagueEntity league = new LeagueEntity();
         league.setMembers(List.of(
@@ -363,8 +356,6 @@ class RespondToTradeCommandHandlerTest {
         ScheduleEntity schedule = new ScheduleEntity();
         when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
         when(jornadaWindowService.isSwapWindowOpen(schedule)).thenReturn(true);
-        when(jornadaWindowService.getActiveJornada(schedule))
-                .thenReturn(Optional.of(new Jornada(3, new ArrayList<>(), null)));
 
         LeagueEntity league = new LeagueEntity();
         league.setMembers(List.of(
@@ -389,6 +380,35 @@ class RespondToTradeCommandHandlerTest {
         assertThat(saved.getPokemonName()).isEqualTo("pikachu");
         assertThat(saved.getPokemonName2()).isEqualTo("onix");
         assertThat(saved.getCreatedAt()).isNotNull();
+    }
+
+    // ── Timestamp lock ────────────────────────────────────────────────────────
+
+    @Test
+    void acceptTrade_lockedPokemon_throwsIllegalState() {
+        when(tradeRepository.findById("t1")).thenReturn(Optional.of(pendingTrade()));
+        DraftEntity draft = new DraftEntity();
+        draft.setStatus(DraftStatus.COMPLETED);
+        // ash's pikachu locked until 1 hour from now
+        DraftPick ashPick = new DraftPick("ash", "pikachu", 25, 1, Instant.now(), null,
+                Instant.now().plus(1, ChronoUnit.HOURS));
+        DraftPick brockPick = new DraftPick("brock", "onix", 95, 1, Instant.now(), null, null);
+        draft.setPicks(new ArrayList<>(List.of(ashPick, brockPick)));
+        when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.of(draft));
+
+        ScheduleEntity schedule = new ScheduleEntity();
+        when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
+        when(jornadaWindowService.isSwapWindowOpen(schedule)).thenReturn(true);
+
+        LeagueEntity league = new LeagueEntity();
+        league.setMembers(List.of(
+                new LeagueMember("ash", LeagueRole.USER, 500),
+                new LeagueMember("brock", LeagueRole.USER, 200)));
+        when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
+
+        assertThatThrownBy(() -> handler.handle(new RespondToTradeCommand("l1", "t1", "brock", true)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("bloqueado");
     }
 
     @Test

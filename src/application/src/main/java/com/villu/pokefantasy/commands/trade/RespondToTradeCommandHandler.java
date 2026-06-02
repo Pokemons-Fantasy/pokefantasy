@@ -3,7 +3,6 @@ package com.villu.pokefantasy.commands.trade;
 import com.villu.pokefantasy.commands.schedule.JornadaWindowService;
 import com.villu.pokefantasy.dto.ActivityEventType;
 import com.villu.pokefantasy.dto.DraftStatus;
-import com.villu.pokefantasy.dto.MatchStatus;
 import com.villu.pokefantasy.dto.Pokemons;
 import com.villu.pokefantasy.dto.TradeStatus;
 import com.villu.pokefantasy.exception.ForbiddenOperationException;
@@ -21,12 +20,12 @@ import com.villu.pokefantasy.repository.entity.DraftPick;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import com.villu.pokefantasy.repository.entity.LeagueMember;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity;
-import com.villu.pokefantasy.repository.entity.ScheduleEntity.Jornada;
 import com.villu.pokefantasy.repository.entity.TradeEntity;
 import com.villu.pokefantasy.repository.entity.UserEntity;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -107,8 +106,8 @@ public class RespondToTradeCommandHandler implements CommandHandler<RespondToTra
         DraftPick responderPick = findPickOrInvalidate(draft, trade,
                 trade.getResponder(), trade.getResponderPokemonName());
 
-        assertNotLocked(proposerPick, schedule, trade.getProposerPokemonName());
-        assertNotLocked(responderPick, schedule, trade.getResponderPokemonName());
+        assertNotLocked(proposerPick, trade.getProposerPokemonName());
+        assertNotLocked(responderPick, trade.getResponderPokemonName());
 
         LeagueMember proposerMember = getMember(league, trade.getProposer());
         LeagueMember responderMember = getMember(league, trade.getResponder());
@@ -129,14 +128,13 @@ public class RespondToTradeCommandHandler implements CommandHandler<RespondToTra
                 trade.getProposerPokemonName(), trade.getProposerPokemonId(), leagueId);
 
         // 3. DraftPicks: intercambio de username + bloqueo
-        int lockedRound = jornadaWindowService.getActiveJornada(schedule)
-                .map(Jornada::getRoundNumber).orElse(0);
         Instant now = Instant.now();
+        Instant lockUntil = now.plus(7, ChronoUnit.DAYS);
         proposerPick.setUsername(trade.getResponder());
-        proposerPick.setLockedUntilRound(lockedRound);
+        proposerPick.setLockedUntil(lockUntil);
         proposerPick.setPickedAt(now);
         responderPick.setUsername(trade.getProposer());
-        responderPick.setLockedUntilRound(lockedRound);
+        responderPick.setLockedUntil(lockUntil);
         responderPick.setPickedAt(now);
         draftRepository.save(draft);
 
@@ -216,18 +214,10 @@ public class RespondToTradeCommandHandler implements CommandHandler<RespondToTra
         return name.equalsIgnoreCase(a) || name.equalsIgnoreCase(b);
     }
 
-    private void assertNotLocked(DraftPick pick, ScheduleEntity schedule, String pokemonName) {
-        if (pick.getLockedUntilRound() == null) return;
-        int lockedRound = pick.getLockedUntilRound();
-        boolean stillLocked = schedule.getJornadas().stream()
-                .filter(j -> j.getRoundNumber() == lockedRound)
-                .findFirst()
-                .map(j -> j.getMatches().stream()
-                        .anyMatch(m -> MatchStatus.PENDING.equals(m.getStatus())))
-                .orElse(false);
-        if (stillLocked) {
+    private void assertNotLocked(DraftPick pick, String pokemonName) {
+        if (pick.getLockedUntil() != null && Instant.now().isBefore(pick.getLockedUntil())) {
             throw new IllegalStateException(
-                    "'" + pokemonName + "' está bloqueado hasta que finalice la jornada actual.");
+                    "'" + pokemonName + "' está bloqueado hasta " + pick.getLockedUntil() + ".");
         }
     }
 

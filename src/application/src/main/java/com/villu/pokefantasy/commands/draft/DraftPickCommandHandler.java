@@ -122,7 +122,7 @@ public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand,
         }
         draft.getDraftHistory().add(new DraftPick(pick.getUsername(), pick.getPokemonName(),
                 pick.getPokemonId(), pick.getRound(), pick.getPickedAt(),
-                pick.getCustomStealPrice(), pick.getLockedUntilRound()));
+                pick.getCustomStealPrice(), pick.getLockedUntil()));
 
         advanceTurn(draft, maxTeamSize);
         draft.setCurrentTurnStartedAt(Instant.now());

@@ -2,19 +2,14 @@ package com.villu.pokefantasy.commands.trade;
 
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueRole;
-import com.villu.pokefantasy.dto.MatchStatus;
 import com.villu.pokefantasy.dto.TradeStatus;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
-import com.villu.pokefantasy.repository.ScheduleRepository;
 import com.villu.pokefantasy.repository.TradeRepository;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
 import com.villu.pokefantasy.repository.entity.DraftPick;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import com.villu.pokefantasy.repository.entity.LeagueMember;
-import com.villu.pokefantasy.repository.entity.ScheduleEntity;
-import com.villu.pokefantasy.repository.entity.ScheduleEntity.Jornada;
-import com.villu.pokefantasy.repository.entity.ScheduleEntity.Match;
 import com.villu.pokefantasy.repository.entity.TradeEntity;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -24,6 +19,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -39,13 +35,12 @@ class ProposeTradeCommandHandlerTest {
     @Mock private TradeRepository tradeRepository;
     @Mock private DraftRepository draftRepository;
     @Mock private LeagueRepository leagueRepository;
-    @Mock private ScheduleRepository scheduleRepository;
 
     private ProposeTradeCommandHandler handler;
 
     @BeforeEach
     void setUp() {
-        handler = new ProposeTradeCommandHandler(tradeRepository, draftRepository, leagueRepository, scheduleRepository);
+        handler = new ProposeTradeCommandHandler(tradeRepository, draftRepository, leagueRepository);
     }
 
     @Test
@@ -62,7 +57,6 @@ class ProposeTradeCommandHandlerTest {
                 new LeagueMember("ash", LeagueRole.USER, 1000),
                 new LeagueMember("brock", LeagueRole.USER, 1000)));
         when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
-        when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.empty());
 
         handler.handle(new ProposeTradeCommand("l1", "ash", "brock", "pikachu", "onix", 150));
 
@@ -200,9 +194,10 @@ class ProposeTradeCommandHandlerTest {
     void handle_pokemonLocked_throwsIllegalState() {
         DraftEntity draft = new DraftEntity();
         draft.setStatus(DraftStatus.COMPLETED);
-        // ash's pikachu is locked until round 1
+        // ash's pikachu is locked until 1 hour from now
         draft.setPicks(new ArrayList<>(List.of(
-                new DraftPick("ash", "pikachu", 25, 1, Instant.now(), null, 1),
+                new DraftPick("ash", "pikachu", 25, 1, Instant.now(), null,
+                        Instant.now().plus(1, ChronoUnit.HOURS)),
                 new DraftPick("brock", "onix", 95, 1, Instant.now(), null, null))));
         when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.of(draft));
 
@@ -211,13 +206,6 @@ class ProposeTradeCommandHandlerTest {
                 new LeagueMember("ash", LeagueRole.USER, 1000),
                 new LeagueMember("brock", LeagueRole.USER, 1000)));
         when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
-
-        // schedule with jornada 1 that has PENDING matches
-        Match match = new Match("m1", "ash", "brock", null, MatchStatus.PENDING);
-        Jornada jornada = new Jornada(1, new ArrayList<>(List.of(match)), null);
-        ScheduleEntity schedule = new ScheduleEntity();
-        schedule.setJornadas(new ArrayList<>(List.of(jornada)));
-        when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
 
         assertThatThrownBy(() -> handler.handle(
                 new ProposeTradeCommand("l1", "ash", "brock", "pikachu", "onix", 0)))
@@ -240,7 +228,6 @@ class ProposeTradeCommandHandlerTest {
                 new LeagueMember("ash", LeagueRole.USER, 50),
                 new LeagueMember("brock", LeagueRole.USER, 1000)));
         when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
-        when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> handler.handle(
                 new ProposeTradeCommand("l1", "ash", "brock", "pikachu", "onix", 150)))
