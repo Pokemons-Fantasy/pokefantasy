@@ -19,7 +19,12 @@ management:
         include: health
   endpoint:
     health:
-      show-details: never
+      show-details: always
+      group:
+        liveness:
+          include: ping
+        readiness:
+          include: mongo, redis, diskSpace
 jwt:
   # Must be provided externally as a Base64-encoded 256-bit key
   secret: ${JWT_SECRET}

@@ -24,7 +24,9 @@ import java.util.Set;
 @EnableMethodSecurity
 public class SecurityConfig {
 
-    private static final Set<String> PUBLIC_PATHS = Set.of("/v1/user", "/v1/user/login", "/actuator/health");
+    private static final Set<String> PUBLIC_PATHS = Set.of(
+            "/v1/user", "/v1/user/login",
+            "/actuator/health", "/actuator/health/liveness");
 
     private final JwtAuthFilter jwtAuthFilter;
 
