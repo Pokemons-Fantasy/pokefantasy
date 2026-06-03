@@ -21,7 +21,7 @@ import java.util.List;
 @Slf4j
 public class FirebasePushNotificationAdapter implements PushNotificationPort {
 
-    private boolean initialized = false;
+    private volatile boolean initialized = false;
 
     @PostConstruct
     public void init() {
