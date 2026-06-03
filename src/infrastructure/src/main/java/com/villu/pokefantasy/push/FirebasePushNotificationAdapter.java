@@ -77,11 +77,12 @@ public class FirebasePushNotificationAdapter implements PushNotificationPort {
         List<SendResponse> responses = response.getResponses();
         for (int i = 0; i < responses.size(); i++) {
             SendResponse r = responses.get(i);
-            if (!r.isSuccessful() && r.getException() != null) {
-                MessagingErrorCode code = r.getException().getMessagingErrorCode();
-                if (code == MessagingErrorCode.UNREGISTERED || code == MessagingErrorCode.INVALID_ARGUMENT) {
-                    String staleToken = fcmTokens.get(i);
-                    log.info("Removing stale FCM token ({}): {}...", code, staleToken.substring(0, Math.min(20, staleToken.length())));
+            if (!r.isSuccessful()) {
+                MessagingErrorCode code = r.getException() != null ? r.getException().getMessagingErrorCode() : null;
+                String staleToken = fcmTokens.get(i);
+                log.warn("FCM token failed (errorCode={}): {}...", code, staleToken.substring(0, Math.min(20, staleToken.length())));
+                if (code == MessagingErrorCode.UNREGISTERED || code == MessagingErrorCode.INVALID_ARGUMENT
+                        || code == MessagingErrorCode.SENDER_ID_MISMATCH) {
                     userRepository.removeFcmToken(staleToken);
                 }
             }
