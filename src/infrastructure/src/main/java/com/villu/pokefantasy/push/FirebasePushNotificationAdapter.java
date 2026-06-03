@@ -40,7 +40,10 @@ public class FirebasePushNotificationAdapter implements PushNotificationPort {
         }
         try {
             GoogleCredentials credentials = GoogleCredentials.fromStream(
-                    new ByteArrayInputStream(serviceAccountJson.getBytes(StandardCharsets.UTF_8)));
+                    new ByteArrayInputStream(serviceAccountJson.getBytes(StandardCharsets.UTF_8)))
+                    .createScoped(
+                            "https://www.googleapis.com/auth/firebase.messaging",
+                            "https://www.googleapis.com/auth/cloud-platform");
             FirebaseOptions options = FirebaseOptions.builder()
                     .setCredentials(credentials)
                     .build();
