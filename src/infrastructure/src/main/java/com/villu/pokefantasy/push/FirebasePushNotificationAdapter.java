@@ -58,7 +58,7 @@ public class FirebasePushNotificationAdapter implements PushNotificationPort {
                     .addAllTokens(fcmTokens)
                     .build();
             BatchResponse response = FirebaseMessaging.getInstance().sendEachForMulticast(message);
-            log.debug("Push sent: {}/{} successful", response.getSuccessCount(), fcmTokens.size());
+            log.info("Push sent: {}/{} successful for title='{}'", response.getSuccessCount(), fcmTokens.size(), title);
         } catch (FirebaseMessagingException e) {
             log.error("Failed to send push notification: {}", e.getMessage(), e);
         }
