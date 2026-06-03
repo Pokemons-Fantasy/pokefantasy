@@ -83,8 +83,11 @@ public class FirebasePushNotificationAdapter implements PushNotificationPort {
             if (!r.isSuccessful()) {
                 MessagingErrorCode code = r.getException() != null ? r.getException().getMessagingErrorCode() : null;
                 String staleToken = fcmTokens.get(i);
-                log.warn("FCM token failed (errorCode={}, msg={}): {}...", code,
+                Throwable root = r.getException();
+                while (root != null && root.getCause() != null) root = root.getCause();
+                log.warn("FCM token failed (errorCode={}, msg={}, rootCause={}): {}...", code,
                         r.getException() != null ? r.getException().getMessage() : "none",
+                        root != null ? root.getClass().getSimpleName() + ": " + root.getMessage() : "none",
                         staleToken.substring(0, Math.min(20, staleToken.length())));
                 if (code == MessagingErrorCode.UNREGISTERED || code == MessagingErrorCode.INVALID_ARGUMENT
                         || code == MessagingErrorCode.SENDER_ID_MISMATCH) {
