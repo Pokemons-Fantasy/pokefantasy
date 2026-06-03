@@ -48,7 +48,13 @@ public class FirebasePushNotificationAdapter implements PushNotificationPort {
 
     @Override
     public void send(List<String> fcmTokens, String title, String body) {
-        if (!initialized || fcmTokens == null || fcmTokens.isEmpty()) return;
+        log.info("push.send called: title='{}', tokenCount={}, initialized={}",
+                title, fcmTokens != null ? fcmTokens.size() : -1, initialized);
+        if (!initialized || fcmTokens == null || fcmTokens.isEmpty()) {
+            log.warn("push.send skipped: initialized={}, tokens={}", initialized,
+                    fcmTokens != null ? fcmTokens.size() : "null");
+            return;
+        }
         try {
             MulticastMessage message = MulticastMessage.builder()
                     .setNotification(Notification.builder()

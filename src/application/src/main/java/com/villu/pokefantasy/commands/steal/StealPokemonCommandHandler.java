@@ -7,6 +7,7 @@ import com.villu.pokefantasy.dto.LeagueSettings;
 import com.villu.pokefantasy.dto.Pokemons;
 import com.villu.pokefantasy.dto.Tier;
 import com.villu.pokefantasy.mediator.CommandHandler;
+import lombok.extern.slf4j.Slf4j;
 import com.villu.pokefantasy.repository.ActivityEventRepository;
 import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
@@ -30,6 +31,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Service
+@Slf4j
 public class StealPokemonCommandHandler implements CommandHandler<StealPokemonCommand, Void> {
 
     private final DraftRepository draftRepository;
@@ -170,6 +172,10 @@ public class StealPokemonCommandHandler implements CommandHandler<StealPokemonCo
                 .createdAt(Instant.now())
                 .build());
 
+        log.info("Steal push check: victim={}, victimUser={}, fcmTokens={}",
+                victim,
+                victimUser != null ? "found" : "null",
+                victimUser != null ? victimUser.getFcmTokens().size() : -1);
         if (victimUser != null && !victimUser.getFcmTokens().isEmpty()) {
             pushNotificationPort.send(
                     victimUser.getFcmTokens(),
