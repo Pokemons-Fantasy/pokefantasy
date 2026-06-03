@@ -6,6 +6,7 @@ import lombok.Data;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Data
@@ -17,4 +18,5 @@ public class UserEntity {
     private String password;
     private Role role;
     private List<Pokemons> pokemons;
+    private List<String> fcmTokens = new ArrayList<>();
 }

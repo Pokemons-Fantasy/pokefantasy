@@ -11,6 +11,7 @@ import com.villu.pokefantasy.repository.ActivityEventRepository;
 import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
+import com.villu.pokefantasy.repository.PushNotificationPort;
 import com.villu.pokefantasy.repository.ScheduleRepository;
 import com.villu.pokefantasy.repository.UserRepository;
 import com.villu.pokefantasy.repository.entity.ActivityEventEntity;
@@ -38,6 +39,7 @@ public class StealPokemonCommandHandler implements CommandHandler<StealPokemonCo
     private final ScheduleRepository scheduleRepository;
     private final JornadaWindowService jornadaWindowService;
     private final ActivityEventRepository activityEventRepository;
+    private final PushNotificationPort pushNotificationPort;
 
     public StealPokemonCommandHandler(DraftRepository draftRepository,
                                       ClosedListRepository closedListRepository,
@@ -45,7 +47,8 @@ public class StealPokemonCommandHandler implements CommandHandler<StealPokemonCo
                                       UserRepository userRepository,
                                       ScheduleRepository scheduleRepository,
                                       JornadaWindowService jornadaWindowService,
-                                      ActivityEventRepository activityEventRepository) {
+                                      ActivityEventRepository activityEventRepository,
+                                      PushNotificationPort pushNotificationPort) {
         this.draftRepository = draftRepository;
         this.closedListRepository = closedListRepository;
         this.leagueRepository = leagueRepository;
@@ -53,6 +56,7 @@ public class StealPokemonCommandHandler implements CommandHandler<StealPokemonCo
         this.scheduleRepository = scheduleRepository;
         this.jornadaWindowService = jornadaWindowService;
         this.activityEventRepository = activityEventRepository;
+        this.pushNotificationPort = pushNotificationPort;
     }
 
     @Override
@@ -165,6 +169,13 @@ public class StealPokemonCommandHandler implements CommandHandler<StealPokemonCo
                 .coinsAmount(stealPrice)
                 .createdAt(Instant.now())
                 .build());
+
+        if (victimUser != null && !victimUser.getFcmTokens().isEmpty()) {
+            pushNotificationPort.send(
+                    victimUser.getFcmTokens(),
+                    "Te han robado un Pokémon",
+                    stealer + " te ha robado a " + targetName);
+        }
 
         return null;
     }

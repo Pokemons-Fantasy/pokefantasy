@@ -11,6 +11,7 @@ import com.villu.pokefantasy.repository.ActivityEventRepository;
 import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
+import com.villu.pokefantasy.repository.PushNotificationPort;
 import com.villu.pokefantasy.repository.ScheduleRepository;
 import com.villu.pokefantasy.repository.UserRepository;
 import com.villu.pokefantasy.repository.entity.ActivityEventEntity;
@@ -37,6 +38,9 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -49,6 +53,7 @@ class StealPokemonCommandHandlerTest {
     @Mock private ScheduleRepository scheduleRepository;
     @Mock private JornadaWindowService jornadaWindowService;
     @Mock private ActivityEventRepository activityEventRepository;
+    @Mock private PushNotificationPort pushNotificationPort;
 
     private StealPokemonCommandHandler handler;
 
@@ -62,7 +67,7 @@ class StealPokemonCommandHandlerTest {
         handler = new StealPokemonCommandHandler(
                 draftRepository, closedListRepository, leagueRepository,
                 userRepository, scheduleRepository, jornadaWindowService,
-                activityEventRepository);
+                activityEventRepository, pushNotificationPort);
     }
 
     // ── Happy path ────────────────────────────────────────────────────────────
@@ -432,6 +437,44 @@ class StealPokemonCommandHandlerTest {
                 .findFirst().orElseThrow();
         assertThat(stolenPick.getUsername()).isEqualTo(STEALER);
         assertThat(stolenPick.getLockedUntil()).isAfter(Instant.now().plus(6, ChronoUnit.DAYS));
+    }
+
+    // ── Push notification ─────────────────────────────────────────────────────
+
+    @Test
+    void handle_successfulSteal_sendsNotificationToVictim() {
+        int stealPrice = 300;
+        DraftEntity draft = completedDraftWithPick(VICTIM, TARGET, 6);
+        ScheduleEntity schedule = scheduleWithActiveJornada(1);
+        LeagueEntity league = leagueWithTwoMembers(1000, 500);
+        league.setSettings(LeagueSettings.builder().priceTierS(stealPrice).build());
+        ClosedListEntity entry = closedListEntry(TARGET, 6, Tier.S);
+
+        when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+        when(scheduleRepository.findByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(schedule));
+        when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
+        when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TARGET, LEAGUE_ID))
+                .thenReturn(Optional.of(entry));
+        when(jornadaWindowService.isStealWindowOpen(schedule)).thenReturn(true);
+
+        UserEntity victimUser = new UserEntity();
+        victimUser.setName(VICTIM);
+        victimUser.setFcmTokens(new ArrayList<>(List.of("token-brock")));
+        victimUser.setPokemons(new ArrayList<>());
+
+        UserEntity stealerUser = new UserEntity();
+        stealerUser.setName(STEALER);
+        stealerUser.setPokemons(new ArrayList<>());
+
+        when(userRepository.findByUsername(VICTIM)).thenReturn(victimUser);
+        when(userRepository.findByUsername(STEALER)).thenReturn(stealerUser);
+
+        handler.handle(new StealPokemonCommand(LEAGUE_ID, STEALER, TARGET));
+
+        verify(pushNotificationPort).send(
+                eq(List.of("token-brock")),
+                eq("Te han robado un Pokémon"),
+                anyString());
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

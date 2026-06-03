@@ -6,6 +6,7 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -56,5 +57,12 @@ public class UserRepositoryImpl implements UserRepository {
             Criteria.where("name").regex("^" + java.util.regex.Pattern.quote(prefix), "i")
         ).limit(20);
         return mongoTemplate.find(query, UserEntity.class);
+    }
+
+    @Override
+    public void addFcmToken(String username, String token) {
+        Query query = new Query(Criteria.where("name").is(username));
+        Update update = new Update().addToSet("fcmTokens", token);
+        mongoTemplate.updateFirst(query, update, UserEntity.class);
     }
 }

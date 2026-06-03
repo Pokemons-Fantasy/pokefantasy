@@ -10,4 +10,5 @@ public interface UserRepository {
     UserEntity findByUsername(String username);
     void updateUserWithPokemons(UserEntity userEntity);
     List<UserEntity> findByUsernamePrefix(String prefix);
+    void addFcmToken(String username, String token);
 }
