@@ -65,4 +65,11 @@ public class UserRepositoryImpl implements UserRepository {
         Update update = new Update().addToSet("fcmTokens", token);
         mongoTemplate.updateFirst(query, update, UserEntity.class);
     }
+
+    @Override
+    public void removeFcmToken(String token) {
+        Query query = new Query(Criteria.where("fcmTokens").is(token));
+        Update update = new Update().pull("fcmTokens", token);
+        mongoTemplate.updateMulti(query, update, UserEntity.class);
+    }
 }

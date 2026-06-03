@@ -6,9 +6,12 @@ import com.google.firebase.FirebaseOptions;
 import com.google.firebase.messaging.BatchResponse;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.FirebaseMessagingException;
+import com.google.firebase.messaging.MessagingErrorCode;
 import com.google.firebase.messaging.MulticastMessage;
 import com.google.firebase.messaging.Notification;
+import com.google.firebase.messaging.SendResponse;
 import com.villu.pokefantasy.repository.PushNotificationPort;
+import com.villu.pokefantasy.repository.UserRepository;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -21,7 +24,12 @@ import java.util.List;
 @Slf4j
 public class FirebasePushNotificationAdapter implements PushNotificationPort {
 
+    private final UserRepository userRepository;
     private volatile boolean initialized = false;
+
+    public FirebasePushNotificationAdapter(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
 
     @PostConstruct
     public void init() {
@@ -48,13 +56,7 @@ public class FirebasePushNotificationAdapter implements PushNotificationPort {
 
     @Override
     public void send(List<String> fcmTokens, String title, String body) {
-        log.info("push.send called: title='{}', tokenCount={}, initialized={}",
-                title, fcmTokens != null ? fcmTokens.size() : -1, initialized);
-        if (!initialized || fcmTokens == null || fcmTokens.isEmpty()) {
-            log.warn("push.send skipped: initialized={}, tokens={}", initialized,
-                    fcmTokens != null ? fcmTokens.size() : "null");
-            return;
-        }
+        if (!initialized || fcmTokens == null || fcmTokens.isEmpty()) return;
         try {
             MulticastMessage message = MulticastMessage.builder()
                     .setNotification(Notification.builder()
@@ -65,8 +67,24 @@ public class FirebasePushNotificationAdapter implements PushNotificationPort {
                     .build();
             BatchResponse response = FirebaseMessaging.getInstance().sendEachForMulticast(message);
             log.info("Push sent: {}/{} successful for title='{}'", response.getSuccessCount(), fcmTokens.size(), title);
+            cleanupStaleTokens(fcmTokens, response);
         } catch (FirebaseMessagingException e) {
             log.error("Failed to send push notification: {}", e.getMessage(), e);
+        }
+    }
+
+    private void cleanupStaleTokens(List<String> fcmTokens, BatchResponse response) {
+        List<SendResponse> responses = response.getResponses();
+        for (int i = 0; i < responses.size(); i++) {
+            SendResponse r = responses.get(i);
+            if (!r.isSuccessful() && r.getException() != null) {
+                MessagingErrorCode code = r.getException().getMessagingErrorCode();
+                if (code == MessagingErrorCode.UNREGISTERED || code == MessagingErrorCode.INVALID_ARGUMENT) {
+                    String staleToken = fcmTokens.get(i);
+                    log.info("Removing stale FCM token ({}): {}...", code, staleToken.substring(0, Math.min(20, staleToken.length())));
+                    userRepository.removeFcmToken(staleToken);
+                }
+            }
         }
     }
 }

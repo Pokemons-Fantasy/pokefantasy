@@ -172,10 +172,6 @@ public class StealPokemonCommandHandler implements CommandHandler<StealPokemonCo
                 .createdAt(Instant.now())
                 .build());
 
-        log.info("Steal push check: victim={}, victimUser={}, fcmTokens={}",
-                victim,
-                victimUser != null ? "found" : "null",
-                victimUser != null ? victimUser.getFcmTokens().size() : -1);
         if (victimUser != null && !victimUser.getFcmTokens().isEmpty()) {
             pushNotificationPort.send(
                     victimUser.getFcmTokens(),
