@@ -16,6 +16,9 @@ public class RegisterPushTokenCommandHandler
 
     @Override
     public Void handle(RegisterPushTokenCommand command) {
+        if (command.token() == null || command.token().isBlank()) {
+            throw new IllegalArgumentException("FCM token must not be blank");
+        }
         userRepository.addFcmToken(command.username(), command.token());
         return null;
     }

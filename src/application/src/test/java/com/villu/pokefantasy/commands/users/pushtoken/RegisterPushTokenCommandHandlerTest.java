@@ -7,6 +7,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
@@ -24,5 +25,17 @@ class RegisterPushTokenCommandHandlerTest {
     void handle_validToken_callsAddFcmToken() throws Exception {
         handler.handle(new RegisterPushTokenCommand("ash", "fcm-token-123"));
         verify(userRepository).addFcmToken("ash", "fcm-token-123");
+    }
+
+    @Test
+    void handle_nullToken_throwsIllegalArgument() {
+        assertThrows(IllegalArgumentException.class,
+                () -> handler.handle(new RegisterPushTokenCommand("ash", null)));
+    }
+
+    @Test
+    void handle_blankToken_throwsIllegalArgument() {
+        assertThrows(IllegalArgumentException.class,
+                () -> handler.handle(new RegisterPushTokenCommand("ash", "  ")));
     }
 }
