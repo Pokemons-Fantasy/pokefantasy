@@ -5,7 +5,10 @@ import com.villu.pokefantasy.dto.LeagueRole;
 import com.villu.pokefantasy.dto.TradeStatus;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
+import com.villu.pokefantasy.repository.PushNotificationPort;
 import com.villu.pokefantasy.repository.TradeRepository;
+import com.villu.pokefantasy.repository.UserRepository;
+import com.villu.pokefantasy.repository.entity.UserEntity;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
 import com.villu.pokefantasy.repository.entity.DraftPick;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
@@ -26,6 +29,10 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -35,12 +42,16 @@ class ProposeTradeCommandHandlerTest {
     @Mock private TradeRepository tradeRepository;
     @Mock private DraftRepository draftRepository;
     @Mock private LeagueRepository leagueRepository;
+    @Mock private UserRepository userRepository;
+    @Mock private PushNotificationPort pushNotificationPort;
 
     private ProposeTradeCommandHandler handler;
 
     @BeforeEach
     void setUp() {
-        handler = new ProposeTradeCommandHandler(tradeRepository, draftRepository, leagueRepository);
+        handler = new ProposeTradeCommandHandler(
+                tradeRepository, draftRepository, leagueRepository,
+                userRepository, pushNotificationPort);
     }
 
     @Test
@@ -238,5 +249,58 @@ class ProposeTradeCommandHandlerTest {
     @Test
     void commandType_returnsCorrectClass() {
         assertThat(handler.commandType()).isEqualTo(ProposeTradeCommand.class);
+    }
+
+    @Test
+    void handle_validProposal_sendsNotificationToResponder() {
+        DraftEntity draft = new DraftEntity();
+        draft.setStatus(DraftStatus.COMPLETED);
+        draft.setPicks(new ArrayList<>(List.of(
+                new DraftPick("ash", "pikachu", 25, 1, Instant.now(), null, null),
+                new DraftPick("brock", "onix", 95, 1, Instant.now(), null, null))));
+        when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.of(draft));
+
+        LeagueEntity league = new LeagueEntity();
+        league.setMembers(List.of(
+                new LeagueMember("ash", LeagueRole.USER, 1000),
+                new LeagueMember("brock", LeagueRole.USER, 1000)));
+        when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
+
+        UserEntity brockUser = new UserEntity();
+        brockUser.setName("brock");
+        brockUser.setFcmTokens(new ArrayList<>(List.of("token-brock-android")));
+        when(userRepository.findByUsername("brock")).thenReturn(brockUser);
+
+        handler.handle(new ProposeTradeCommand("l1", "ash", "brock", "pikachu", "onix", 0));
+
+        verify(pushNotificationPort).send(
+                eq(List.of("token-brock-android")),
+                eq("Trade propuesto"),
+                anyString());
+    }
+
+    @Test
+    void handle_responderHasNoTokens_doesNotSendNotification() {
+        DraftEntity draft = new DraftEntity();
+        draft.setStatus(DraftStatus.COMPLETED);
+        draft.setPicks(new ArrayList<>(List.of(
+                new DraftPick("ash", "pikachu", 25, 1, Instant.now(), null, null),
+                new DraftPick("brock", "onix", 95, 1, Instant.now(), null, null))));
+        when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.of(draft));
+
+        LeagueEntity league = new LeagueEntity();
+        league.setMembers(List.of(
+                new LeagueMember("ash", LeagueRole.USER, 1000),
+                new LeagueMember("brock", LeagueRole.USER, 1000)));
+        when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
+
+        UserEntity brockUser = new UserEntity();
+        brockUser.setName("brock");
+        brockUser.setFcmTokens(new ArrayList<>());
+        when(userRepository.findByUsername("brock")).thenReturn(brockUser);
+
+        handler.handle(new ProposeTradeCommand("l1", "ash", "brock", "pikachu", "onix", 0));
+
+        verify(pushNotificationPort, never()).send(anyList(), anyString(), anyString());
     }
 }

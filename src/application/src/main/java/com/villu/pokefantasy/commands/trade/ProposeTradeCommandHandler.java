@@ -5,7 +5,10 @@ import com.villu.pokefantasy.dto.TradeStatus;
 import com.villu.pokefantasy.mediator.CommandHandler;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
+import com.villu.pokefantasy.repository.PushNotificationPort;
 import com.villu.pokefantasy.repository.TradeRepository;
+import com.villu.pokefantasy.repository.UserRepository;
+import com.villu.pokefantasy.repository.entity.UserEntity;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
 import com.villu.pokefantasy.repository.entity.DraftPick;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
@@ -21,13 +24,19 @@ public class ProposeTradeCommandHandler implements CommandHandler<ProposeTradeCo
     private final TradeRepository tradeRepository;
     private final DraftRepository draftRepository;
     private final LeagueRepository leagueRepository;
+    private final UserRepository userRepository;
+    private final PushNotificationPort pushNotificationPort;
 
     public ProposeTradeCommandHandler(TradeRepository tradeRepository,
                                       DraftRepository draftRepository,
-                                      LeagueRepository leagueRepository) {
+                                      LeagueRepository leagueRepository,
+                                      UserRepository userRepository,
+                                      PushNotificationPort pushNotificationPort) {
         this.tradeRepository = tradeRepository;
         this.draftRepository = draftRepository;
         this.leagueRepository = leagueRepository;
+        this.userRepository = userRepository;
+        this.pushNotificationPort = pushNotificationPort;
     }
 
     @Override
@@ -81,6 +90,14 @@ public class ProposeTradeCommandHandler implements CommandHandler<ProposeTradeCo
                 .createdAt(Instant.now())
                 .build();
         tradeRepository.save(trade);
+        UserEntity responderUser = userRepository.findByUsername(responder);
+        if (responderUser != null && !responderUser.getFcmTokens().isEmpty()) {
+            pushNotificationPort.send(
+                    responderUser.getFcmTokens(),
+                    "Trade propuesto",
+                    proposer + " quiere intercambiar " + trade.getProposerPokemonName()
+                            + " por tu " + trade.getResponderPokemonName());
+        }
         return null;
     }
 
