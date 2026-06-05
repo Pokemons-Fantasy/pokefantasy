@@ -1,6 +1,7 @@
 package com.villu.pokefantasy.commands.schedule;
 
 import com.villu.pokefantasy.dto.MatchStatus;
+import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.ScheduleRepository;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity.Jornada;
@@ -23,13 +24,14 @@ import static org.mockito.Mockito.when;
 class GetScheduleCommandHandlerTest {
 
     @Mock private ScheduleRepository scheduleRepository;
+    @Mock private LeagueRepository leagueRepository;
     @Mock private JornadaWindowService jornadaWindowService;
 
     private GetScheduleCommandHandler handler;
 
     @BeforeEach
     void setUp() {
-        handler = new GetScheduleCommandHandler(scheduleRepository, jornadaWindowService);
+        handler = new GetScheduleCommandHandler(scheduleRepository, leagueRepository, jornadaWindowService);
     }
 
     @Test
@@ -49,8 +51,9 @@ class GetScheduleCommandHandlerTest {
         schedule.setJornadas(new ArrayList<>(List.of(j)));
 
         when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
-        when(jornadaWindowService.isStealWindowOpen(schedule)).thenReturn(true);
-        when(jornadaWindowService.isSwapWindowOpen(schedule)).thenReturn(false);
+        when(leagueRepository.findById("l1")).thenReturn(Optional.empty());
+        when(jornadaWindowService.isStealWindowOpen(schedule, null)).thenReturn(true);
+        when(jornadaWindowService.isSwapWindowOpen(schedule, null)).thenReturn(false);
 
         ScheduleResponse response = handler.handle(new GetScheduleCommand("l1"));
 

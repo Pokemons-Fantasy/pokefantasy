@@ -71,14 +71,14 @@ public class SwapWithBenchCommandHandler implements CommandHandler<SwapWithBench
         // Check swap window — mismo manejo del schedule que el robo y los trades.
         ScheduleEntity schedule = scheduleRepository.findByLeagueId(leagueId)
                 .orElseThrow(() -> new IllegalStateException("No schedule found for this league"));
-        if (!jornadaWindowService.isSwapWindowOpen(schedule)) {
-            throw new IllegalStateException(
-                    "El intercambio con la banca no está permitido en este momento. " +
-                    "El plazo cerró el viernes a las 16:00 o los resultados de la jornada anterior aún no están completos.");
-        }
-
         LeagueEntity league = leagueRepository.findById(leagueId)
                 .orElseThrow(() -> new IllegalArgumentException("League not found: " + leagueId));
+
+        if (!jornadaWindowService.isSwapWindowOpen(schedule, league.getSettings())) {
+            throw new IllegalStateException(
+                    "El intercambio con la banca no está permitido en este momento. " +
+                    "El plazo cerró o los resultados de la jornada anterior aún no están completos.");
+        }
 
         boolean isMember = league.getMembers().stream()
                 .anyMatch(m -> username.equals(m.getUsername()));

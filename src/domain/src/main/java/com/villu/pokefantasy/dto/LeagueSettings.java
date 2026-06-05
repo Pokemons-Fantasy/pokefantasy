@@ -27,6 +27,15 @@ public class LeagueSettings {
     private Integer tierPctD;        // % of pool assigned to D tier (default 20)
     private Integer turnTimerSeconds; // seconds per turn; null or 0 = disabled
 
+    /** Day of week (ISO: 1=Mon … 7=Sun) when the steal window closes. Default 4 (Thursday). */
+    private Integer stealWindowCloseDay;
+    /** Time of day when the steal window closes, format "HH:mm". Default "23:59". */
+    private String stealWindowCloseTime;
+    /** Day of week (ISO: 1=Mon … 7=Sun) when the swap window closes. Default 5 (Friday). */
+    private Integer swapWindowCloseDay;
+    /** Time of day when the swap window closes, format "HH:mm". Default "16:00". */
+    private String swapWindowCloseTime;
+
     public static LeagueSettings defaults() {
         return LeagueSettings.builder()
                 .coinsPerWin(100)
@@ -44,6 +53,10 @@ public class LeagueSettings {
                 .tierPctC(20)
                 .tierPctD(20)
                 .turnTimerSeconds(0)
+                .stealWindowCloseDay(4)
+                .stealWindowCloseTime("23:59")
+                .swapWindowCloseDay(5)
+                .swapWindowCloseTime("16:00")
                 .build();
     }
 }

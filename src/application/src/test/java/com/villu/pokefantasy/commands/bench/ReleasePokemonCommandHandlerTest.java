@@ -65,7 +65,8 @@ class ReleasePokemonCommandHandlerTest {
 
         lenient().when(scheduleRepository.findByLeagueId(LEAGUE_ID))
                 .thenReturn(Optional.of(new ScheduleEntity()));
-        lenient().when(jornadaWindowService.isSwapWindowOpen(any())).thenReturn(true);
+        lenient().when(jornadaWindowService.isSwapWindowOpen(any(), any())).thenReturn(true);
+        lenient().when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(leagueWithMember(USERNAME, 500)));
     }
 
     @Test
@@ -137,7 +138,7 @@ class ReleasePokemonCommandHandlerTest {
     void handle_swapWindowClosed_throwsIllegalState() {
         DraftEntity draft = draftWithPicks(new ArrayList<>(List.of(pick(USERNAME, POKEMON, null))));
         when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
-        when(jornadaWindowService.isSwapWindowOpen(any())).thenReturn(false);
+        when(jornadaWindowService.isSwapWindowOpen(any(), any())).thenReturn(false);
 
         assertThatThrownBy(() -> handler.handle(new ReleasePokemonCommand(LEAGUE_ID, USERNAME, POKEMON)))
                 .isInstanceOf(IllegalStateException.class)

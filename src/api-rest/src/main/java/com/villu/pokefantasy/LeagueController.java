@@ -75,6 +75,8 @@ public class LeagueController {
                 request.getTierPctS(), request.getTierPctA(), request.getTierPctB(),
                 request.getTierPctC(), request.getTierPctD(),
                 request.getTurnTimerSeconds(),
+                request.getStealWindowCloseDay(), request.getStealWindowCloseTime(),
+                request.getSwapWindowCloseDay(), request.getSwapWindowCloseTime(),
                 userDetails.getUsername());
         return ResponseEntity.noContent().build();
     }
