@@ -43,6 +43,10 @@ public class GetLeagueSettingsCommandHandler
                 .tierPctC(settings.getTierPctC() != null ? settings.getTierPctC() : 20)
                 .tierPctD(settings.getTierPctD() != null ? settings.getTierPctD() : 20)
                 .turnTimerSeconds(settings.getTurnTimerSeconds() != null ? settings.getTurnTimerSeconds() : 0)
+                .stealWindowCloseDay(settings.getStealWindowCloseDay())
+                .stealWindowCloseTime(settings.getStealWindowCloseTime())
+                .swapWindowCloseDay(settings.getSwapWindowCloseDay())
+                .swapWindowCloseTime(settings.getSwapWindowCloseTime())
                 .build();
     }
 

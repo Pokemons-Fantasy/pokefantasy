@@ -25,4 +25,8 @@ public class LeagueSettingsResponse {
     private Integer tierPctC;
     private Integer tierPctD;
     private Integer turnTimerSeconds;
+    private Integer stealWindowCloseDay;
+    private String  stealWindowCloseTime;
+    private Integer swapWindowCloseDay;
+    private String  swapWindowCloseTime;
 }
