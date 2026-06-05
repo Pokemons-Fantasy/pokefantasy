@@ -67,7 +67,9 @@ class SwapWithBenchCommandHandlerTest {
         // tiempo pasa y cada test se centra en sus validaciones de negocio.
         lenient().when(scheduleRepository.findByLeagueId(LEAGUE_ID))
                 .thenReturn(Optional.of(scheduleWithPendingJornada()));
-        lenient().when(jornadaWindowService.isSwapWindowOpen(any())).thenReturn(true);
+        lenient().when(jornadaWindowService.isSwapWindowOpen(any(), any())).thenReturn(true);
+        lenient().when(leagueRepository.findById(LEAGUE_ID))
+                .thenReturn(Optional.of(leagueWithMembers(new LeagueMember(USERNAME, LeagueRole.USER, 500))));
     }
 
     @Test
@@ -220,11 +222,11 @@ class SwapWithBenchCommandHandlerTest {
         // Build a schedule with a closed swap window
         ScheduleEntity schedule = scheduleWithPendingJornada();
         when(scheduleRepository.findByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(schedule));
-        when(jornadaWindowService.isSwapWindowOpen(schedule)).thenReturn(false);
+        when(jornadaWindowService.isSwapWindowOpen(any(), any())).thenReturn(false);
 
         assertThatThrownBy(() -> handler.handle(new SwapWithBenchCommand(LEAGUE_ID, USERNAME, GIVE, TAKE)))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("viernes a las 16:00");
+                .hasMessageContaining("El plazo cerró");
     }
 
     @Test

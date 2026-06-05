@@ -68,6 +68,11 @@ class StealPokemonCommandHandlerTest {
                 draftRepository, closedListRepository, leagueRepository,
                 userRepository, scheduleRepository, jornadaWindowService,
                 activityEventRepository, pushNotificationPort);
+
+        // Default stub — tests that need specific settings override this
+        LeagueEntity defaultLeague = leagueWithTwoMembers(1000, 500);
+        defaultLeague.setSettings(LeagueSettings.builder().priceTierS(300).priceTierA(200).priceTierB(150).priceTierC(100).priceTierD(50).build());
+        lenient().when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(defaultLeague));
     }
 
     // ── Happy path ────────────────────────────────────────────────────────────
@@ -85,7 +90,7 @@ class StealPokemonCommandHandlerTest {
 
         when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
         when(scheduleRepository.findByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(schedule));
-        when(jornadaWindowService.isStealWindowOpen(schedule)).thenReturn(true);
+        when(jornadaWindowService.isStealWindowOpen(any(), any())).thenReturn(true);
         when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
         when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TARGET, LEAGUE_ID))
                 .thenReturn(Optional.of(entry));
@@ -130,7 +135,7 @@ class StealPokemonCommandHandlerTest {
 
         when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
         when(scheduleRepository.findByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(schedule));
-        when(jornadaWindowService.isStealWindowOpen(schedule)).thenReturn(false);
+        when(jornadaWindowService.isStealWindowOpen(any(), any())).thenReturn(false);
 
         assertThatThrownBy(() -> handler.handle(new StealPokemonCommand(LEAGUE_ID, STEALER, TARGET)))
                 .isInstanceOf(IllegalStateException.class)
@@ -148,7 +153,7 @@ class StealPokemonCommandHandlerTest {
 
         when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
         when(scheduleRepository.findByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(schedule));
-        when(jornadaWindowService.isStealWindowOpen(schedule)).thenReturn(true);
+        when(jornadaWindowService.isStealWindowOpen(any(), any())).thenReturn(true);
         when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
 
         assertThatThrownBy(() -> handler.handle(new StealPokemonCommand(LEAGUE_ID, STEALER, TARGET)))
@@ -169,7 +174,7 @@ class StealPokemonCommandHandlerTest {
 
         when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
         when(scheduleRepository.findByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(schedule));
-        when(jornadaWindowService.isStealWindowOpen(schedule)).thenReturn(true);
+        when(jornadaWindowService.isStealWindowOpen(any(), any())).thenReturn(true);
         when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
 
         assertThatThrownBy(() -> handler.handle(new StealPokemonCommand(LEAGUE_ID, STEALER, TARGET)))
@@ -192,7 +197,7 @@ class StealPokemonCommandHandlerTest {
 
         when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
         when(scheduleRepository.findByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(schedule));
-        when(jornadaWindowService.isStealWindowOpen(schedule)).thenReturn(true);
+        when(jornadaWindowService.isStealWindowOpen(any(), any())).thenReturn(true);
         when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
         when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TARGET, LEAGUE_ID))
                 .thenReturn(Optional.of(entry));
@@ -219,7 +224,7 @@ class StealPokemonCommandHandlerTest {
 
         when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
         when(scheduleRepository.findByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(schedule));
-        when(jornadaWindowService.isStealWindowOpen(schedule)).thenReturn(true);
+        when(jornadaWindowService.isStealWindowOpen(any(), any())).thenReturn(true);
         when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
         when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TARGET, LEAGUE_ID))
                 .thenReturn(Optional.of(entry));
@@ -260,7 +265,7 @@ class StealPokemonCommandHandlerTest {
 
         when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
         when(scheduleRepository.findByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(schedule));
-        when(jornadaWindowService.isStealWindowOpen(schedule)).thenReturn(true);
+        when(jornadaWindowService.isStealWindowOpen(any(), any())).thenReturn(true);
         when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
         when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TARGET, LEAGUE_ID))
                 .thenReturn(Optional.of(entry));
@@ -284,7 +289,7 @@ class StealPokemonCommandHandlerTest {
 
         when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
         when(scheduleRepository.findByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(schedule));
-        when(jornadaWindowService.isStealWindowOpen(schedule)).thenReturn(true);
+        when(jornadaWindowService.isStealWindowOpen(any(), any())).thenReturn(true);
         when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
         when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TARGET, LEAGUE_ID))
                 .thenReturn(Optional.of(entry));
@@ -316,7 +321,7 @@ class StealPokemonCommandHandlerTest {
 
         when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
         when(scheduleRepository.findByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(schedule));
-        when(jornadaWindowService.isStealWindowOpen(schedule)).thenReturn(true);
+        when(jornadaWindowService.isStealWindowOpen(any(), any())).thenReturn(true);
         when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
         when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TARGET, LEAGUE_ID))
                 .thenReturn(Optional.of(entry));
@@ -339,7 +344,7 @@ class StealPokemonCommandHandlerTest {
 
         when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
         when(scheduleRepository.findByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(schedule));
-        when(jornadaWindowService.isStealWindowOpen(schedule)).thenReturn(true);
+        when(jornadaWindowService.isStealWindowOpen(any(), any())).thenReturn(true);
         when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
         when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TARGET, LEAGUE_ID))
                 .thenReturn(Optional.of(entry));
@@ -366,7 +371,7 @@ class StealPokemonCommandHandlerTest {
 
         when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
         when(scheduleRepository.findByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(schedule));
-        when(jornadaWindowService.isStealWindowOpen(schedule)).thenReturn(true);
+        when(jornadaWindowService.isStealWindowOpen(any(), any())).thenReturn(true);
         when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
         when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TARGET, LEAGUE_ID))
                 .thenReturn(Optional.of(entry));
@@ -400,7 +405,7 @@ class StealPokemonCommandHandlerTest {
 
         when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
         when(scheduleRepository.findByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(schedule));
-        when(jornadaWindowService.isStealWindowOpen(schedule)).thenReturn(true);
+        when(jornadaWindowService.isStealWindowOpen(any(), any())).thenReturn(true);
         when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
 
         assertThatThrownBy(() -> handler.handle(new StealPokemonCommand(LEAGUE_ID, STEALER, TARGET)))
@@ -421,7 +426,7 @@ class StealPokemonCommandHandlerTest {
 
         when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
         when(scheduleRepository.findByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(schedule));
-        when(jornadaWindowService.isStealWindowOpen(schedule)).thenReturn(true);
+        when(jornadaWindowService.isStealWindowOpen(any(), any())).thenReturn(true);
         when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
         when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TARGET, LEAGUE_ID))
                 .thenReturn(Optional.of(entry));
@@ -455,7 +460,7 @@ class StealPokemonCommandHandlerTest {
         when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
         when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TARGET, LEAGUE_ID))
                 .thenReturn(Optional.of(entry));
-        when(jornadaWindowService.isStealWindowOpen(schedule)).thenReturn(true);
+        when(jornadaWindowService.isStealWindowOpen(any(), any())).thenReturn(true);
 
         UserEntity victimUser = new UserEntity();
         victimUser.setName(VICTIM);

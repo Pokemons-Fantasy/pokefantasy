@@ -19,5 +19,9 @@ public record UpdateLeagueSettingsCommand(
         Integer tierPctC,
         Integer tierPctD,
         Integer turnTimerSeconds,
+        Integer stealWindowCloseDay,
+        String stealWindowCloseTime,
+        Integer swapWindowCloseDay,
+        String swapWindowCloseTime,
         String requestingUsername
 ) implements Command {}

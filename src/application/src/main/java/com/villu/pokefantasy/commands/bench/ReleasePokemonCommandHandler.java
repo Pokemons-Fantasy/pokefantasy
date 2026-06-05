@@ -66,11 +66,6 @@ public class ReleasePokemonCommandHandler implements CommandHandler<ReleasePokem
         // 2. Swap window must be open
         ScheduleEntity schedule = scheduleRepository.findByLeagueId(leagueId)
                 .orElseThrow(() -> new IllegalStateException("No hay calendario para esta liga"));
-        if (!jornadaWindowService.isSwapWindowOpen(schedule)) {
-            throw new IllegalStateException(
-                    "La ventana de intercambio está cerrada. Solo puedes liberar pokémon hasta el viernes a las 16:00.");
-        }
-
         // 3. Pokemon must belong to this user in this league
         DraftPick pick = draft.getPicks().stream()
                 .filter(p -> username.equals(p.getUsername())
@@ -88,6 +83,11 @@ public class ReleasePokemonCommandHandler implements CommandHandler<ReleasePokem
         // 5. Calculate reward: tier comes from ClosedList (DraftPick has no tier field)
         LeagueEntity league = leagueRepository.findById(leagueId)
                 .orElseThrow(() -> new IllegalArgumentException("Liga no encontrada: " + leagueId));
+
+        if (!jornadaWindowService.isSwapWindowOpen(schedule, league.getSettings())) {
+            throw new IllegalStateException(
+                    "La ventana de intercambio está cerrada. Solo puedes liberar pokémon en la ventana de swap.");
+        }
         LeagueSettings settings = league.getSettings();
 
         ClosedListEntity entry = closedListRepository

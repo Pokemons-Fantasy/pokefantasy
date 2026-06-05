@@ -97,6 +97,10 @@ public class UpdateLeagueSettingsCommandHandler
                 .tierPctC(command.tierPctC())
                 .tierPctD(command.tierPctD())
                 .turnTimerSeconds(command.turnTimerSeconds() != null ? command.turnTimerSeconds() : 0)
+                .stealWindowCloseDay(command.stealWindowCloseDay() != null ? command.stealWindowCloseDay() : 4)
+                .stealWindowCloseTime(command.stealWindowCloseTime() != null ? command.stealWindowCloseTime() : "23:59")
+                .swapWindowCloseDay(command.swapWindowCloseDay() != null ? command.swapWindowCloseDay() : 5)
+                .swapWindowCloseTime(command.swapWindowCloseTime() != null ? command.swapWindowCloseTime() : "16:00")
                 .build());
 
         leagueRepository.save(league);

@@ -66,7 +66,8 @@ class BuyFromBenchCommandHandlerTest {
 
         lenient().when(scheduleRepository.findByLeagueId(LEAGUE_ID))
                 .thenReturn(Optional.of(scheduleWithPendingJornada()));
-        lenient().when(jornadaWindowService.isSwapWindowOpen(any())).thenReturn(true);
+        lenient().when(jornadaWindowService.isSwapWindowOpen(any(), any())).thenReturn(true);
+        lenient().when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(leagueWithBuyer(500)));
     }
 
     // ── Draft validation ──────────────────────────────────────────────────────
@@ -97,11 +98,11 @@ class BuyFromBenchCommandHandlerTest {
                 .thenReturn(Optional.of(draftWithStatus(DraftStatus.COMPLETED)));
         ScheduleEntity schedule = scheduleWithPendingJornada();
         when(scheduleRepository.findByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(schedule));
-        when(jornadaWindowService.isSwapWindowOpen(schedule)).thenReturn(false);
+        when(jornadaWindowService.isSwapWindowOpen(any(), any())).thenReturn(false);
 
         assertThatThrownBy(() -> handler.handle(cmd()))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("viernes a las 16:00");
+                .hasMessageContaining("El plazo cerró");
     }
 
     @Test

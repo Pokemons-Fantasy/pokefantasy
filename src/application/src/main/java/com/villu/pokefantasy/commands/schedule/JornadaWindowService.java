@@ -1,5 +1,6 @@
 package com.villu.pokefantasy.commands.schedule;
 
+import com.villu.pokefantasy.dto.LeagueSettings;
 import com.villu.pokefantasy.dto.MatchStatus;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity.Jornada;
@@ -16,15 +17,23 @@ import java.util.Optional;
  * Determines time-window eligibility for bench swaps and Pokémon steals.
  *
  * Rules:
- *  - stealDeadline  = Thursday 23:59 of the active jornada's ISO week
- *  - swapDeadline   = Friday  16:00 of the active jornada's ISO week
+ *  - stealDeadline  = configurable day/time (default: Thursday 23:59) of the active jornada's ISO week
+ *  - swapDeadline   = configurable day/time (default: Friday  16:00) of the active jornada's ISO week
  *  - Both windows are only open if:
  *      1. The previous jornada (if any) has ALL matches COMPLETED
  *      2. The active jornada has a startDate set
  *      3. now < deadline
+ *
+ * Pass {@code null} for {@code LeagueSettings} to use hardcoded defaults (backward compatible).
  */
 @Service
 public class JornadaWindowService {
+
+    // Hardcoded defaults (used when settings are null or fields are null)
+    private static final int    DEFAULT_STEAL_CLOSE_DAY  = 4;       // Thursday
+    private static final String DEFAULT_STEAL_CLOSE_TIME = "23:59";
+    private static final int    DEFAULT_SWAP_CLOSE_DAY   = 5;       // Friday
+    private static final String DEFAULT_SWAP_CLOSE_TIME  = "16:00";
 
     private final Clock clock;
 
@@ -43,19 +52,27 @@ public class JornadaWindowService {
     // -------------------------------------------------------------------------
 
     /**
-     * Returns Thursday 23:59:00 of the ISO week that contains {@code startDate}.
+     * Returns the steal deadline for the ISO week containing {@code startDate},
+     * using the day/time configured in {@code settings} (or Thursday 23:59 if null).
      */
-    public LocalDateTime getStealDeadline(String startDate) {
-        LocalDate d = LocalDate.parse(startDate);
-        return d.with(DayOfWeek.THURSDAY).atTime(23, 59);
+    public LocalDateTime getStealDeadline(String startDate, LeagueSettings settings) {
+        int day  = settings != null && settings.getStealWindowCloseDay()  != null
+                   ? settings.getStealWindowCloseDay()  : DEFAULT_STEAL_CLOSE_DAY;
+        String t = settings != null && settings.getStealWindowCloseTime() != null
+                   ? settings.getStealWindowCloseTime() : DEFAULT_STEAL_CLOSE_TIME;
+        return buildDeadline(startDate, day, t);
     }
 
     /**
-     * Returns Friday 16:00:00 of the ISO week that contains {@code startDate}.
+     * Returns the swap deadline for the ISO week containing {@code startDate},
+     * using the day/time configured in {@code settings} (or Friday 16:00 if null).
      */
-    public LocalDateTime getSwapDeadline(String startDate) {
-        LocalDate d = LocalDate.parse(startDate);
-        return d.with(DayOfWeek.FRIDAY).atTime(16, 0);
+    public LocalDateTime getSwapDeadline(String startDate, LeagueSettings settings) {
+        int day  = settings != null && settings.getSwapWindowCloseDay()  != null
+                   ? settings.getSwapWindowCloseDay()  : DEFAULT_SWAP_CLOSE_DAY;
+        String t = settings != null && settings.getSwapWindowCloseTime() != null
+                   ? settings.getSwapWindowCloseTime() : DEFAULT_SWAP_CLOSE_TIME;
+        return buildDeadline(startDate, day, t);
     }
 
     // -------------------------------------------------------------------------
@@ -80,30 +97,42 @@ public class JornadaWindowService {
     // -------------------------------------------------------------------------
 
     /**
-     * Returns {@code true} when the bench-swap window is open:
-     * <ul>
-     *   <li>The previous jornada (if any) has all matches COMPLETED.</li>
-     *   <li>The active jornada has a {@code startDate}.</li>
-     *   <li>Now is before the swap deadline (Friday 16:00).</li>
-     * </ul>
+     * Returns {@code true} when the bench-swap window is open.
+     * Uses default Friday 16:00 deadline (backward-compatible overload).
      */
     public boolean isSwapWindowOpen(ScheduleEntity schedule) {
-        return isWindowOpen(schedule, false);
+        return isWindowOpen(schedule, false, null);
     }
 
     /**
-     * Returns {@code true} when the Pokémon-steal window is open:
-     * same conditions as swap but deadline is Thursday 23:59.
+     * Returns {@code true} when the bench-swap window is open,
+     * using the day/time configured in {@code settings}.
+     */
+    public boolean isSwapWindowOpen(ScheduleEntity schedule, LeagueSettings settings) {
+        return isWindowOpen(schedule, false, settings);
+    }
+
+    /**
+     * Returns {@code true} when the Pokémon-steal window is open.
+     * Uses default Thursday 23:59 deadline (backward-compatible overload).
      */
     public boolean isStealWindowOpen(ScheduleEntity schedule) {
-        return isWindowOpen(schedule, true);
+        return isWindowOpen(schedule, true, null);
+    }
+
+    /**
+     * Returns {@code true} when the Pokémon-steal window is open,
+     * using the day/time configured in {@code settings}.
+     */
+    public boolean isStealWindowOpen(ScheduleEntity schedule, LeagueSettings settings) {
+        return isWindowOpen(schedule, true, settings);
     }
 
     // -------------------------------------------------------------------------
     // Private helpers
     // -------------------------------------------------------------------------
 
-    private boolean isWindowOpen(ScheduleEntity schedule, boolean steal) {
+    private boolean isWindowOpen(ScheduleEntity schedule, boolean steal, LeagueSettings settings) {
         if (schedule == null || schedule.getJornadas() == null) {
             return false;
         }
@@ -132,10 +161,17 @@ public class JornadaWindowService {
         }
 
         LocalDateTime deadline = steal
-                ? getStealDeadline(active.getStartDate())
-                : getSwapDeadline(active.getStartDate());
+                ? getStealDeadline(active.getStartDate(), settings)
+                : getSwapDeadline(active.getStartDate(), settings);
 
         return LocalDateTime.now(clock).isBefore(deadline);
+    }
+
+    private LocalDateTime buildDeadline(String startDate, int dayOfWeek, String time) {
+        String[] parts = time.split(":");
+        int hour   = Integer.parseInt(parts[0]);
+        int minute = Integer.parseInt(parts[1]);
+        return LocalDate.parse(startDate).with(DayOfWeek.of(dayOfWeek)).atTime(hour, minute);
     }
 
     private boolean allCompleted(Jornada jornada) {

@@ -70,15 +70,15 @@ public class BuyFromBenchCommandHandler implements CommandHandler<BuyFromBenchCo
         // 2. Swap window must be open (buy uses the same window as swap)
         ScheduleEntity schedule = scheduleRepository.findByLeagueId(leagueId)
                 .orElseThrow(() -> new IllegalStateException("No schedule found for this league"));
-        if (!jornadaWindowService.isSwapWindowOpen(schedule)) {
-            throw new IllegalStateException(
-                    "La compra de pokémon de la banca no está permitida en este momento. " +
-                    "El plazo cerró el viernes a las 16:00 o los resultados de la jornada anterior aún no están completos.");
-        }
-
         // 3. User must be a league member
         LeagueEntity league = leagueRepository.findById(leagueId)
                 .orElseThrow(() -> new IllegalArgumentException("League not found: " + leagueId));
+
+        if (!jornadaWindowService.isSwapWindowOpen(schedule, league.getSettings())) {
+            throw new IllegalStateException(
+                    "La compra de pokémon de la banca no está permitida en este momento. " +
+                    "El plazo cerró o los resultados de la jornada anterior aún no están completos.");
+        }
 
         boolean isMember = league.getMembers().stream()
                 .anyMatch(m -> username.equals(m.getUsername()));

@@ -74,13 +74,13 @@ public class StealPokemonCommandHandler implements CommandHandler<StealPokemonCo
         ScheduleEntity schedule = scheduleRepository.findByLeagueId(leagueId)
                 .orElseThrow(() -> new IllegalStateException("No schedule found for this league"));
 
-        if (!jornadaWindowService.isStealWindowOpen(schedule)) {
-            throw new IllegalStateException(
-                    "La ventana de robos no está abierta. El plazo cierra el jueves a las 23:59.");
-        }
-
         LeagueEntity league = leagueRepository.findById(leagueId)
                 .orElseThrow(() -> new IllegalArgumentException("League not found: " + leagueId));
+
+        if (!jornadaWindowService.isStealWindowOpen(schedule, league.getSettings())) {
+            throw new IllegalStateException(
+                    "La ventana de robos no está abierta.");
+        }
 
         // Find the target pick — must belong to someone other than the stealer
         DraftPick targetPick = draft.getPicks().stream()

@@ -39,14 +39,38 @@ class JornadaWindowServiceTest {
 
     @Test
     void getStealDeadline_returnsThursday2359() {
-        LocalDateTime deadline = service().getStealDeadline(START_DATE);
+        LocalDateTime deadline = service().getStealDeadline(START_DATE, null);
         assertThat(deadline).isEqualTo(LocalDateTime.of(2026, 6, 4, 23, 59));
     }
 
     @Test
     void getSwapDeadline_returnsFriday1600() {
-        LocalDateTime deadline = service().getSwapDeadline(START_DATE);
+        LocalDateTime deadline = service().getSwapDeadline(START_DATE, null);
         assertThat(deadline).isEqualTo(LocalDateTime.of(2026, 6, 5, 16, 0));
+    }
+
+    @Test
+    void getStealDeadline_customDayAndTime_usesCustomValues() {
+        // Custom: Wednesday (3) at 18:00
+        com.villu.pokefantasy.dto.LeagueSettings settings = new com.villu.pokefantasy.dto.LeagueSettings();
+        settings.setStealWindowCloseDay(3);
+        settings.setStealWindowCloseTime("18:00");
+
+        LocalDateTime deadline = service().getStealDeadline(START_DATE, settings);
+        // START_DATE is 2026-06-06 (Saturday); Wednesday of that ISO week = 2026-06-03
+        assertThat(deadline).isEqualTo(LocalDateTime.of(2026, 6, 3, 18, 0));
+    }
+
+    @Test
+    void getSwapDeadline_customDayAndTime_usesCustomValues() {
+        // Custom: Saturday (6) at 12:30
+        com.villu.pokefantasy.dto.LeagueSettings settings = new com.villu.pokefantasy.dto.LeagueSettings();
+        settings.setSwapWindowCloseDay(6);
+        settings.setSwapWindowCloseTime("12:30");
+
+        LocalDateTime deadline = service().getSwapDeadline(START_DATE, settings);
+        // Saturday of the ISO week containing 2026-06-06 = 2026-06-06
+        assertThat(deadline).isEqualTo(LocalDateTime.of(2026, 6, 6, 12, 30));
     }
 
     // -------------------------------------------------------------------------

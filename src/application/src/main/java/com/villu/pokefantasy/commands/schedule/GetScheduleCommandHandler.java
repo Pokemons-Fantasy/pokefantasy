@@ -1,7 +1,10 @@
 package com.villu.pokefantasy.commands.schedule;
 
+import com.villu.pokefantasy.dto.LeagueSettings;
 import com.villu.pokefantasy.mediator.CommandHandler;
+import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.ScheduleRepository;
+import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity;
 import com.villu.pokefantasy.response.ScheduleResponse;
 import org.springframework.stereotype.Service;
@@ -14,11 +17,14 @@ import java.util.stream.Collectors;
 public class GetScheduleCommandHandler implements CommandHandler<GetScheduleCommand, ScheduleResponse> {
 
     private final ScheduleRepository scheduleRepository;
+    private final LeagueRepository leagueRepository;
     private final JornadaWindowService jornadaWindowService;
 
     public GetScheduleCommandHandler(ScheduleRepository scheduleRepository,
+                                     LeagueRepository leagueRepository,
                                      JornadaWindowService jornadaWindowService) {
         this.scheduleRepository = scheduleRepository;
+        this.leagueRepository = leagueRepository;
         this.jornadaWindowService = jornadaWindowService;
     }
 
@@ -28,18 +34,21 @@ public class GetScheduleCommandHandler implements CommandHandler<GetScheduleComm
         if (maybeSchedule.isEmpty()) {
             return null;
         }
-        return toResponse(maybeSchedule.get());
+        LeagueSettings settings = leagueRepository.findById(command.leagueId())
+                .map(LeagueEntity::getSettings)
+                .orElse(null);
+        return toResponse(maybeSchedule.get(), settings);
     }
 
-    private ScheduleResponse toResponse(ScheduleEntity entity) {
+    private ScheduleResponse toResponse(ScheduleEntity entity, LeagueSettings settings) {
         List<ScheduleResponse.JornadaResponse> jornadas = entity.getJornadas() == null
                 ? List.of()
                 : entity.getJornadas().stream()
                         .map(j -> {
                             String stealDeadline = j.getStartDate() != null
-                                    ? jornadaWindowService.getStealDeadline(j.getStartDate()).toString() : null;
+                                    ? jornadaWindowService.getStealDeadline(j.getStartDate(), settings).toString() : null;
                             String swapDeadline = j.getStartDate() != null
-                                    ? jornadaWindowService.getSwapDeadline(j.getStartDate()).toString() : null;
+                                    ? jornadaWindowService.getSwapDeadline(j.getStartDate(), settings).toString() : null;
                             return ScheduleResponse.JornadaResponse.builder()
                                     .roundNumber(j.getRoundNumber())
                                     .startDate(j.getStartDate())
@@ -62,8 +71,8 @@ public class GetScheduleCommandHandler implements CommandHandler<GetScheduleComm
         return ScheduleResponse.builder()
                 .leagueId(entity.getLeagueId())
                 .jornadas(jornadas)
-                .stealWindowOpen(jornadaWindowService.isStealWindowOpen(entity))
-                .swapWindowOpen(jornadaWindowService.isSwapWindowOpen(entity))
+                .stealWindowOpen(jornadaWindowService.isStealWindowOpen(entity, settings))
+                .swapWindowOpen(jornadaWindowService.isSwapWindowOpen(entity, settings))
                 .build();
     }
 
