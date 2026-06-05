@@ -26,4 +26,8 @@ public class BenchFacade {
     public void buy(String leagueId, String username, String pokemonName) throws Exception {
         mediator.send(new BuyFromBenchCommand(leagueId, username, pokemonName));
     }
+
+    public void release(String leagueId, String username, String pokemonName) throws Exception {
+        mediator.send(new ReleasePokemonCommand(leagueId, username, pokemonName));
+    }
 }
