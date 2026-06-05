@@ -2,6 +2,7 @@ package com.villu.pokefantasy;
 
 import com.villu.pokefantasy.commands.bench.BenchFacade;
 import com.villu.pokefantasy.request.bench.BuyFromBenchRequest;
+import com.villu.pokefantasy.request.bench.ReleasePokemonRequest;
 import com.villu.pokefantasy.request.bench.SwapWithBenchRequest;
 import com.villu.pokefantasy.response.BenchEntryResponse;
 import org.springframework.http.ResponseEntity;
@@ -39,6 +40,14 @@ public class BenchController {
                                     @AuthenticationPrincipal UserDetails userDetails,
                                     @RequestBody BuyFromBenchRequest request) throws Exception {
         benchFacade.buy(leagueId, userDetails.getUsername(), request.getPokemonName());
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/release")
+    public ResponseEntity<Void> release(@PathVariable String leagueId,
+                                        @AuthenticationPrincipal UserDetails userDetails,
+                                        @RequestBody ReleasePokemonRequest request) throws Exception {
+        benchFacade.release(leagueId, userDetails.getUsername(), request.getPokemonName());
         return ResponseEntity.ok().build();
     }
 }
