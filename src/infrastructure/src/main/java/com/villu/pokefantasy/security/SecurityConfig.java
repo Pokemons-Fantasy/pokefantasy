@@ -25,7 +25,7 @@ import java.util.Set;
 public class SecurityConfig {
 
     private static final Set<String> PUBLIC_PATHS = Set.of(
-            "/v1/user", "/v1/user/login",
+            "/v1/user", "/v1/user/login", "/v1/user/logout",
             "/actuator/health", "/actuator/health/liveness");
 
     private final JwtAuthFilter jwtAuthFilter;
@@ -38,8 +38,7 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         RequestMatcher publicPaths = request ->
                 PUBLIC_PATHS.contains(request.getServletPath()) ||
-                ("GET".equals(request.getMethod()) && request.getServletPath().endsWith("/draft/events")) ||
-                ("GET".equals(request.getMethod()) && "/v1/users/events".equals(request.getServletPath()));
+                ("GET".equals(request.getMethod()) && request.getServletPath().endsWith("/draft/events"));
 
         return http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
@@ -66,7 +65,7 @@ public class SecurityConfig {
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
-        config.setAllowCredentials(false);
+        config.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
