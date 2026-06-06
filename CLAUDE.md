@@ -203,7 +203,6 @@ CSS design tokens in `src/index.css`. Animation utilities: `.animate-in`, `.stag
 - **Stats globales en MyProfilePage** — W/L totales, monedas acumuladas, racha entre ligas (agregar datos de `/season-stats` de cada liga)
 - **Historial de movimientos de monedas** — feed filtrado por tipo `COIN_EARNED` + transacciones de swaps/robos en la activity feed
 - **Error boundaries globales en React** — `<ErrorBoundary>` en el root y por página para capturar crashes sin romper toda la app
-- **Exportar equipo como imagen/PDF** — captura del equipo propio (html2canvas o similar) exportable
 
 **Next — Backend** (cuando se retome):
 
