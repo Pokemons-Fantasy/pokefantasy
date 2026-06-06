@@ -229,6 +229,33 @@ class GetSeasonStatsCommandHandlerTest {
         assertThat(players.get(2).username()).isEqualTo("brock");
     }
 
+    // ── Caso 9: customMvpPokemon tiene prioridad sobre el primer pick del draft ───
+
+    @Test
+    void handle_customMvpSet_overridesAutoMvp() {
+        // Liga con miembro "ash" cuyo customMvpPokemon = "Mewtwo"
+        LeagueEntity league = new LeagueEntity();
+        league.setId("l1");
+        LeagueMember member = new LeagueMember("ash", LeagueRole.ADMIN, 0);
+        member.setCustomMvpPokemon("Mewtwo");
+        league.setMembers(new ArrayList<>(List.of(member)));
+        when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
+        when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.empty());
+
+        // Draft history tiene "Pikachu" como primer pick (auto-MVP sin customización)
+        DraftEntity draft = new DraftEntity();
+        draft.setLeagueId("l1");
+        DraftPick pick = new DraftPick("ash", "Pikachu", 25, 1, null, null, null);
+        draft.setDraftHistory(new ArrayList<>(List.of(pick)));
+        when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.of(draft));
+
+        SeasonStatsResponse response = handler.handle(new GetSeasonStatsCommand("l1"));
+
+        // Debe devolver "Mewtwo" (custom), no "Pikachu" (auto)
+        assertThat(response.players()).hasSize(1);
+        assertThat(response.players().get(0).mvpPokemon()).isEqualTo("Mewtwo");
+    }
+
     // ── helpers ──────────────────────────────────────────────────────────────────
 
     private LeagueEntity leagueWithMembers(String... usernames) {
