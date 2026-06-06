@@ -37,7 +37,11 @@ public class JwtTokenProvider implements TokenPort {
 
     @Override
     public String extractUsername(String token) {
-        return parseClaims(token).getSubject();
+        try {
+            return parseClaims(token).getSubject();
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     @Override
