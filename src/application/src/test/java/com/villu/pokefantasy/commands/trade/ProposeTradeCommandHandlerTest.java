@@ -29,6 +29,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -68,8 +69,13 @@ class ProposeTradeCommandHandlerTest {
                 new LeagueMember("ash", LeagueRole.USER, 1000),
                 new LeagueMember("brock", LeagueRole.USER, 1000)));
         when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
+        when(tradeRepository.save(any())).thenAnswer(inv -> {
+            TradeEntity t = inv.getArgument(0);
+            t.setId("trade-123");
+            return t;
+        });
 
-        handler.handle(new ProposeTradeCommand("l1", "ash", "brock", "pikachu", "onix", 150));
+        String tradeId = handler.handle(new ProposeTradeCommand("l1", "ash", "brock", "pikachu", "onix", 150));
 
         ArgumentCaptor<TradeEntity> captor = ArgumentCaptor.forClass(TradeEntity.class);
         verify(tradeRepository).save(captor.capture());
@@ -84,6 +90,7 @@ class ProposeTradeCommandHandlerTest {
         assertThat(saved.getCoinsOffered()).isEqualTo(150);
         assertThat(saved.getCreatedAt()).isNotNull();
         assertThat(saved.getResolvedAt()).isNull();
+        assertThat(tradeId).isEqualTo("trade-123");
     }
 
     @Test
@@ -270,6 +277,11 @@ class ProposeTradeCommandHandlerTest {
         brockUser.setName("brock");
         brockUser.setFcmTokens(new ArrayList<>(List.of("token-brock-android")));
         when(userRepository.findByUsername("brock")).thenReturn(brockUser);
+        when(tradeRepository.save(any())).thenAnswer(inv -> {
+            TradeEntity t = inv.getArgument(0);
+            t.setId("trade-456");
+            return t;
+        });
 
         handler.handle(new ProposeTradeCommand("l1", "ash", "brock", "pikachu", "onix", 0));
 
@@ -298,6 +310,11 @@ class ProposeTradeCommandHandlerTest {
         brockUser.setName("brock");
         brockUser.setFcmTokens(new ArrayList<>());
         when(userRepository.findByUsername("brock")).thenReturn(brockUser);
+        when(tradeRepository.save(any())).thenAnswer(inv -> {
+            TradeEntity t = inv.getArgument(0);
+            t.setId("trade-789");
+            return t;
+        });
 
         handler.handle(new ProposeTradeCommand("l1", "ash", "brock", "pikachu", "onix", 0));
 

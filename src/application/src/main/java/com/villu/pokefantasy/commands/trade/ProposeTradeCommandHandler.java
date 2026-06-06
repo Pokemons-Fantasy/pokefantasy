@@ -19,7 +19,7 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 
 @Service
-public class ProposeTradeCommandHandler implements CommandHandler<ProposeTradeCommand, Void> {
+public class ProposeTradeCommandHandler implements CommandHandler<ProposeTradeCommand, String> {
 
     private final TradeRepository tradeRepository;
     private final DraftRepository draftRepository;
@@ -40,7 +40,7 @@ public class ProposeTradeCommandHandler implements CommandHandler<ProposeTradeCo
     }
 
     @Override
-    public Void handle(ProposeTradeCommand command) {
+    public String handle(ProposeTradeCommand command) {
         String leagueId = command.leagueId();
         String proposer = command.proposer().trim();
         String responder = command.responder().trim();
@@ -89,7 +89,7 @@ public class ProposeTradeCommandHandler implements CommandHandler<ProposeTradeCo
                 .status(TradeStatus.PENDING)
                 .createdAt(Instant.now())
                 .build();
-        tradeRepository.save(trade);
+        TradeEntity saved = tradeRepository.save(trade);
         UserEntity responderUser = userRepository.findByUsername(responder);
         if (responderUser != null && !responderUser.getFcmTokens().isEmpty()) {
             pushNotificationPort.send(
@@ -98,7 +98,7 @@ public class ProposeTradeCommandHandler implements CommandHandler<ProposeTradeCo
                     proposer + " quiere intercambiar " + trade.getProposerPokemonName()
                             + " por tu " + trade.getResponderPokemonName());
         }
-        return null;
+        return saved.getId();
     }
 
     private LeagueMember findMember(LeagueEntity league, String username) {

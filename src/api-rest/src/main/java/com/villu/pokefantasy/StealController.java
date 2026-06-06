@@ -1,5 +1,6 @@
 package com.villu.pokefantasy;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.villu.pokefantasy.commands.steal.StealFacade;
 import com.villu.pokefantasy.request.steal.SetStealPriceRequest;
 import com.villu.pokefantasy.request.steal.StealPokemonRequest;
@@ -13,16 +14,25 @@ import org.springframework.web.bind.annotation.*;
 public class StealController {
 
     private final StealFacade stealFacade;
+    private final UserSseEmitterRegistry userSseRegistry;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public StealController(StealFacade stealFacade) {
+    public StealController(StealFacade stealFacade, UserSseEmitterRegistry userSseRegistry) {
         this.stealFacade = stealFacade;
+        this.userSseRegistry = userSseRegistry;
     }
 
     @PostMapping("/steal")
     public ResponseEntity<Void> steal(@PathVariable String leagueId,
                                       @AuthenticationPrincipal UserDetails userDetails,
                                       @RequestBody StealPokemonRequest request) throws Exception {
-        stealFacade.steal(leagueId, userDetails.getUsername(), request.getTargetPokemonName());
+        String victim = stealFacade.steal(leagueId, userDetails.getUsername(), request.getTargetPokemonName());
+        String payload = objectMapper.createObjectNode()
+                .put("leagueId", leagueId)
+                .put("actorUsername", userDetails.getUsername())
+                .put("pokemonName", request.getTargetPokemonName())
+                .toString();
+        userSseRegistry.sendToUser(victim, "steal", payload);
         return ResponseEntity.ok().build();
     }
 
