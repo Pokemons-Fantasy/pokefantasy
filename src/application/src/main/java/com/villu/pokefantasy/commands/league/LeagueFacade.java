@@ -64,4 +64,8 @@ public class LeagueFacade {
     public int getMyCoinBalance(String leagueId, String requestingUsername) throws Exception {
         return mediator.send(new GetMyCoinBalanceCommand(leagueId, requestingUsername));
     }
+
+    public void setMyMvp(String leagueId, String username, String pokemonName) throws Exception {
+        mediator.send(new SetLeagueMvpCommand(leagueId, username, pokemonName));
+    }
 }

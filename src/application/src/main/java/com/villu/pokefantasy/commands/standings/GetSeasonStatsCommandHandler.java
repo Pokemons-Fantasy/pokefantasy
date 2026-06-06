@@ -71,6 +71,13 @@ public class GetSeasonStatsCommandHandler
                         (existing, replacement) -> existing  // keep first (lowest round)
                 ));
 
+        // Pokémon MVP personalizados por el jugador (tienen prioridad sobre el automático)
+        Map<String, String> customMvp = league.getMembers().stream()
+                .filter(m -> m.getCustomMvpPokemon() != null)
+                .collect(Collectors.toMap(
+                        LeagueMember::getUsername,
+                        LeagueMember::getCustomMvpPokemon));
+
         List<PlayerSeasonStats> stats = members.stream().map(username -> {
             List<ScheduleEntity.Match> myMatches = completed.stream()
                     .filter(m -> username.equals(m.getPlayer1()) || username.equals(m.getPlayer2()))
@@ -96,7 +103,7 @@ public class GetSeasonStatsCommandHandler
 
             return new PlayerSeasonStats(
                     username, wins, losses, played, winPct, streak,
-                    mvpByPlayer.get(username)
+                    customMvp.getOrDefault(username, mvpByPlayer.get(username))
             );
         })
         .sorted(Comparator.comparingInt(PlayerSeasonStats::wins).reversed())
