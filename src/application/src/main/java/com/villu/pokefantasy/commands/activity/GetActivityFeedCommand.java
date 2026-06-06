@@ -4,6 +4,7 @@ import com.villu.pokefantasy.mediator.Command;
 
 public record GetActivityFeedCommand(
         String leagueId,
+        String username,
         int page,
         int size
 ) implements Command {}

@@ -379,7 +379,44 @@ class RespondToTradeCommandHandlerTest {
         assertThat(saved.getTargetUsername()).isEqualTo("brock");
         assertThat(saved.getPokemonName()).isEqualTo("pikachu");
         assertThat(saved.getPokemonName2()).isEqualTo("onix");
+        assertThat(saved.getCoinsAmount()).isEqualTo(100);
         assertThat(saved.getCreatedAt()).isNotNull();
+    }
+
+    @Test
+    void acceptTrade_withZeroCoins_savesEventWithNullCoinsAmount() {
+        TradeEntity zeroTrade = TradeEntity.builder()
+                .id("t1").leagueId("l1").proposer("ash").responder("brock")
+                .proposerPokemonName("pikachu").proposerPokemonId(25)
+                .responderPokemonName("onix").responderPokemonId(95)
+                .coinsOffered(0).status(TradeStatus.PENDING).createdAt(Instant.now())
+                .build();
+        when(tradeRepository.findById("t1")).thenReturn(Optional.of(zeroTrade));
+        DraftEntity draft = new DraftEntity();
+        draft.setStatus(DraftStatus.COMPLETED);
+        draft.setPicks(new ArrayList<>(List.of(
+                new DraftPick("ash", "pikachu", 25, 1, Instant.now(), null, null),
+                new DraftPick("brock", "onix", 95, 1, Instant.now(), null, null))));
+        when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.of(draft));
+        ScheduleEntity schedule = new ScheduleEntity();
+        when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
+        when(jornadaWindowService.isSwapWindowOpen(schedule)).thenReturn(true);
+        LeagueEntity league = new LeagueEntity();
+        league.setMembers(List.of(
+                new LeagueMember("ash", LeagueRole.USER, 500),
+                new LeagueMember("brock", LeagueRole.USER, 200)));
+        when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
+        when(userRepository.findByUsername("ash")).thenReturn(userWith("ash", "pikachu", 25));
+        when(userRepository.findByUsername("brock")).thenReturn(userWith("brock", "onix", 95));
+        when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(anyString(), eq("l1")))
+                .thenReturn(Optional.empty());
+        when(tradeRepository.findPendingByLeagueId("l1")).thenReturn(List.of(zeroTrade));
+
+        handler.handle(new RespondToTradeCommand("l1", "t1", "brock", true));
+
+        ArgumentCaptor<ActivityEventEntity> captor = ArgumentCaptor.forClass(ActivityEventEntity.class);
+        verify(activityEventRepository).save(captor.capture());
+        assertThat(captor.getValue().getCoinsAmount()).isNull();
     }
 
     // ── Timestamp lock ────────────────────────────────────────────────────────

@@ -22,11 +22,21 @@ public class GetActivityFeedCommandHandler implements CommandHandler<GetActivity
     public ActivityFeedResponse handle(GetActivityFeedCommand command) {
         int page = command.page();
         int size = command.size();
+        String username = command.username();
 
-        List<ActivityEventEntity> events = activityEventRepository
-                .findByLeagueIdOrderByCreatedAtDesc(command.leagueId(), page, size);
+        List<ActivityEventEntity> events;
+        long totalCount;
 
-        long totalCount = activityEventRepository.countByLeagueId(command.leagueId());
+        if (username != null && !username.isBlank()) {
+            events = activityEventRepository
+                    .findByLeagueIdAndUsernameOrderByCreatedAtDesc(command.leagueId(), username, page, size);
+            totalCount = activityEventRepository.countByLeagueIdAndUsername(command.leagueId(), username);
+        } else {
+            events = activityEventRepository
+                    .findByLeagueIdOrderByCreatedAtDesc(command.leagueId(), page, size);
+            totalCount = activityEventRepository.countByLeagueId(command.leagueId());
+        }
+
         int totalPages = size > 0 ? (int) Math.ceil((double) totalCount / size) : 0;
         boolean hasMore = (long) (page + 1) * size < totalCount;
 
