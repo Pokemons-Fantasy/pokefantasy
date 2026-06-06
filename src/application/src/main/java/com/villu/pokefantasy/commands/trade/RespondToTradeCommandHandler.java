@@ -155,6 +155,7 @@ public class RespondToTradeCommandHandler implements CommandHandler<RespondToTra
                 .targetUsername(trade.getResponder())
                 .pokemonName(trade.getProposerPokemonName())
                 .pokemonName2(trade.getResponderPokemonName())
+                .coinsAmount(trade.getCoinsOffered() > 0 ? trade.getCoinsOffered() : null)
                 .createdAt(now)
                 .build());
     }

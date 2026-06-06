@@ -14,6 +14,10 @@ public class ActivityFeedFacade {
     }
 
     public ActivityFeedResponse getFeed(String leagueId, int page, int size) throws Exception {
-        return mediator.send(new GetActivityFeedCommand(leagueId, page, size));
+        return mediator.send(new GetActivityFeedCommand(leagueId, null, page, size));
+    }
+
+    public ActivityFeedResponse getFeedByUser(String leagueId, String username, int page, int size) throws Exception {
+        return mediator.send(new GetActivityFeedCommand(leagueId, username, page, size));
     }
 }

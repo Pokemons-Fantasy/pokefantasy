@@ -19,7 +19,11 @@ public class ActivityController {
     public ResponseEntity<ActivityFeedResponse> getActivityFeed(
             @PathVariable String leagueId,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) throws Exception {
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String username) throws Exception {
+        if (username != null && !username.isBlank()) {
+            return ResponseEntity.ok(activityFeedFacade.getFeedByUser(leagueId, username, page, size));
+        }
         return ResponseEntity.ok(activityFeedFacade.getFeed(leagueId, page, size));
     }
 }

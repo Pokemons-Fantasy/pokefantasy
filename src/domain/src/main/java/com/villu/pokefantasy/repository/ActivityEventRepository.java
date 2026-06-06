@@ -11,4 +11,8 @@ public interface ActivityEventRepository {
     List<ActivityEventEntity> findByLeagueIdOrderByCreatedAtDesc(String leagueId, int page, int size);
 
     long countByLeagueId(String leagueId);
+
+    List<ActivityEventEntity> findByLeagueIdAndUsernameOrderByCreatedAtDesc(String leagueId, String username, int page, int size);
+
+    long countByLeagueIdAndUsername(String leagueId, String username);
 }
