@@ -1,10 +1,12 @@
 package com.villu.pokefantasy;
 
 import com.villu.pokefantasy.commands.users.UserFacade;
-import com.villu.pokefantasy.ports.TokenPort;
 import com.villu.pokefantasy.request.user.AddPokemonsUserRequest;
 import com.villu.pokefantasy.request.user.RegisterPushTokenRequest;
 import com.villu.pokefantasy.request.user.UserRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -24,14 +26,11 @@ public class UserController {
 
     private final UserFacade userFacade;
     private final UserSseEmitterRegistry userSseRegistry;
-    private final TokenPort tokenPort;
 
     public UserController(UserFacade userFacade,
-                          UserSseEmitterRegistry userSseRegistry,
-                          TokenPort tokenPort) {
+                          UserSseEmitterRegistry userSseRegistry) {
         this.userFacade = userFacade;
         this.userSseRegistry = userSseRegistry;
-        this.tokenPort = tokenPort;
     }
 
     @PostMapping("/user")
@@ -41,8 +40,31 @@ public class UserController {
     }
 
     @PostMapping("/user/login")
-    public ResponseEntity<String> loginUser(@RequestBody UserRequest user) throws Exception {
-        return ResponseEntity.ok(userFacade.login(user.getUsername(), user.getPassword()));
+    public ResponseEntity<LoginResponse> loginUser(@RequestBody UserRequest user,
+                                                   HttpServletResponse response) throws Exception {
+        String token = userFacade.login(user.getUsername(), user.getPassword());
+        ResponseCookie cookie = ResponseCookie.from("jwt", token)
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("None")
+                .path("/")
+                .maxAge(86400)
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+        return ResponseEntity.ok(new LoginResponse(user.getUsername()));
+    }
+
+    @PostMapping("/user/logout")
+    public ResponseEntity<Void> logout(HttpServletResponse response) {
+        ResponseCookie clear = ResponseCookie.from("jwt", "")
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("None")
+                .path("/")
+                .maxAge(0)
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, clear.toString());
+        return ResponseEntity.ok().build();
     }
 
     @PostMapping("/user/add/pokemons")
@@ -67,11 +89,7 @@ public class UserController {
     }
 
     @GetMapping("/users/events")
-    public SseEmitter streamUserEvents(@RequestParam String token) {
-        String username = tokenPort.extractUsername(token);
-        if (username == null || !tokenPort.isTokenValid(token, username)) {
-            throw new IllegalArgumentException("Token inválido");
-        }
-        return userSseRegistry.register(username);
+    public SseEmitter streamUserEvents(@AuthenticationPrincipal UserDetails userDetails) {
+        return userSseRegistry.register(userDetails.getUsername());
     }
 }
