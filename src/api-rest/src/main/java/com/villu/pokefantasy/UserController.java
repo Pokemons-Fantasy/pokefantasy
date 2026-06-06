@@ -1,6 +1,7 @@
 package com.villu.pokefantasy;
 
 import com.villu.pokefantasy.commands.users.UserFacade;
+import com.villu.pokefantasy.ports.TokenPort;
 import com.villu.pokefantasy.request.user.AddPokemonsUserRequest;
 import com.villu.pokefantasy.request.user.RegisterPushTokenRequest;
 import com.villu.pokefantasy.request.user.UserRequest;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
 
@@ -21,9 +23,15 @@ import java.util.List;
 public class UserController {
 
     private final UserFacade userFacade;
+    private final UserSseEmitterRegistry userSseRegistry;
+    private final TokenPort tokenPort;
 
-    public UserController(UserFacade userFacade) {
+    public UserController(UserFacade userFacade,
+                          UserSseEmitterRegistry userSseRegistry,
+                          TokenPort tokenPort) {
         this.userFacade = userFacade;
+        this.userSseRegistry = userSseRegistry;
+        this.tokenPort = tokenPort;
     }
 
     @PostMapping("/user")
@@ -56,5 +64,14 @@ public class UserController {
             @RequestBody RegisterPushTokenRequest request) throws Exception {
         userFacade.registerPushToken(userDetails.getUsername(), request.getToken());
         return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/users/events")
+    public SseEmitter streamUserEvents(@RequestParam String token) {
+        String username = tokenPort.extractUsername(token);
+        if (username == null || !tokenPort.isTokenValid(token, username)) {
+            throw new IllegalArgumentException("Token inválido");
+        }
+        return userSseRegistry.register(username);
     }
 }
