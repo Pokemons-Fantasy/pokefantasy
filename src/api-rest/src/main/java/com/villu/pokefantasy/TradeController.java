@@ -1,5 +1,6 @@
 package com.villu.pokefantasy;
 
+import com.villu.pokefantasy.UserSseEmitterRegistry;
 import com.villu.pokefantasy.commands.trade.TradeFacade;
 import com.villu.pokefantasy.request.trade.ProposeTradeRequest;
 import com.villu.pokefantasy.request.trade.RespondToTradeRequest;
@@ -16,9 +17,11 @@ import java.util.List;
 public class TradeController {
 
     private final TradeFacade tradeFacade;
+    private final UserSseEmitterRegistry userSseRegistry;
 
-    public TradeController(TradeFacade tradeFacade) {
+    public TradeController(TradeFacade tradeFacade, UserSseEmitterRegistry userSseRegistry) {
         this.tradeFacade = tradeFacade;
+        this.userSseRegistry = userSseRegistry;
     }
 
     @PostMapping("/trades")
@@ -26,8 +29,12 @@ public class TradeController {
                                         @AuthenticationPrincipal UserDetails userDetails,
                                         @RequestBody ProposeTradeRequest request) throws Exception {
         int coins = request.getCoinsOffered() != null ? request.getCoinsOffered() : 0;
-        tradeFacade.propose(leagueId, userDetails.getUsername(), request.getResponder(),
+        String tradeId = tradeFacade.propose(leagueId, userDetails.getUsername(), request.getResponder(),
                 request.getProposerPokemonName(), request.getResponderPokemonName(), coins);
+        String payload = String.format(
+                "{\"leagueId\":\"%s\",\"proposer\":\"%s\",\"tradeId\":\"%s\"}",
+                leagueId, userDetails.getUsername(), tradeId);
+        userSseRegistry.sendToUser(request.getResponder(), "trade-proposed", payload);
         return ResponseEntity.ok().build();
     }
 
