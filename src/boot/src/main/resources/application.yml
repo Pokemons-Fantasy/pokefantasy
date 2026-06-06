@@ -11,7 +11,7 @@ spring:
   mongodb:
     uri: ${MONGODB_URI:mongodb://root:password@localhost:27017/pokefantasy?authSource=admin}
 server:
-  port: 8080
+  port: ${PORT:8080}
 management:
   endpoints:
     web:
