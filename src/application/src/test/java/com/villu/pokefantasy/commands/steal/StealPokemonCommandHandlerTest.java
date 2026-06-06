@@ -100,7 +100,7 @@ class StealPokemonCommandHandlerTest {
         when(userRepository.findByUsername(STEALER)).thenReturn(stealerUser);
         when(userRepository.findByUsername(VICTIM)).thenReturn(victimUser);
 
-        handler.handle(new StealPokemonCommand(LEAGUE_ID, STEALER, TARGET));
+        String result = handler.handle(new StealPokemonCommand(LEAGUE_ID, STEALER, TARGET));
 
         // Coin transfer: stealer -300, victim +600
         LeagueMember stealerMember = getMember(league, STEALER);
@@ -124,6 +124,8 @@ class StealPokemonCommandHandlerTest {
 
         verify(leagueRepository).save(league);
         verify(userRepository, times(2)).updateUserWithPokemons(any());
+
+        assertThat(result).isEqualTo(VICTIM);
     }
 
     // ── Steal window closed ───────────────────────────────────────────────────

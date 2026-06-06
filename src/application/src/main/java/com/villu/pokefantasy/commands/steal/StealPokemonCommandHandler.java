@@ -32,7 +32,7 @@ import java.util.List;
 
 @Service
 @Slf4j
-public class StealPokemonCommandHandler implements CommandHandler<StealPokemonCommand, Void> {
+public class StealPokemonCommandHandler implements CommandHandler<StealPokemonCommand, String> {
 
     private final DraftRepository draftRepository;
     private final ClosedListRepository closedListRepository;
@@ -62,7 +62,7 @@ public class StealPokemonCommandHandler implements CommandHandler<StealPokemonCo
     }
 
     @Override
-    public Void handle(StealPokemonCommand command) {
+    public String handle(StealPokemonCommand command) {
         String leagueId = command.leagueId();
         String stealer = command.stealer();
         String targetName = command.targetPokemonName().trim();
@@ -179,7 +179,7 @@ public class StealPokemonCommandHandler implements CommandHandler<StealPokemonCo
                     stealer + " te ha robado a " + targetName);
         }
 
-        return null;
+        return victim;
     }
 
     private LeagueMember getMember(LeagueEntity league, String username) {
