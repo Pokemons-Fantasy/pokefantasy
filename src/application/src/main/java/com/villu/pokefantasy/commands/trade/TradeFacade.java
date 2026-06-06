@@ -15,10 +15,10 @@ public class TradeFacade {
         this.mediator = mediator;
     }
 
-    public void propose(String leagueId, String proposer, String responder,
-                         String proposerPokemonName, String responderPokemonName,
-                         int coinsOffered) throws Exception {
-        mediator.send(new ProposeTradeCommand(leagueId, proposer, responder,
+    public String propose(String leagueId, String proposer, String responder,
+                           String proposerPokemonName, String responderPokemonName,
+                           int coinsOffered) throws Exception {
+        return mediator.send(new ProposeTradeCommand(leagueId, proposer, responder,
                 proposerPokemonName, responderPokemonName, coinsOffered));
     }
 
