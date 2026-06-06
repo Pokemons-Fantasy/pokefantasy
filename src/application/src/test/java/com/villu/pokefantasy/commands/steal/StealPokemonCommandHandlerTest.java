@@ -236,7 +236,7 @@ class StealPokemonCommandHandlerTest {
         when(userRepository.findByUsername(STEALER)).thenReturn(stealerUser);
         when(userRepository.findByUsername(VICTIM)).thenReturn(victimUser);
 
-        handler.handle(new StealPokemonCommand(LEAGUE_ID, STEALER, TARGET));
+        String result = handler.handle(new StealPokemonCommand(LEAGUE_ID, STEALER, TARGET));
 
         // stealPrice used was 800 (custom), not 300 (tier default)
         LeagueMember stealerMember = getMember(league, STEALER);
@@ -251,6 +251,7 @@ class StealPokemonCommandHandlerTest {
                 .filter(p -> TARGET.equalsIgnoreCase(p.getPokemonName()))
                 .findFirst().orElseThrow();
         assertThat(saved.getCustomStealPrice()).isEqualTo(800);
+        assertThat(result).isEqualTo(VICTIM);
     }
 
     // ── Tier A price used when no customStealPrice ────────────────────────────
@@ -304,10 +305,11 @@ class StealPokemonCommandHandlerTest {
         when(userRepository.findByUsername(STEALER)).thenReturn(stealerUser);
         when(userRepository.findByUsername(VICTIM)).thenReturn(victimUser);
 
-        handler.handle(new StealPokemonCommand(LEAGUE_ID, STEALER, TARGET));
+        String result = handler.handle(new StealPokemonCommand(LEAGUE_ID, STEALER, TARGET));
 
         // Pokemon was added to the newly-created empty list
         assertThat(stealerUser.getPokemons()).anyMatch(p -> TARGET.equals(p.getName()));
+        assertThat(result).isEqualTo(VICTIM);
     }
 
     // ── Tier C price used ─────────────────────────────────────────────────────
@@ -380,7 +382,7 @@ class StealPokemonCommandHandlerTest {
         when(userRepository.findByUsername(STEALER)).thenReturn(userWithPokemon(STEALER, "pikachu"));
         when(userRepository.findByUsername(VICTIM)).thenReturn(userWithPokemon(VICTIM, TARGET));
 
-        handler.handle(new StealPokemonCommand(LEAGUE_ID, STEALER, TARGET));
+        String result = handler.handle(new StealPokemonCommand(LEAGUE_ID, STEALER, TARGET));
 
         ArgumentCaptor<ActivityEventEntity> captor = ArgumentCaptor.forClass(ActivityEventEntity.class);
         verify(activityEventRepository).save(captor.capture());
@@ -392,6 +394,7 @@ class StealPokemonCommandHandlerTest {
         assertThat(saved.getPokemonName()).isEqualTo(TARGET);
         assertThat(saved.getCoinsAmount()).isEqualTo(stealPrice);
         assertThat(saved.getCreatedAt()).isNotNull();
+        assertThat(result).isEqualTo(VICTIM);
     }
 
     // ── Timestamp lock ────────────────────────────────────────────────────────
@@ -436,7 +439,7 @@ class StealPokemonCommandHandlerTest {
         when(userRepository.findByUsername(VICTIM)).thenReturn(userWithPokemon(VICTIM, TARGET));
 
         // Should not throw
-        handler.handle(new StealPokemonCommand(LEAGUE_ID, STEALER, TARGET));
+        String result = handler.handle(new StealPokemonCommand(LEAGUE_ID, STEALER, TARGET));
 
         // Pick now belongs to stealer with new lock
         DraftPick stolenPick = draft.getPicks().stream()
@@ -444,6 +447,7 @@ class StealPokemonCommandHandlerTest {
                 .findFirst().orElseThrow();
         assertThat(stolenPick.getUsername()).isEqualTo(STEALER);
         assertThat(stolenPick.getLockedUntil()).isAfter(Instant.now().plus(6, ChronoUnit.DAYS));
+        assertThat(result).isEqualTo(VICTIM);
     }
 
     // ── Push notification ─────────────────────────────────────────────────────
