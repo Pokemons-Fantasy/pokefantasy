@@ -18,6 +18,7 @@ public class TradeController {
 
     private final TradeFacade tradeFacade;
     private final UserSseEmitterRegistry userSseRegistry;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public TradeController(TradeFacade tradeFacade, UserSseEmitterRegistry userSseRegistry) {
         this.tradeFacade = tradeFacade;
@@ -31,7 +32,7 @@ public class TradeController {
         int coins = request.getCoinsOffered() != null ? request.getCoinsOffered() : 0;
         String tradeId = tradeFacade.propose(leagueId, userDetails.getUsername(), request.getResponder(),
                 request.getProposerPokemonName(), request.getResponderPokemonName(), coins);
-        String payload = new ObjectMapper().createObjectNode()
+        String payload = objectMapper.createObjectNode()
                 .put("leagueId", leagueId)
                 .put("proposer", userDetails.getUsername())
                 .put("tradeId", tradeId)

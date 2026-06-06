@@ -15,6 +15,7 @@ public class StealController {
 
     private final StealFacade stealFacade;
     private final UserSseEmitterRegistry userSseRegistry;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public StealController(StealFacade stealFacade, UserSseEmitterRegistry userSseRegistry) {
         this.stealFacade = stealFacade;
@@ -26,7 +27,7 @@ public class StealController {
                                       @AuthenticationPrincipal UserDetails userDetails,
                                       @RequestBody StealPokemonRequest request) throws Exception {
         String victim = stealFacade.steal(leagueId, userDetails.getUsername(), request.getTargetPokemonName());
-        String payload = new ObjectMapper().createObjectNode()
+        String payload = objectMapper.createObjectNode()
                 .put("leagueId", leagueId)
                 .put("actorUsername", userDetails.getUsername())
                 .put("pokemonName", request.getTargetPokemonName())
