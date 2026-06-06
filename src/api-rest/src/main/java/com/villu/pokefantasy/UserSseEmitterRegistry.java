@@ -6,7 +6,6 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -22,10 +21,10 @@ public class UserSseEmitterRegistry {
         SseEmitter emitter = new SseEmitter(0L); // sin timeout — heartbeat lo mantiene vivo
         emitters.computeIfAbsent(username, k -> new CopyOnWriteArrayList<>()).add(emitter);
 
-        Runnable cleanup = () -> {
-            List<SseEmitter> list = emitters.get(username);
-            if (list != null) list.remove(emitter);
-        };
+        Runnable cleanup = () -> emitters.computeIfPresent(username, (k, list) -> {
+            list.remove(emitter);
+            return list.isEmpty() ? null : list; // null removes entry from map atomically
+        });
         emitter.onCompletion(cleanup);
         emitter.onTimeout(cleanup);
         emitter.onError(e -> cleanup.run());
@@ -34,7 +33,8 @@ public class UserSseEmitterRegistry {
     }
 
     public void sendToUser(String username, String eventName, String data) {
-        List<SseEmitter> list = emitters.getOrDefault(username, Collections.emptyList());
+        List<SseEmitter> list = emitters.get(username);
+        if (list == null || list.isEmpty()) return;
         List<SseEmitter> dead = new ArrayList<>();
         for (SseEmitter emitter : list) {
             try {
