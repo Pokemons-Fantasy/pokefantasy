@@ -12,8 +12,8 @@ public class StealFacade {
         this.mediator = mediator;
     }
 
-    public void steal(String leagueId, String stealer, String targetPokemonName) throws Exception {
-        mediator.send(new StealPokemonCommand(leagueId, stealer, targetPokemonName));
+    public String steal(String leagueId, String stealer, String targetPokemonName) throws Exception {
+        return mediator.send(new StealPokemonCommand(leagueId, stealer, targetPokemonName));
     }
 
     public void setStealPrice(String leagueId, String username, String pokemonName, int newPrice) throws Exception {
