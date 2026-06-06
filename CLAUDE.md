@@ -198,11 +198,22 @@ CSS design tokens in `src/index.css`. Animation utilities: `.animate-in`, `.stag
 
 **Next — Frontend** (en orden de valor):
 
-*(sin items pendientes)*
+- **Estadísticas avanzadas por temporada** — ya hay endpoint `/season-stats` en backend, solo falta la página frontend (W/L, winPct, racha, mvpPokemon por jugador)
+- **Aviso de cambios sin guardar en LeagueConfigPage** — mostrar confirm/dialog si el usuario navega fuera con cambios pendientes (`useBeforeUnload` + React Router blocker)
+- **Stats globales en MyProfilePage** — W/L totales, monedas acumuladas, racha entre ligas (agregar datos de `/season-stats` de cada liga)
+- **Historial de movimientos de monedas** — feed filtrado por tipo `COIN_EARNED` + transacciones de swaps/robos en la activity feed
+- **Error boundaries globales en React** — `<ErrorBoundary>` en el root y por página para capturar crashes sin romper toda la app
+- **Exportar equipo como imagen/PDF** — captura del equipo propio (html2canvas o similar) exportable
 
 **Next — Backend** (cuando se retome):
 
-*(sin items pendientes)*
+- **Validación server-side tierPct suma 100** — `UpdateLeagueSettingsCommandHandler` debe rechazar si `tierPctS+A+B+C+D != 100`
+- **Cambiar contraseña** — endpoint `PUT /v1/user/password` (currentPassword + newPassword, bcrypt verify + rehash)
+
+**Deuda técnica** (priorizar cuando haya incidencia):
+
+- **JWT en httpOnly cookie** — actualmente en localStorage, vulnerable a XSS; migrar a cookie httpOnly SameSite=Strict
+- **Notificaciones polling 30s** — lento para robos urgentes; considerar SSE o WebSocket para el poller de actividad
 
 **Mobile — DONE** (Capacitor wraps the existing React app — zero rewrite. iOS fuera de scope hasta tener Mac + Apple Developer account):
 
