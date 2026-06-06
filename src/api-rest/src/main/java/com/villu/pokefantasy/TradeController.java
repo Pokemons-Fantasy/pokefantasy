@@ -1,6 +1,6 @@
 package com.villu.pokefantasy;
 
-import com.villu.pokefantasy.UserSseEmitterRegistry;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.villu.pokefantasy.commands.trade.TradeFacade;
 import com.villu.pokefantasy.request.trade.ProposeTradeRequest;
 import com.villu.pokefantasy.request.trade.RespondToTradeRequest;
@@ -31,9 +31,11 @@ public class TradeController {
         int coins = request.getCoinsOffered() != null ? request.getCoinsOffered() : 0;
         String tradeId = tradeFacade.propose(leagueId, userDetails.getUsername(), request.getResponder(),
                 request.getProposerPokemonName(), request.getResponderPokemonName(), coins);
-        String payload = String.format(
-                "{\"leagueId\":\"%s\",\"proposer\":\"%s\",\"tradeId\":\"%s\"}",
-                leagueId, userDetails.getUsername(), tradeId);
+        String payload = new ObjectMapper().createObjectNode()
+                .put("leagueId", leagueId)
+                .put("proposer", userDetails.getUsername())
+                .put("tradeId", tradeId)
+                .toString();
         userSseRegistry.sendToUser(request.getResponder(), "trade-proposed", payload);
         return ResponseEntity.ok().build();
     }

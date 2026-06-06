@@ -1,6 +1,6 @@
 package com.villu.pokefantasy;
 
-import com.villu.pokefantasy.UserSseEmitterRegistry;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.villu.pokefantasy.commands.steal.StealFacade;
 import com.villu.pokefantasy.request.steal.SetStealPriceRequest;
 import com.villu.pokefantasy.request.steal.StealPokemonRequest;
@@ -26,9 +26,11 @@ public class StealController {
                                       @AuthenticationPrincipal UserDetails userDetails,
                                       @RequestBody StealPokemonRequest request) throws Exception {
         String victim = stealFacade.steal(leagueId, userDetails.getUsername(), request.getTargetPokemonName());
-        String payload = String.format(
-                "{\"leagueId\":\"%s\",\"actorUsername\":\"%s\",\"pokemonName\":\"%s\"}",
-                leagueId, userDetails.getUsername(), request.getTargetPokemonName());
+        String payload = new ObjectMapper().createObjectNode()
+                .put("leagueId", leagueId)
+                .put("actorUsername", userDetails.getUsername())
+                .put("pokemonName", request.getTargetPokemonName())
+                .toString();
         userSseRegistry.sendToUser(victim, "steal", payload);
         return ResponseEntity.ok().build();
     }
