@@ -3,6 +3,7 @@ package com.villu.pokefantasy;
 import com.villu.pokefantasy.commands.league.LeagueFacade;
 import com.villu.pokefantasy.request.league.AddMemberRequest;
 import com.villu.pokefantasy.request.league.CreateLeagueRequest;
+import com.villu.pokefantasy.request.league.SetLeagueMvpRequest;
 import com.villu.pokefantasy.request.league.UpdateLeagueSettingsRequest;
 import com.villu.pokefantasy.response.CoinBalanceResponse;
 import com.villu.pokefantasy.response.LeagueDetailResponse;
@@ -86,5 +87,13 @@ public class LeagueController {
                                                                 @AuthenticationPrincipal UserDetails userDetails) throws Exception {
         int coins = leagueFacade.getMyCoinBalance(leagueId, userDetails.getUsername());
         return ResponseEntity.ok(CoinBalanceResponse.builder().coins(coins).build());
+    }
+
+    @PutMapping("/{leagueId}/my-mvp")
+    public ResponseEntity<Void> setMyMvp(@PathVariable String leagueId,
+                                         @AuthenticationPrincipal UserDetails userDetails,
+                                         @RequestBody SetLeagueMvpRequest request) throws Exception {
+        leagueFacade.setMyMvp(leagueId, userDetails.getUsername(), request.getPokemonName());
+        return ResponseEntity.ok().build();
     }
 }
