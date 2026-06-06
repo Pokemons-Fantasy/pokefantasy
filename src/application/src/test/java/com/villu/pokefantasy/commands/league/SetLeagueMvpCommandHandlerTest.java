@@ -82,6 +82,20 @@ class SetLeagueMvpCommandHandlerTest {
                 .isInstanceOf(IllegalStateException.class);
     }
 
+    @Test
+    void handle_nullPokemonName_throwsIllegalArgument() {
+        assertThatThrownBy(() -> handler.handle(new SetLeagueMvpCommand(LEAGUE_ID, USERNAME, null)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Pokémon");
+    }
+
+    @Test
+    void handle_blankPokemonName_throwsIllegalArgument() {
+        assertThatThrownBy(() -> handler.handle(new SetLeagueMvpCommand(LEAGUE_ID, USERNAME, "  ")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Pokémon");
+    }
+
     // ── helpers ──
 
     private LeagueEntity leagueWith(String username) {

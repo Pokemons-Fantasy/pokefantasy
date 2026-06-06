@@ -21,6 +21,10 @@ public class SetLeagueMvpCommandHandler implements CommandHandler<SetLeagueMvpCo
 
     @Override
     public Void handle(SetLeagueMvpCommand command) {
+        if (command.pokemonName() == null || command.pokemonName().isBlank()) {
+            throw new IllegalArgumentException("El nombre del Pokémon no puede estar vacío");
+        }
+
         LeagueEntity league = leagueRepository.findById(command.leagueId())
                 .orElseThrow(() -> new IllegalArgumentException("League not found: " + command.leagueId()));
 
@@ -41,6 +45,10 @@ public class SetLeagueMvpCommandHandler implements CommandHandler<SetLeagueMvpCo
         }
 
         // Persist
+        if (league.getMembers() == null) {
+            throw new IllegalStateException("La liga no tiene miembros");
+        }
+
         LeagueMember member = league.getMembers().stream()
                 .filter(m -> command.username().equals(m.getUsername()))
                 .findFirst()
