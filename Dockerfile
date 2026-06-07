@@ -5,6 +5,6 @@ RUN mvn -B -ntp clean package -DskipTests
 
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
-COPY --from=build /app/boot/target/boot-1.0.0.jar app.jar
+COPY --from=build /app/boot/target/boot-*.jar app.jar
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]
