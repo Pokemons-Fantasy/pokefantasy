@@ -196,20 +196,9 @@ CSS design tokens in `src/index.css`. Animation utilities: `.animate-in`, `.stag
 
 **endpoint de estadísticas de temporada** (`GET /v1/leagues/{id}/season-stats`; por jugador: wins, losses, played, winPct, currentStreak positivo/negativo, mvpPokemon (primer pick de draftHistory); ordenado por wins DESC; 375 tests — PR #61 backend), **bloqueo temporal de robos/trades** (`DraftPick.lockedUntilRound: Integer` → `lockedUntil: Instant`; al robar o aceptar trade: `lockedUntil = now + 7 días`; check puro de timestamp sin depender del estado de jornada; `ProposeTradeCommandHandler` ya no inyecta `ScheduleRepository`; migración automática — docs con `lockedUntilRound` se leen como desbloqueados; tooltip muestra fecha exacta DD/MM HH:MM; 378 tests — PRs #62 backend, #48 frontend), **app Android (Capacitor)** (Capacitor 7, `appId: com.pokefantasy.app`, `androidScheme: https`; `@capacitor/clipboard` reemplaza `navigator.clipboard`; APK compilable desde Android Studio en Windows), **push notifications FCM** (Firebase Admin SDK 9.4.2; `PushNotificationPort` + `FirebasePushNotificationAdapter`; `POST /v1/users/push-token`; `UserEntity.fcmTokens` con `$addToSet`/`$pull`; dispatch en robo y trade propuesto; token refresh en login via `useEffect` en `App.tsx`; `deleteToken()` en `MainActivity.java` para invalidar caché en reinstalación; `google-auth-library-credentials:1.29.0` explícito para evitar conflict con Spring Boot 4.0.2 BOM — gotcha documentado en sección Mobile), **safe area Android/iOS** (`env(safe-area-inset-top)` en `.page-header`; `calc(60px + env(...))` en `.own-team-panel` sticky; `env(safe-area-inset-bottom)` en `body`).
 
-**Next — Frontend** (en orden de valor):
-
-- **Estadísticas avanzadas por temporada** — ya hay endpoint `/season-stats` en backend, solo falta la página frontend (W/L, winPct, racha, mvpPokemon por jugador)
-- **Aviso de cambios sin guardar en LeagueConfigPage** — mostrar confirm/dialog si el usuario navega fuera con cambios pendientes (`useBeforeUnload` + React Router blocker)
-- **Stats globales en MyProfilePage** — W/L totales, monedas acumuladas, racha entre ligas (agregar datos de `/season-stats` de cada liga)
-- **Historial de movimientos de monedas** — feed filtrado por tipo `COIN_EARNED` + transacciones de swaps/robos en la activity feed
-- **Error boundaries globales en React** — `<ErrorBoundary>` en el root y por página para capturar crashes sin romper toda la app
-
-**Next — Backend** (cuando se retome):
-
-- **Validación server-side tierPct suma 100** — `UpdateLeagueSettingsCommandHandler` debe rechazar si `tierPctS+A+B+C+D != 100`
-- **Cambiar contraseña** — endpoint `PUT /v1/user/password` (currentPassword + newPassword, bcrypt verify + rehash)
-
 **Deuda técnica** (sin deuda técnica activa)
+
+**Next** (sin pendientes activos — proyecto completo en v1.1.0)
 
 **Mobile — DONE** (Capacitor wraps the existing React app — zero rewrite. iOS fuera de scope hasta tener Mac + Apple Developer account):
 
@@ -229,4 +218,4 @@ CSS design tokens in `src/index.css`. Animation utilities: `.animate-in`, `.stag
 - Flujo deploy: `npm run build` → `npm run cap:sync` → Android Studio → Build APK.
 - `google-services.json` (de Firebase Console) debe estar en `android/app/` — no se commitea al repo.
 
-**Next — Mobile** (pendiente):
+**Mobile — completo**. Sin pendientes.
