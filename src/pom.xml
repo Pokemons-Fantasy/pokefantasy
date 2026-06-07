@@ -10,7 +10,7 @@
 
 	<groupId>com.villu</groupId>
 	<artifactId>pokefantasy</artifactId>
-	<version>1.0.0</version>
+	<version>1.1.0</version>
 	<name>pokefantasy</name>
 	<description>Project for a game created by Lobon</description>
 	<packaging>pom</packaging>
@@ -42,22 +42,22 @@
 			<dependency>
 				<groupId>com.villu</groupId>
 				<artifactId>domain</artifactId>
-				<version>1.0.0</version>
+				<version>1.1.0</version>
 			</dependency>
 			<dependency>
 				<groupId>com.villu</groupId>
 				<artifactId>application</artifactId>
-				<version>1.0.0</version>
+				<version>1.1.0</version>
 			</dependency>
 			<dependency>
 				<groupId>com.villu</groupId>
 				<artifactId>api-rest</artifactId>
-				<version>1.0.0</version>
+				<version>1.1.0</version>
 			</dependency>
 			<dependency>
 				<groupId>com.villu</groupId>
 				<artifactId>infrastructure</artifactId>
-				<version>1.0.0</version>
+				<version>1.1.0</version>
 			</dependency>
 			<!-- Source: https://mvnrepository.com/artifact/org.springframework.boot/spring-boot-starter-data-redis -->
 			<dependency>
