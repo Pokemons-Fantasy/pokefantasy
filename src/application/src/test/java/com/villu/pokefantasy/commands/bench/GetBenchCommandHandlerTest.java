@@ -4,6 +4,7 @@ import com.villu.pokefantasy.dto.LeagueRole;
 import com.villu.pokefantasy.dto.LeagueSettings;
 import com.villu.pokefantasy.dto.Pokemons;
 import com.villu.pokefantasy.dto.Tier;
+import com.villu.pokefantasy.league.LeagueMembershipGuard;
 import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.UserRepository;
@@ -31,19 +32,20 @@ class GetBenchCommandHandlerTest {
     @Mock private ClosedListRepository closedListRepository;
     @Mock private LeagueRepository leagueRepository;
     @Mock private UserRepository userRepository;
+    @Mock private LeagueMembershipGuard leagueMembershipGuard;
 
     private GetBenchCommandHandler handler;
 
     @BeforeEach
     void setUp() {
-        handler = new GetBenchCommandHandler(closedListRepository, leagueRepository, userRepository);
+        handler = new GetBenchCommandHandler(closedListRepository, leagueRepository, userRepository, leagueMembershipGuard);
     }
 
     @Test
     void handle_leagueNotFound_throwsIllegalArgument() {
         when(leagueRepository.findById("l1")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> handler.handle(new GetBenchCommand("l1")))
+        assertThatThrownBy(() -> handler.handle(new GetBenchCommand("l1", "ash")))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("League not found");
     }
@@ -65,7 +67,7 @@ class GetBenchCommandHandlerTest {
         entry.setSprite("sprite");
         when(closedListRepository.findAllByLeagueId("l1")).thenReturn(List.of(entry));
 
-        List<BenchEntryResponse> bench = handler.handle(new GetBenchCommand("l1"));
+        List<BenchEntryResponse> bench = handler.handle(new GetBenchCommand("l1", "ash"));
 
         assertThat(bench).hasSize(1);
         assertThat(bench.get(0).getPokemonName()).isEqualTo("pikachu");
@@ -91,7 +93,7 @@ class GetBenchCommandHandlerTest {
         bulbasaur.setPokemonName("bulbasaur");
         when(closedListRepository.findAllByLeagueId("l1")).thenReturn(List.of(pikachu, bulbasaur));
 
-        List<BenchEntryResponse> bench = handler.handle(new GetBenchCommand("l1"));
+        List<BenchEntryResponse> bench = handler.handle(new GetBenchCommand("l1", "ash"));
 
         assertThat(bench).hasSize(1);
         assertThat(bench.get(0).getPokemonName()).isEqualTo("bulbasaur");
@@ -112,7 +114,7 @@ class GetBenchCommandHandlerTest {
         entry.setSprite("sprite");
         when(closedListRepository.findAllByLeagueId("l1")).thenReturn(List.of(entry));
 
-        List<BenchEntryResponse> bench = handler.handle(new GetBenchCommand("l1"));
+        List<BenchEntryResponse> bench = handler.handle(new GetBenchCommand("l1", "ash"));
 
         // null user contributes no owned pokemons, so all bench entries returned
         assertThat(bench).hasSize(1);
@@ -135,7 +137,7 @@ class GetBenchCommandHandlerTest {
                 benchEntry("caterpie",   10, Tier.D)
         ));
 
-        List<BenchEntryResponse> bench = handler.handle(new GetBenchCommand("l1"));
+        List<BenchEntryResponse> bench = handler.handle(new GetBenchCommand("l1", "ash"));
 
         assertThat(bench).hasSize(5);
         assertThat(bench).anyMatch(e -> "S".equals(e.getTier()) && e.getPrice() == 500);
@@ -155,7 +157,7 @@ class GetBenchCommandHandlerTest {
         when(closedListRepository.findAllByLeagueId("l1")).thenReturn(
                 List.of(benchEntry("pikachu", 25, Tier.A)));
 
-        List<BenchEntryResponse> bench = handler.handle(new GetBenchCommand("l1"));
+        List<BenchEntryResponse> bench = handler.handle(new GetBenchCommand("l1", "ash"));
 
         assertThat(bench).hasSize(1);
         assertThat(bench.get(0).getPrice()).isEqualTo(0);
@@ -172,7 +174,7 @@ class GetBenchCommandHandlerTest {
         when(closedListRepository.findAllByLeagueId("l1")).thenReturn(
                 List.of(benchEntry("mewtwo", 150, Tier.S)));
 
-        List<BenchEntryResponse> bench = handler.handle(new GetBenchCommand("l1"));
+        List<BenchEntryResponse> bench = handler.handle(new GetBenchCommand("l1", "ash"));
 
         assertThat(bench).hasSize(1);
         assertThat(bench.get(0).getPrice()).isEqualTo(0);

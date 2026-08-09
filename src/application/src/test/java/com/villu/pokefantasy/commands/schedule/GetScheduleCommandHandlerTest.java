@@ -1,6 +1,7 @@
 package com.villu.pokefantasy.commands.schedule;
 
 import com.villu.pokefantasy.dto.MatchStatus;
+import com.villu.pokefantasy.league.LeagueMembershipGuard;
 import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.ScheduleRepository;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity;
@@ -26,19 +27,20 @@ class GetScheduleCommandHandlerTest {
     @Mock private ScheduleRepository scheduleRepository;
     @Mock private LeagueRepository leagueRepository;
     @Mock private JornadaWindowService jornadaWindowService;
+    @Mock private LeagueMembershipGuard leagueMembershipGuard;
 
     private GetScheduleCommandHandler handler;
 
     @BeforeEach
     void setUp() {
-        handler = new GetScheduleCommandHandler(scheduleRepository, leagueRepository, jornadaWindowService);
+        handler = new GetScheduleCommandHandler(scheduleRepository, leagueRepository, jornadaWindowService, leagueMembershipGuard);
     }
 
     @Test
     void handle_noSchedule_returnsNull() {
         when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.empty());
 
-        assertThat(handler.handle(new GetScheduleCommand("l1"))).isNull();
+        assertThat(handler.handle(new GetScheduleCommand("l1", "ash"))).isNull();
     }
 
     @Test
@@ -55,7 +57,7 @@ class GetScheduleCommandHandlerTest {
         when(jornadaWindowService.isStealWindowOpen(schedule, null)).thenReturn(true);
         when(jornadaWindowService.isSwapWindowOpen(schedule, null)).thenReturn(false);
 
-        ScheduleResponse response = handler.handle(new GetScheduleCommand("l1"));
+        ScheduleResponse response = handler.handle(new GetScheduleCommand("l1", "ash"));
 
         assertThat(response.getLeagueId()).isEqualTo("l1");
         assertThat(response.getJornadas()).hasSize(1);

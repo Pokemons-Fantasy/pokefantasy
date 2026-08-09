@@ -6,5 +6,6 @@ public record GetActivityFeedCommand(
         String leagueId,
         String username,
         int page,
-        int size
+        int size,
+        String requestingUsername
 ) implements Command {}

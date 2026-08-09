@@ -53,11 +53,12 @@ class DraftFacadeTest {
     void getStatus_sendsGetDraftStatusCommand() throws Exception {
         when(mediator.send(any(GetDraftStatusCommand.class))).thenReturn(null);
 
-        facade.getStatus("l1");
+        facade.getStatus("l1", "ash");
 
         ArgumentCaptor<GetDraftStatusCommand> captor = ArgumentCaptor.forClass(GetDraftStatusCommand.class);
         verify(mediator).send(captor.capture());
         assertThat(captor.getValue().leagueId()).isEqualTo("l1");
+        assertThat(captor.getValue().requestingUsername()).isEqualTo("ash");
     }
 
     @Test

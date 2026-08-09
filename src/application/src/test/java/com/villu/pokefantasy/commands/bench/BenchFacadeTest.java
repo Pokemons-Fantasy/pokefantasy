@@ -31,11 +31,12 @@ class BenchFacadeTest {
     void getBench_sendsGetBenchCommand() throws Exception {
         when(mediator.send(any(GetBenchCommand.class))).thenReturn(List.of());
 
-        facade.getBench("l1");
+        facade.getBench("l1", "ash");
 
         ArgumentCaptor<GetBenchCommand> captor = ArgumentCaptor.forClass(GetBenchCommand.class);
         verify(mediator).send(captor.capture());
         assertThat(captor.getValue().leagueId()).isEqualTo("l1");
+        assertThat(captor.getValue().requestingUsername()).isEqualTo("ash");
     }
 
     @Test

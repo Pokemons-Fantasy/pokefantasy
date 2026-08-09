@@ -23,8 +23,8 @@ public class DraftFacade {
         mediator.send(new DraftPickCommand(username, pokemonName, leagueId));
     }
 
-    public DraftStatusResponse getStatus(String leagueId) throws Exception {
-        return mediator.send(new GetDraftStatusCommand(leagueId));
+    public DraftStatusResponse getStatus(String leagueId, String requestingUsername) throws Exception {
+        return mediator.send(new GetDraftStatusCommand(leagueId, requestingUsername));
     }
 
     public void cancelDraft(String leagueId, String requestingUsername) throws Exception {

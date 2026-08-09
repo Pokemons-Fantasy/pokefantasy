@@ -1,6 +1,7 @@
 package com.villu.pokefantasy.commands.standings;
 
 import com.villu.pokefantasy.dto.MatchStatus;
+import com.villu.pokefantasy.league.LeagueMembershipGuard;
 import com.villu.pokefantasy.mediator.CommandHandler;
 import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.ScheduleRepository;
@@ -21,15 +22,20 @@ public class GetStandingsCommandHandler implements CommandHandler<GetStandingsCo
 
     private final ScheduleRepository scheduleRepository;
     private final LeagueRepository leagueRepository;
+    private final LeagueMembershipGuard leagueMembershipGuard;
 
     public GetStandingsCommandHandler(ScheduleRepository scheduleRepository,
-                                      LeagueRepository leagueRepository) {
+                                      LeagueRepository leagueRepository,
+                                      LeagueMembershipGuard leagueMembershipGuard) {
         this.scheduleRepository = scheduleRepository;
         this.leagueRepository = leagueRepository;
+        this.leagueMembershipGuard = leagueMembershipGuard;
     }
 
     @Override
     public StandingsResponse handle(GetStandingsCommand command) {
+        leagueMembershipGuard.requireMember(command.leagueId(), command.requestingUsername());
+
         LeagueEntity league = leagueRepository.findById(command.leagueId())
                 .orElseThrow(() -> new IllegalArgumentException("Liga no encontrada: " + command.leagueId()));
 

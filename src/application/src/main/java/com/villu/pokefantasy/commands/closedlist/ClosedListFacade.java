@@ -29,7 +29,7 @@ public class ClosedListFacade {
         return mediator.send(new AssignTierCommand(entryId, tier, leagueId, requestingUsername));
     }
 
-    public List<ClosedListEntryResponse> getClosedList(String leagueId) throws Exception {
-        return mediator.send(new GetClosedListCommand(leagueId));
+    public List<ClosedListEntryResponse> getClosedList(String leagueId, String requestingUsername) throws Exception {
+        return mediator.send(new GetClosedListCommand(leagueId, requestingUsername));
     }
 }

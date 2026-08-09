@@ -2,6 +2,7 @@ package com.villu.pokefantasy.commands.draft;
 
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueSettings;
+import com.villu.pokefantasy.league.LeagueMembershipGuard;
 import com.villu.pokefantasy.mediator.CommandHandler;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
@@ -20,15 +21,20 @@ public class GetDraftStatusCommandHandler implements CommandHandler<GetDraftStat
 
     private final DraftRepository draftRepository;
     private final LeagueRepository leagueRepository;
+    private final LeagueMembershipGuard leagueMembershipGuard;
 
     public GetDraftStatusCommandHandler(DraftRepository draftRepository,
-                                        LeagueRepository leagueRepository) {
+                                        LeagueRepository leagueRepository,
+                                        LeagueMembershipGuard leagueMembershipGuard) {
         this.draftRepository = draftRepository;
         this.leagueRepository = leagueRepository;
+        this.leagueMembershipGuard = leagueMembershipGuard;
     }
 
     @Override
     public DraftStatusResponse handle(GetDraftStatusCommand command) {
+        leagueMembershipGuard.requireMember(command.leagueId(), command.requestingUsername());
+
         DraftEntity draft = draftRepository.findActiveByLeagueId(command.leagueId())
                 .or(() -> draftRepository.findLatestByLeagueId(command.leagueId()))
                 .orElseThrow(() -> new IllegalStateException("No draft found for league: " + command.leagueId()));

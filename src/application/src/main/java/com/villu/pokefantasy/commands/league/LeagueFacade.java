@@ -29,16 +29,16 @@ public class LeagueFacade {
         return mediator.send(new GetMyLeaguesCommand(username));
     }
 
-    public LeagueDetailResponse getLeagueDetail(String leagueId) throws Exception {
-        return mediator.send(new GetLeagueDetailCommand(leagueId));
+    public LeagueDetailResponse getLeagueDetail(String leagueId, String requestingUsername) throws Exception {
+        return mediator.send(new GetLeagueDetailCommand(leagueId, requestingUsername));
     }
 
     public void removeMember(String leagueId, String targetUsername, String requestingUsername) throws Exception {
         mediator.send(new RemoveMemberFromLeagueCommand(leagueId, targetUsername, requestingUsername));
     }
 
-    public LeagueSettingsResponse getSettings(String leagueId) throws Exception {
-        return mediator.send(new GetLeagueSettingsCommand(leagueId));
+    public LeagueSettingsResponse getSettings(String leagueId, String requestingUsername) throws Exception {
+        return mediator.send(new GetLeagueSettingsCommand(leagueId, requestingUsername));
     }
 
     public void updateSettings(String leagueId, Integer coinsPerWin, Integer coinsPerLoss,

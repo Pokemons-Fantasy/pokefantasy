@@ -1,5 +1,6 @@
 package com.villu.pokefantasy.commands.closedlist;
 
+import com.villu.pokefantasy.league.LeagueMembershipGuard;
 import com.villu.pokefantasy.mediator.CommandHandler;
 import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.entity.ClosedListEntity;
@@ -12,13 +13,17 @@ import java.util.List;
 public class GetClosedListCommandHandler implements CommandHandler<GetClosedListCommand, List<ClosedListEntryResponse>> {
 
     private final ClosedListRepository closedListRepository;
+    private final LeagueMembershipGuard leagueMembershipGuard;
 
-    public GetClosedListCommandHandler(ClosedListRepository closedListRepository) {
+    public GetClosedListCommandHandler(ClosedListRepository closedListRepository, LeagueMembershipGuard leagueMembershipGuard) {
         this.closedListRepository = closedListRepository;
+        this.leagueMembershipGuard = leagueMembershipGuard;
     }
 
     @Override
     public List<ClosedListEntryResponse> handle(GetClosedListCommand command) {
+        leagueMembershipGuard.requireMember(command.leagueId(), command.requestingUsername());
+
         return closedListRepository.findAllByLeagueId(command.leagueId()).stream()
                 .map(this::toResponse)
                 .toList();

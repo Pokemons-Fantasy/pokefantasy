@@ -1,6 +1,7 @@
 package com.villu.pokefantasy.commands.schedule;
 
 import com.villu.pokefantasy.dto.LeagueSettings;
+import com.villu.pokefantasy.league.LeagueMembershipGuard;
 import com.villu.pokefantasy.mediator.CommandHandler;
 import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.ScheduleRepository;
@@ -19,17 +20,22 @@ public class GetScheduleCommandHandler implements CommandHandler<GetScheduleComm
     private final ScheduleRepository scheduleRepository;
     private final LeagueRepository leagueRepository;
     private final JornadaWindowService jornadaWindowService;
+    private final LeagueMembershipGuard leagueMembershipGuard;
 
     public GetScheduleCommandHandler(ScheduleRepository scheduleRepository,
                                      LeagueRepository leagueRepository,
-                                     JornadaWindowService jornadaWindowService) {
+                                     JornadaWindowService jornadaWindowService,
+                                     LeagueMembershipGuard leagueMembershipGuard) {
         this.scheduleRepository = scheduleRepository;
         this.leagueRepository = leagueRepository;
         this.jornadaWindowService = jornadaWindowService;
+        this.leagueMembershipGuard = leagueMembershipGuard;
     }
 
     @Override
     public ScheduleResponse handle(GetScheduleCommand command) {
+        leagueMembershipGuard.requireMember(command.leagueId(), command.requestingUsername());
+
         Optional<ScheduleEntity> maybeSchedule = scheduleRepository.findByLeagueId(command.leagueId());
         if (maybeSchedule.isEmpty()) {
             return null;

@@ -23,8 +23,9 @@ public class BenchController {
     }
 
     @GetMapping
-    public ResponseEntity<List<BenchEntryResponse>> getBench(@PathVariable String leagueId) throws Exception {
-        return ResponseEntity.ok(benchFacade.getBench(leagueId));
+    public ResponseEntity<List<BenchEntryResponse>> getBench(@PathVariable String leagueId,
+                                                              @AuthenticationPrincipal UserDetails userDetails) throws Exception {
+        return ResponseEntity.ok(benchFacade.getBench(leagueId, userDetails.getUsername()));
     }
 
     @PostMapping("/swap")
