@@ -166,6 +166,17 @@ class GetActivityFeedCommandHandlerTest {
     }
 
     @Test
+    void handle_sizeAboveCap_isClampedTo100() {
+        when(activityEventRepository.findByLeagueIdOrderByCreatedAtDesc(LEAGUE_ID, 0, 100))
+                .thenReturn(List.of());
+        when(activityEventRepository.countByLeagueId(LEAGUE_ID)).thenReturn(0L);
+
+        handler.handle(new GetActivityFeedCommand(LEAGUE_ID, null, 0, 500, "ash"));
+
+        verify(activityEventRepository).findByLeagueIdOrderByCreatedAtDesc(LEAGUE_ID, 0, 100);
+    }
+
+    @Test
     void commandType_returnsCorrectClass() {
         assertThat(handler.commandType()).isEqualTo(GetActivityFeedCommand.class);
     }

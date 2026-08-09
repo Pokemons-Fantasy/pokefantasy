@@ -119,13 +119,12 @@ class RespondToTradeCommandHandlerTest {
 
         ScheduleEntity schedule = new ScheduleEntity();
         when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
-        when(jornadaWindowService.isSwapWindowOpen(schedule)).thenReturn(true);
-
         LeagueEntity league = new LeagueEntity();
         league.setMembers(List.of(
                 new LeagueMember("ash", LeagueRole.USER, 500),
                 new LeagueMember("brock", LeagueRole.USER, 200)));
         when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
+        when(jornadaWindowService.isSwapWindowOpen(schedule, league.getSettings())).thenReturn(true);
 
         when(userRepository.findByUsername("ash")).thenReturn(userWith("ash", "pikachu", 25));
         when(userRepository.findByUsername("brock")).thenReturn(userWith("brock", "onix", 95));
@@ -217,7 +216,9 @@ class RespondToTradeCommandHandlerTest {
         when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.of(draft));
         ScheduleEntity schedule = new ScheduleEntity();
         when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
-        when(jornadaWindowService.isSwapWindowOpen(schedule)).thenReturn(false);
+        LeagueEntity league = new LeagueEntity();
+        when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
+        when(jornadaWindowService.isSwapWindowOpen(schedule, league.getSettings())).thenReturn(false);
 
         assertThatThrownBy(() -> handler.handle(new RespondToTradeCommand("l1", "t1", "brock", true)))
                 .isInstanceOf(IllegalStateException.class)
@@ -235,12 +236,12 @@ class RespondToTradeCommandHandlerTest {
         when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.of(draft));
         ScheduleEntity schedule = new ScheduleEntity();
         when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
-        when(jornadaWindowService.isSwapWindowOpen(schedule)).thenReturn(true);
         LeagueEntity league = new LeagueEntity();
         league.setMembers(List.of(
                 new LeagueMember("ash", LeagueRole.USER, 500),
                 new LeagueMember("brock", LeagueRole.USER, 200)));
         when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
+        when(jornadaWindowService.isSwapWindowOpen(schedule, league.getSettings())).thenReturn(true);
 
         assertThatThrownBy(() -> handler.handle(new RespondToTradeCommand("l1", "t1", "brock", true)))
                 .isInstanceOf(IllegalStateException.class)
@@ -262,13 +263,12 @@ class RespondToTradeCommandHandlerTest {
 
         ScheduleEntity schedule = new ScheduleEntity();
         when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
-        when(jornadaWindowService.isSwapWindowOpen(schedule)).thenReturn(true);
-
         LeagueEntity league = new LeagueEntity();
         league.setMembers(List.of(
                 new LeagueMember("ash", LeagueRole.USER, 500),
                 new LeagueMember("brock", LeagueRole.USER, 200)));
         when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
+        when(jornadaWindowService.isSwapWindowOpen(schedule, league.getSettings())).thenReturn(true);
 
         assertThatThrownBy(() -> handler.handle(new RespondToTradeCommand("l1", "t1", "brock", true)))
                 .isInstanceOf(IllegalStateException.class)
@@ -287,12 +287,12 @@ class RespondToTradeCommandHandlerTest {
         when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.of(draft));
         ScheduleEntity schedule = new ScheduleEntity();
         when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
-        when(jornadaWindowService.isSwapWindowOpen(schedule)).thenReturn(true);
         LeagueEntity league = new LeagueEntity();
         league.setMembers(List.of(
                 new LeagueMember("ash", LeagueRole.USER, 50),
                 new LeagueMember("brock", LeagueRole.USER, 200)));
         when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
+        when(jornadaWindowService.isSwapWindowOpen(schedule, league.getSettings())).thenReturn(true);
 
         assertThatThrownBy(() -> handler.handle(new RespondToTradeCommand("l1", "t1", "brock", true)))
                 .isInstanceOf(IllegalStateException.class)
@@ -313,13 +313,12 @@ class RespondToTradeCommandHandlerTest {
 
         ScheduleEntity schedule = new ScheduleEntity();
         when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
-        when(jornadaWindowService.isSwapWindowOpen(schedule)).thenReturn(true);
-
         LeagueEntity league = new LeagueEntity();
         league.setMembers(List.of(
                 new LeagueMember("ash", LeagueRole.USER, 500),
                 new LeagueMember("brock", LeagueRole.USER, 200)));
         when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
+        when(jornadaWindowService.isSwapWindowOpen(schedule, league.getSettings())).thenReturn(true);
 
         when(userRepository.findByUsername("ash")).thenReturn(userWith("ash", "pikachu", 25));
         when(userRepository.findByUsername("brock")).thenReturn(userWith("brock", "onix", 95));
@@ -355,13 +354,12 @@ class RespondToTradeCommandHandlerTest {
 
         ScheduleEntity schedule = new ScheduleEntity();
         when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
-        when(jornadaWindowService.isSwapWindowOpen(schedule)).thenReturn(true);
-
         LeagueEntity league = new LeagueEntity();
         league.setMembers(List.of(
                 new LeagueMember("ash", LeagueRole.USER, 500),
                 new LeagueMember("brock", LeagueRole.USER, 200)));
         when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
+        when(jornadaWindowService.isSwapWindowOpen(schedule, league.getSettings())).thenReturn(true);
 
         when(userRepository.findByUsername("ash")).thenReturn(userWith("ash", "pikachu", 25));
         when(userRepository.findByUsername("brock")).thenReturn(userWith("brock", "onix", 95));
@@ -400,12 +398,12 @@ class RespondToTradeCommandHandlerTest {
         when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.of(draft));
         ScheduleEntity schedule = new ScheduleEntity();
         when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
-        when(jornadaWindowService.isSwapWindowOpen(schedule)).thenReturn(true);
         LeagueEntity league = new LeagueEntity();
         league.setMembers(List.of(
                 new LeagueMember("ash", LeagueRole.USER, 500),
                 new LeagueMember("brock", LeagueRole.USER, 200)));
         when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
+        when(jornadaWindowService.isSwapWindowOpen(schedule, league.getSettings())).thenReturn(true);
         when(userRepository.findByUsername("ash")).thenReturn(userWith("ash", "pikachu", 25));
         when(userRepository.findByUsername("brock")).thenReturn(userWith("brock", "onix", 95));
         when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(anyString(), eq("l1")))
@@ -435,13 +433,12 @@ class RespondToTradeCommandHandlerTest {
 
         ScheduleEntity schedule = new ScheduleEntity();
         when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
-        when(jornadaWindowService.isSwapWindowOpen(schedule)).thenReturn(true);
-
         LeagueEntity league = new LeagueEntity();
         league.setMembers(List.of(
                 new LeagueMember("ash", LeagueRole.USER, 500),
                 new LeagueMember("brock", LeagueRole.USER, 200)));
         when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
+        when(jornadaWindowService.isSwapWindowOpen(schedule, league.getSettings())).thenReturn(true);
 
         assertThatThrownBy(() -> handler.handle(new RespondToTradeCommand("l1", "t1", "brock", true)))
                 .isInstanceOf(IllegalStateException.class)

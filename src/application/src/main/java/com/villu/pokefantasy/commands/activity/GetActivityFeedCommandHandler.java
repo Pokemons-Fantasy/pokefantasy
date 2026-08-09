@@ -13,6 +13,8 @@ import java.util.List;
 @Service
 public class GetActivityFeedCommandHandler implements CommandHandler<GetActivityFeedCommand, ActivityFeedResponse> {
 
+    private static final int MAX_PAGE_SIZE = 100;
+
     private final ActivityEventRepository activityEventRepository;
     private final LeagueMembershipGuard leagueMembershipGuard;
 
@@ -26,7 +28,7 @@ public class GetActivityFeedCommandHandler implements CommandHandler<GetActivity
         leagueMembershipGuard.requireMember(command.leagueId(), command.requestingUsername());
 
         int page = command.page();
-        int size = command.size();
+        int size = Math.min(command.size(), MAX_PAGE_SIZE);
         String username = command.username();
 
         List<ActivityEventEntity> events;

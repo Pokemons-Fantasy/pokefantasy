@@ -93,13 +93,13 @@ public class RespondToTradeCommandHandler implements CommandHandler<RespondToTra
         ScheduleEntity schedule = scheduleRepository.findByLeagueId(leagueId)
                 .orElseThrow(() -> new IllegalStateException("No schedule found for this league"));
 
-        if (!jornadaWindowService.isSwapWindowOpen(schedule)) {
+        LeagueEntity league = leagueRepository.findById(leagueId)
+                .orElseThrow(() -> new IllegalArgumentException("League not found: " + leagueId));
+
+        if (!jornadaWindowService.isSwapWindowOpen(schedule, league.getSettings())) {
             throw new IllegalStateException(
                     "La ventana de intercambios no está abierta. El plazo cerró el viernes a las 16:00.");
         }
-
-        LeagueEntity league = leagueRepository.findById(leagueId)
-                .orElseThrow(() -> new IllegalArgumentException("League not found: " + leagueId));
 
         DraftPick proposerPick = findPickOrInvalidate(draft, trade,
                 trade.getProposer(), trade.getProposerPokemonName());
