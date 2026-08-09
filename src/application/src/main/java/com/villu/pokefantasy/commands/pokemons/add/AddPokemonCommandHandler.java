@@ -8,10 +8,12 @@ import com.villu.pokefantasy.mediator.CommandHandler;
 import com.villu.pokefantasy.ports.CachePort;
 import com.villu.pokefantasy.repository.PokemonRepository;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
 
 import java.util.List;
 
 @Slf4j
+@Service
 public class AddPokemonCommandHandler implements CommandHandler<AddPokemonCommand,Void> {
 
 
