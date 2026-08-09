@@ -47,7 +47,8 @@ public class ClosedListController {
     }
 
     @GetMapping
-    public ResponseEntity<List<ClosedListEntryResponse>> getClosedList(@PathVariable String leagueId) throws Exception {
-        return ResponseEntity.ok(closedListFacade.getClosedList(leagueId));
+    public ResponseEntity<List<ClosedListEntryResponse>> getClosedList(@PathVariable String leagueId,
+                                                                        @AuthenticationPrincipal UserDetails userDetails) throws Exception {
+        return ResponseEntity.ok(closedListFacade.getClosedList(leagueId, userDetails.getUsername()));
     }
 }

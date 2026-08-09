@@ -64,22 +64,24 @@ class LeagueFacadeTest {
     void getLeagueDetail_sendsGetLeagueDetailCommand() throws Exception {
         when(mediator.send(any(GetLeagueDetailCommand.class))).thenReturn(null);
 
-        facade.getLeagueDetail("l1");
+        facade.getLeagueDetail("l1", "ash");
 
         ArgumentCaptor<GetLeagueDetailCommand> captor = ArgumentCaptor.forClass(GetLeagueDetailCommand.class);
         verify(mediator).send(captor.capture());
         assertThat(captor.getValue().leagueId()).isEqualTo("l1");
+        assertThat(captor.getValue().requestingUsername()).isEqualTo("ash");
     }
 
     @Test
     void getSettings_sendsGetLeagueSettingsCommand() throws Exception {
         when(mediator.send(any(GetLeagueSettingsCommand.class))).thenReturn(null);
 
-        facade.getSettings("l1");
+        facade.getSettings("l1", "ash");
 
         ArgumentCaptor<GetLeagueSettingsCommand> captor = ArgumentCaptor.forClass(GetLeagueSettingsCommand.class);
         verify(mediator).send(captor.capture());
         assertThat(captor.getValue().leagueId()).isEqualTo("l1");
+        assertThat(captor.getValue().requestingUsername()).isEqualTo("ash");
     }
 
     @Test

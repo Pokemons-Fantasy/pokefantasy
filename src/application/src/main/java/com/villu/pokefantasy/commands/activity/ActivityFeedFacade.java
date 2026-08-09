@@ -13,11 +13,11 @@ public class ActivityFeedFacade {
         this.mediator = mediator;
     }
 
-    public ActivityFeedResponse getFeed(String leagueId, int page, int size) throws Exception {
-        return mediator.send(new GetActivityFeedCommand(leagueId, null, page, size));
+    public ActivityFeedResponse getFeed(String leagueId, int page, int size, String requestingUsername) throws Exception {
+        return mediator.send(new GetActivityFeedCommand(leagueId, null, page, size, requestingUsername));
     }
 
-    public ActivityFeedResponse getFeedByUser(String leagueId, String username, int page, int size) throws Exception {
-        return mediator.send(new GetActivityFeedCommand(leagueId, username, page, size));
+    public ActivityFeedResponse getFeedByUser(String leagueId, String username, int page, int size, String requestingUsername) throws Exception {
+        return mediator.send(new GetActivityFeedCommand(leagueId, username, page, size, requestingUsername));
     }
 }

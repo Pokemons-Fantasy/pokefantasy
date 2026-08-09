@@ -17,8 +17,8 @@ public class ScheduleFacade {
         this.mediator = mediator;
     }
 
-    public ScheduleResponse getSchedule(String leagueId) throws Exception {
-        return mediator.send(new GetScheduleCommand(leagueId));
+    public ScheduleResponse getSchedule(String leagueId, String requestingUsername) throws Exception {
+        return mediator.send(new GetScheduleCommand(leagueId, requestingUsername));
     }
 
     public void recordResult(String leagueId, String matchId, String winnerUsername,
@@ -26,11 +26,11 @@ public class ScheduleFacade {
         mediator.send(new RecordMatchResultCommand(leagueId, matchId, winnerUsername, requestingUsername));
     }
 
-    public StandingsResponse getStandings(String leagueId) throws Exception {
-        return mediator.send(new GetStandingsCommand(leagueId));
+    public StandingsResponse getStandings(String leagueId, String requestingUsername) throws Exception {
+        return mediator.send(new GetStandingsCommand(leagueId, requestingUsername));
     }
 
-    public SeasonStatsResponse getSeasonStats(String leagueId) throws Exception {
-        return mediator.send(new GetSeasonStatsCommand(leagueId));
+    public SeasonStatsResponse getSeasonStats(String leagueId, String requestingUsername) throws Exception {
+        return mediator.send(new GetSeasonStatsCommand(leagueId, requestingUsername));
     }
 }

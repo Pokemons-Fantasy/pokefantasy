@@ -65,10 +65,11 @@ class ClosedListFacadeTest {
     void getClosedList_sendsGetClosedListCommand() throws Exception {
         when(mediator.send(any(GetClosedListCommand.class))).thenReturn(List.of());
 
-        facade.getClosedList("l1");
+        facade.getClosedList("l1", "ash");
 
         ArgumentCaptor<GetClosedListCommand> captor = ArgumentCaptor.forClass(GetClosedListCommand.class);
         verify(mediator).send(captor.capture());
         assertThat(captor.getValue().leagueId()).isEqualTo("l1");
+        assertThat(captor.getValue().requestingUsername()).isEqualTo("ash");
     }
 }

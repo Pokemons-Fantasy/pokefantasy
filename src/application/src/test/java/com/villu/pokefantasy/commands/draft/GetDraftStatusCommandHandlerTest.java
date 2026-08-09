@@ -1,6 +1,7 @@
 package com.villu.pokefantasy.commands.draft;
 
 import com.villu.pokefantasy.dto.DraftStatus;
+import com.villu.pokefantasy.league.LeagueMembershipGuard;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
@@ -25,6 +26,7 @@ class GetDraftStatusCommandHandlerTest {
 
     @Mock private DraftRepository draftRepository;
     @Mock private LeagueRepository leagueRepository;
+    @Mock private LeagueMembershipGuard leagueMembershipGuard;
 
     private GetDraftStatusCommandHandler handler;
 
@@ -32,7 +34,7 @@ class GetDraftStatusCommandHandlerTest {
 
     @BeforeEach
     void setUp() {
-        handler = new GetDraftStatusCommandHandler(draftRepository, leagueRepository);
+        handler = new GetDraftStatusCommandHandler(draftRepository, leagueRepository, leagueMembershipGuard);
     }
 
     @Test
@@ -40,7 +42,7 @@ class GetDraftStatusCommandHandlerTest {
         when(draftRepository.findActiveByLeagueId(LEAGUE_ID)).thenReturn(Optional.empty());
         when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> handler.handle(new GetDraftStatusCommand(LEAGUE_ID)))
+        assertThatThrownBy(() -> handler.handle(new GetDraftStatusCommand(LEAGUE_ID, "ash")))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("No draft found");
     }
@@ -50,7 +52,7 @@ class GetDraftStatusCommandHandlerTest {
         DraftEntity draft = buildDraft(DraftStatus.IN_PROGRESS, List.of("ash", "brock"), 0, 1, null);
         when(draftRepository.findActiveByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
 
-        DraftStatusResponse response = handler.handle(new GetDraftStatusCommand(LEAGUE_ID));
+        DraftStatusResponse response = handler.handle(new GetDraftStatusCommand(LEAGUE_ID, "ash"));
 
         assertThat(response.getCurrentTurn()).isEqualTo("ash");
         assertThat(response.getStatus()).isEqualTo(DraftStatus.IN_PROGRESS);
@@ -64,7 +66,7 @@ class GetDraftStatusCommandHandlerTest {
         when(draftRepository.findActiveByLeagueId(LEAGUE_ID)).thenReturn(Optional.empty());
         when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
 
-        DraftStatusResponse response = handler.handle(new GetDraftStatusCommand(LEAGUE_ID));
+        DraftStatusResponse response = handler.handle(new GetDraftStatusCommand(LEAGUE_ID, "ash"));
 
         assertThat(response.getCurrentTurn()).isNull();
         assertThat(response.getStatus()).isEqualTo(DraftStatus.COMPLETED);
@@ -75,7 +77,7 @@ class GetDraftStatusCommandHandlerTest {
         DraftEntity draft = buildDraft(DraftStatus.IN_PROGRESS, List.of("ash"), 0, 1, null);
         when(draftRepository.findActiveByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
 
-        DraftStatusResponse response = handler.handle(new GetDraftStatusCommand(LEAGUE_ID));
+        DraftStatusResponse response = handler.handle(new GetDraftStatusCommand(LEAGUE_ID, "ash"));
 
         assertThat(response.getPicks()).isEmpty();
     }
@@ -87,7 +89,7 @@ class GetDraftStatusCommandHandlerTest {
         DraftEntity draft = buildDraft(DraftStatus.IN_PROGRESS, List.of("ash"), 0, 1, List.of(pick));
         when(draftRepository.findActiveByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
 
-        DraftStatusResponse response = handler.handle(new GetDraftStatusCommand(LEAGUE_ID));
+        DraftStatusResponse response = handler.handle(new GetDraftStatusCommand(LEAGUE_ID, "ash"));
 
         assertThat(response.getPicks()).hasSize(1);
         assertThat(response.getPicks().get(0).getUsername()).isEqualTo("ash");

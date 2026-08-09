@@ -1,6 +1,7 @@
 package com.villu.pokefantasy.commands.league;
 
 import com.villu.pokefantasy.dto.LeagueSettings;
+import com.villu.pokefantasy.league.LeagueMembershipGuard;
 import com.villu.pokefantasy.mediator.CommandHandler;
 import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
@@ -12,13 +13,17 @@ public class GetLeagueSettingsCommandHandler
         implements CommandHandler<GetLeagueSettingsCommand, LeagueSettingsResponse> {
 
     private final LeagueRepository leagueRepository;
+    private final LeagueMembershipGuard leagueMembershipGuard;
 
-    public GetLeagueSettingsCommandHandler(LeagueRepository leagueRepository) {
+    public GetLeagueSettingsCommandHandler(LeagueRepository leagueRepository, LeagueMembershipGuard leagueMembershipGuard) {
         this.leagueRepository = leagueRepository;
+        this.leagueMembershipGuard = leagueMembershipGuard;
     }
 
     @Override
     public LeagueSettingsResponse handle(GetLeagueSettingsCommand command) {
+        leagueMembershipGuard.requireMember(command.leagueId(), command.requestingUsername());
+
         LeagueEntity league = leagueRepository.findById(command.leagueId())
                 .orElseThrow(() -> new IllegalArgumentException("League not found: " + command.leagueId()));
 

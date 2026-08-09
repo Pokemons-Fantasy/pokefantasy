@@ -1,6 +1,7 @@
 package com.villu.pokefantasy.commands.league;
 
 import com.villu.pokefantasy.dto.LeagueSettings;
+import com.villu.pokefantasy.league.LeagueMembershipGuard;
 import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import com.villu.pokefantasy.response.LeagueSettingsResponse;
@@ -20,19 +21,20 @@ import static org.mockito.Mockito.when;
 class GetLeagueSettingsCommandHandlerTest {
 
     @Mock private LeagueRepository leagueRepository;
+    @Mock private LeagueMembershipGuard leagueMembershipGuard;
 
     private GetLeagueSettingsCommandHandler handler;
 
     @BeforeEach
     void setUp() {
-        handler = new GetLeagueSettingsCommandHandler(leagueRepository);
+        handler = new GetLeagueSettingsCommandHandler(leagueRepository, leagueMembershipGuard);
     }
 
     @Test
     void handle_leagueNotFound_throwsIllegalArgument() {
         when(leagueRepository.findById("l1")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> handler.handle(new GetLeagueSettingsCommand("l1")))
+        assertThatThrownBy(() -> handler.handle(new GetLeagueSettingsCommand("l1", "ash")))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("League not found");
     }
@@ -44,7 +46,7 @@ class GetLeagueSettingsCommandHandlerTest {
         league.setSettings(null);
         when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
 
-        LeagueSettingsResponse response = handler.handle(new GetLeagueSettingsCommand("l1"));
+        LeagueSettingsResponse response = handler.handle(new GetLeagueSettingsCommand("l1", "ash"));
 
         assertThat(response.getCoinsPerWin()).isEqualTo(100);
         assertThat(response.getCoinsPerLoss()).isEqualTo(50);
@@ -60,7 +62,7 @@ class GetLeagueSettingsCommandHandlerTest {
                 .build());
         when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
 
-        LeagueSettingsResponse response = handler.handle(new GetLeagueSettingsCommand("l1"));
+        LeagueSettingsResponse response = handler.handle(new GetLeagueSettingsCommand("l1", "ash"));
 
         assertThat(response.getCoinsPerWin()).isEqualTo(250);
         assertThat(response.getCoinsPerLoss()).isEqualTo(80);

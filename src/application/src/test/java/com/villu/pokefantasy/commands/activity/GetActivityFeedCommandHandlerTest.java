@@ -1,6 +1,7 @@
 package com.villu.pokefantasy.commands.activity;
 
 import com.villu.pokefantasy.dto.ActivityEventType;
+import com.villu.pokefantasy.league.LeagueMembershipGuard;
 import com.villu.pokefantasy.repository.ActivityEventRepository;
 import com.villu.pokefantasy.repository.entity.ActivityEventEntity;
 import com.villu.pokefantasy.response.ActivityFeedResponse;
@@ -21,6 +22,8 @@ class GetActivityFeedCommandHandlerTest {
 
     @Mock
     private ActivityEventRepository activityEventRepository;
+    @Mock
+    private LeagueMembershipGuard leagueMembershipGuard;
 
     private GetActivityFeedCommandHandler handler;
 
@@ -28,7 +31,7 @@ class GetActivityFeedCommandHandlerTest {
 
     @BeforeEach
     void setUp() {
-        handler = new GetActivityFeedCommandHandler(activityEventRepository);
+        handler = new GetActivityFeedCommandHandler(activityEventRepository, leagueMembershipGuard);
     }
 
     @Test
@@ -37,7 +40,7 @@ class GetActivityFeedCommandHandlerTest {
                 .thenReturn(List.of());
         when(activityEventRepository.countByLeagueId(LEAGUE_ID)).thenReturn(0L);
 
-        ActivityFeedResponse result = handler.handle(new GetActivityFeedCommand(LEAGUE_ID, null, 0, 20));
+        ActivityFeedResponse result = handler.handle(new GetActivityFeedCommand(LEAGUE_ID, null, 0, 20, "ash"));
 
         assertThat(result.getEvents()).isEmpty();
         assertThat(result.getPage()).isEqualTo(0);
@@ -54,7 +57,7 @@ class GetActivityFeedCommandHandlerTest {
                 .thenReturn(events);
         when(activityEventRepository.countByLeagueId(LEAGUE_ID)).thenReturn(1L);
 
-        ActivityFeedResponse result = handler.handle(new GetActivityFeedCommand(LEAGUE_ID, null, 0, 20));
+        ActivityFeedResponse result = handler.handle(new GetActivityFeedCommand(LEAGUE_ID, null, 0, 20, "ash"));
 
         assertThat(result.getEvents()).hasSize(1);
         assertThat(result.getTotalPages()).isEqualTo(1);
@@ -71,7 +74,7 @@ class GetActivityFeedCommandHandlerTest {
                 .thenReturn(page0Events);
         when(activityEventRepository.countByLeagueId(LEAGUE_ID)).thenReturn(5L);
 
-        ActivityFeedResponse result = handler.handle(new GetActivityFeedCommand(LEAGUE_ID, null, 0, 2));
+        ActivityFeedResponse result = handler.handle(new GetActivityFeedCommand(LEAGUE_ID, null, 0, 2, "ash"));
 
         assertThat(result.getEvents()).hasSize(2);
         assertThat(result.getTotalPages()).isEqualTo(3); // ceil(5/2)
@@ -87,7 +90,7 @@ class GetActivityFeedCommandHandlerTest {
                 .thenReturn(page2Events);
         when(activityEventRepository.countByLeagueId(LEAGUE_ID)).thenReturn(5L);
 
-        ActivityFeedResponse result = handler.handle(new GetActivityFeedCommand(LEAGUE_ID, null, 2, 2));
+        ActivityFeedResponse result = handler.handle(new GetActivityFeedCommand(LEAGUE_ID, null, 2, 2, "ash"));
 
         assertThat(result.getEvents()).hasSize(1);
         assertThat(result.getPage()).isEqualTo(2);
@@ -117,7 +120,7 @@ class GetActivityFeedCommandHandlerTest {
                 .thenReturn(List.of(entity));
         when(activityEventRepository.countByLeagueId(LEAGUE_ID)).thenReturn(1L);
 
-        ActivityFeedResponse result = handler.handle(new GetActivityFeedCommand(LEAGUE_ID, null, 0, 20));
+        ActivityFeedResponse result = handler.handle(new GetActivityFeedCommand(LEAGUE_ID, null, 0, 20, "ash"));
 
         assertThat(result.getEvents()).hasSize(1);
         var response = result.getEvents().get(0);
@@ -141,7 +144,7 @@ class GetActivityFeedCommandHandlerTest {
                 .thenReturn(userEvents);
         when(activityEventRepository.countByLeagueIdAndUsername(LEAGUE_ID, "ash")).thenReturn(2L);
 
-        ActivityFeedResponse result = handler.handle(new GetActivityFeedCommand(LEAGUE_ID, "ash", 0, 20));
+        ActivityFeedResponse result = handler.handle(new GetActivityFeedCommand(LEAGUE_ID, "ash", 0, 20, "ash"));
 
         assertThat(result.getEvents()).hasSize(2);
         assertThat(result.getTotalPages()).isEqualTo(1);
@@ -156,7 +159,7 @@ class GetActivityFeedCommandHandlerTest {
                 .thenReturn(List.of());
         when(activityEventRepository.countByLeagueId(LEAGUE_ID)).thenReturn(0L);
 
-        handler.handle(new GetActivityFeedCommand(LEAGUE_ID, null, 0, 20));
+        handler.handle(new GetActivityFeedCommand(LEAGUE_ID, null, 0, 20, "ash"));
 
         verify(activityEventRepository).findByLeagueIdOrderByCreatedAtDesc(LEAGUE_ID, 0, 20);
         verify(activityEventRepository, never()).findByLeagueIdAndUsernameOrderByCreatedAtDesc(any(), any(), anyInt(), anyInt());

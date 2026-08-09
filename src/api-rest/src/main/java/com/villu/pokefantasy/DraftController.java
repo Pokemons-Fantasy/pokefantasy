@@ -41,8 +41,9 @@ public class DraftController {
     }
 
     @GetMapping
-    public ResponseEntity<DraftStatusResponse> getStatus(@PathVariable String leagueId) throws Exception {
-        return ResponseEntity.ok(draftFacade.getStatus(leagueId));
+    public ResponseEntity<DraftStatusResponse> getStatus(@PathVariable String leagueId,
+                                                          @AuthenticationPrincipal UserDetails userDetails) throws Exception {
+        return ResponseEntity.ok(draftFacade.getStatus(leagueId, userDetails.getUsername()));
     }
 
     @DeleteMapping

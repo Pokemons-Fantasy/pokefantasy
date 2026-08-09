@@ -2,6 +2,7 @@ package com.villu.pokefantasy.commands.standings;
 
 import com.villu.pokefantasy.dto.LeagueRole;
 import com.villu.pokefantasy.dto.MatchStatus;
+import com.villu.pokefantasy.league.LeagueMembershipGuard;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.ScheduleRepository;
@@ -33,12 +34,13 @@ class GetSeasonStatsCommandHandlerTest {
     @Mock private ScheduleRepository scheduleRepository;
     @Mock private LeagueRepository leagueRepository;
     @Mock private DraftRepository draftRepository;
+    @Mock private LeagueMembershipGuard leagueMembershipGuard;
 
     private GetSeasonStatsCommandHandler handler;
 
     @BeforeEach
     void setUp() {
-        handler = new GetSeasonStatsCommandHandler(scheduleRepository, leagueRepository, draftRepository);
+        handler = new GetSeasonStatsCommandHandler(scheduleRepository, leagueRepository, draftRepository, leagueMembershipGuard);
     }
 
     // ── Caso 1: sin schedule → todos a cero, mvpPokemon de draft si existe ──────
@@ -55,7 +57,7 @@ class GetSeasonStatsCommandHandlerTest {
         draft.setDraftHistory(new ArrayList<>(List.of(pick)));
         when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.of(draft));
 
-        SeasonStatsResponse response = handler.handle(new GetSeasonStatsCommand("l1"));
+        SeasonStatsResponse response = handler.handle(new GetSeasonStatsCommand("l1", "ash"));
 
         assertThat(response.players()).hasSize(2);
         PlayerSeasonStats ash = findPlayer(response, "ash");
@@ -91,7 +93,7 @@ class GetSeasonStatsCommandHandlerTest {
         schedule.setJornadas(new ArrayList<>(List.of(j1, j2)));
         when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
 
-        SeasonStatsResponse response = handler.handle(new GetSeasonStatsCommand("l1"));
+        SeasonStatsResponse response = handler.handle(new GetSeasonStatsCommand("l1", "ash"));
         PlayerSeasonStats ash = findPlayer(response, "ash");
 
         assertThat(ash.wins()).isEqualTo(3);
@@ -120,7 +122,7 @@ class GetSeasonStatsCommandHandlerTest {
         )));
         when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
 
-        SeasonStatsResponse response = handler.handle(new GetSeasonStatsCommand("l1"));
+        SeasonStatsResponse response = handler.handle(new GetSeasonStatsCommand("l1", "ash"));
         assertThat(findPlayer(response, "ash").currentStreak()).isEqualTo(3);
     }
 
@@ -141,7 +143,7 @@ class GetSeasonStatsCommandHandlerTest {
         )));
         when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
 
-        SeasonStatsResponse response = handler.handle(new GetSeasonStatsCommand("l1"));
+        SeasonStatsResponse response = handler.handle(new GetSeasonStatsCommand("l1", "ash"));
         assertThat(findPlayer(response, "ash").currentStreak()).isEqualTo(-2);
     }
 
@@ -167,7 +169,7 @@ class GetSeasonStatsCommandHandlerTest {
         )));
         when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
 
-        SeasonStatsResponse response = handler.handle(new GetSeasonStatsCommand("l1"));
+        SeasonStatsResponse response = handler.handle(new GetSeasonStatsCommand("l1", "ash"));
         assertThat(findPlayer(response, "ash").currentStreak()).isEqualTo(1);
     }
 
@@ -180,7 +182,7 @@ class GetSeasonStatsCommandHandlerTest {
         when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.empty());
         when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.empty());
 
-        SeasonStatsResponse response = handler.handle(new GetSeasonStatsCommand("l1"));
+        SeasonStatsResponse response = handler.handle(new GetSeasonStatsCommand("l1", "ash"));
         assertThat(findPlayer(response, "ash").mvpPokemon()).isNull();
     }
 
@@ -200,7 +202,7 @@ class GetSeasonStatsCommandHandlerTest {
         draft.setDraftHistory(new ArrayList<>(List.of(pick2, pick1)));
         when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.of(draft));
 
-        SeasonStatsResponse response = handler.handle(new GetSeasonStatsCommand("l1"));
+        SeasonStatsResponse response = handler.handle(new GetSeasonStatsCommand("l1", "ash"));
         assertThat(findPlayer(response, "ash").mvpPokemon()).isEqualTo("Pikachu");
     }
 
@@ -221,7 +223,7 @@ class GetSeasonStatsCommandHandlerTest {
         schedule.setJornadas(new ArrayList<>(List.of(j)));
         when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
 
-        SeasonStatsResponse response = handler.handle(new GetSeasonStatsCommand("l1"));
+        SeasonStatsResponse response = handler.handle(new GetSeasonStatsCommand("l1", "ash"));
         List<PlayerSeasonStats> players = response.players();
 
         assertThat(players.get(0).username()).isEqualTo("misty");
@@ -249,7 +251,7 @@ class GetSeasonStatsCommandHandlerTest {
         draft.setDraftHistory(new ArrayList<>(List.of(pick)));
         when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.of(draft));
 
-        SeasonStatsResponse response = handler.handle(new GetSeasonStatsCommand("l1"));
+        SeasonStatsResponse response = handler.handle(new GetSeasonStatsCommand("l1", "ash"));
 
         // Debe devolver "Mewtwo" (custom), no "Pikachu" (auto)
         assertThat(response.players()).hasSize(1);

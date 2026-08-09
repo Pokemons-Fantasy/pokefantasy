@@ -2,6 +2,7 @@ package com.villu.pokefantasy.commands.league;
 
 import com.villu.pokefantasy.dto.LeagueRole;
 import com.villu.pokefantasy.dto.LeagueStatus;
+import com.villu.pokefantasy.league.LeagueMembershipGuard;
 import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import com.villu.pokefantasy.repository.entity.LeagueMember;
@@ -23,19 +24,20 @@ import static org.mockito.Mockito.when;
 class GetLeagueDetailCommandHandlerTest {
 
     @Mock private LeagueRepository leagueRepository;
+    @Mock private LeagueMembershipGuard leagueMembershipGuard;
 
     private GetLeagueDetailCommandHandler handler;
 
     @BeforeEach
     void setUp() {
-        handler = new GetLeagueDetailCommandHandler(leagueRepository);
+        handler = new GetLeagueDetailCommandHandler(leagueRepository, leagueMembershipGuard);
     }
 
     @Test
     void handle_leagueNotFound_throwsIllegalArgument() {
         when(leagueRepository.findById("l1")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> handler.handle(new GetLeagueDetailCommand("l1")))
+        assertThatThrownBy(() -> handler.handle(new GetLeagueDetailCommand("l1", "ash")))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("League not found");
     }
@@ -52,7 +54,7 @@ class GetLeagueDetailCommandHandlerTest {
                 new LeagueMember("brock", LeagueRole.USER, 0)));
         when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
 
-        LeagueDetailResponse result = handler.handle(new GetLeagueDetailCommand("l1"));
+        LeagueDetailResponse result = handler.handle(new GetLeagueDetailCommand("l1", "ash"));
 
         assertThat(result.getId()).isEqualTo("l1");
         assertThat(result.getName()).isEqualTo("Kanto");

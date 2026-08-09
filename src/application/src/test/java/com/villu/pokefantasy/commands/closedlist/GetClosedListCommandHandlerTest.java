@@ -1,6 +1,7 @@
 package com.villu.pokefantasy.commands.closedlist;
 
 import com.villu.pokefantasy.dto.Tier;
+import com.villu.pokefantasy.league.LeagueMembershipGuard;
 import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.entity.ClosedListEntity;
 import com.villu.pokefantasy.response.ClosedListEntryResponse;
@@ -19,19 +20,20 @@ import static org.mockito.Mockito.when;
 class GetClosedListCommandHandlerTest {
 
     @Mock private ClosedListRepository closedListRepository;
+    @Mock private LeagueMembershipGuard leagueMembershipGuard;
 
     private GetClosedListCommandHandler handler;
 
     @BeforeEach
     void setUp() {
-        handler = new GetClosedListCommandHandler(closedListRepository);
+        handler = new GetClosedListCommandHandler(closedListRepository, leagueMembershipGuard);
     }
 
     @Test
     void handle_emptyList_returnsEmpty() {
         when(closedListRepository.findAllByLeagueId("l1")).thenReturn(List.of());
 
-        assertThat(handler.handle(new GetClosedListCommand("l1"))).isEmpty();
+        assertThat(handler.handle(new GetClosedListCommand("l1", "ash"))).isEmpty();
     }
 
     @Test
@@ -45,7 +47,7 @@ class GetClosedListCommandHandlerTest {
         entity.setSprite("https://sprite.url");
         when(closedListRepository.findAllByLeagueId("l1")).thenReturn(List.of(entity));
 
-        List<ClosedListEntryResponse> result = handler.handle(new GetClosedListCommand("l1"));
+        List<ClosedListEntryResponse> result = handler.handle(new GetClosedListCommand("l1", "ash"));
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getId()).isEqualTo("e1");

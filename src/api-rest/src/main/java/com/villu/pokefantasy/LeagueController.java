@@ -48,8 +48,9 @@ public class LeagueController {
     }
 
     @GetMapping("/{leagueId}")
-    public ResponseEntity<LeagueDetailResponse> getLeagueDetail(@PathVariable String leagueId) throws Exception {
-        return ResponseEntity.ok(leagueFacade.getLeagueDetail(leagueId));
+    public ResponseEntity<LeagueDetailResponse> getLeagueDetail(@PathVariable String leagueId,
+                                                                 @AuthenticationPrincipal UserDetails userDetails) throws Exception {
+        return ResponseEntity.ok(leagueFacade.getLeagueDetail(leagueId, userDetails.getUsername()));
     }
 
     @DeleteMapping("/{leagueId}/members/{username}")
@@ -61,8 +62,9 @@ public class LeagueController {
     }
 
     @GetMapping("/{leagueId}/settings")
-    public ResponseEntity<LeagueSettingsResponse> getSettings(@PathVariable String leagueId) throws Exception {
-        return ResponseEntity.ok(leagueFacade.getSettings(leagueId));
+    public ResponseEntity<LeagueSettingsResponse> getSettings(@PathVariable String leagueId,
+                                                               @AuthenticationPrincipal UserDetails userDetails) throws Exception {
+        return ResponseEntity.ok(leagueFacade.getSettings(leagueId, userDetails.getUsername()));
     }
 
     @PutMapping("/{leagueId}/settings")

@@ -1,5 +1,6 @@
 package com.villu.pokefantasy.commands.league;
 
+import com.villu.pokefantasy.league.LeagueMembershipGuard;
 import com.villu.pokefantasy.mediator.CommandHandler;
 import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.response.LeagueDetailResponse;
@@ -10,13 +11,17 @@ import org.springframework.stereotype.Service;
 public class GetLeagueDetailCommandHandler implements CommandHandler<GetLeagueDetailCommand, LeagueDetailResponse> {
 
     private final LeagueRepository leagueRepository;
+    private final LeagueMembershipGuard leagueMembershipGuard;
 
-    public GetLeagueDetailCommandHandler(LeagueRepository leagueRepository) {
+    public GetLeagueDetailCommandHandler(LeagueRepository leagueRepository, LeagueMembershipGuard leagueMembershipGuard) {
         this.leagueRepository = leagueRepository;
+        this.leagueMembershipGuard = leagueMembershipGuard;
     }
 
     @Override
     public LeagueDetailResponse handle(GetLeagueDetailCommand command) {
+        leagueMembershipGuard.requireMember(command.leagueId(), command.requestingUsername());
+
         var league = leagueRepository.findById(command.leagueId())
                 .orElseThrow(() -> new IllegalArgumentException("League not found: " + command.leagueId()));
 

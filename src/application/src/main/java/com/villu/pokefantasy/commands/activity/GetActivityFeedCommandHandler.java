@@ -1,5 +1,6 @@
 package com.villu.pokefantasy.commands.activity;
 
+import com.villu.pokefantasy.league.LeagueMembershipGuard;
 import com.villu.pokefantasy.mediator.CommandHandler;
 import com.villu.pokefantasy.repository.ActivityEventRepository;
 import com.villu.pokefantasy.repository.entity.ActivityEventEntity;
@@ -13,13 +14,17 @@ import java.util.List;
 public class GetActivityFeedCommandHandler implements CommandHandler<GetActivityFeedCommand, ActivityFeedResponse> {
 
     private final ActivityEventRepository activityEventRepository;
+    private final LeagueMembershipGuard leagueMembershipGuard;
 
-    public GetActivityFeedCommandHandler(ActivityEventRepository activityEventRepository) {
+    public GetActivityFeedCommandHandler(ActivityEventRepository activityEventRepository, LeagueMembershipGuard leagueMembershipGuard) {
         this.activityEventRepository = activityEventRepository;
+        this.leagueMembershipGuard = leagueMembershipGuard;
     }
 
     @Override
     public ActivityFeedResponse handle(GetActivityFeedCommand command) {
+        leagueMembershipGuard.requireMember(command.leagueId(), command.requestingUsername());
+
         int page = command.page();
         int size = command.size();
         String username = command.username();

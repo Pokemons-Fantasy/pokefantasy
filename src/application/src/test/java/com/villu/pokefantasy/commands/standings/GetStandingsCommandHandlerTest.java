@@ -2,6 +2,7 @@ package com.villu.pokefantasy.commands.standings;
 
 import com.villu.pokefantasy.dto.LeagueRole;
 import com.villu.pokefantasy.dto.MatchStatus;
+import com.villu.pokefantasy.league.LeagueMembershipGuard;
 import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.ScheduleRepository;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
@@ -30,19 +31,20 @@ class GetStandingsCommandHandlerTest {
 
     @Mock private ScheduleRepository scheduleRepository;
     @Mock private LeagueRepository leagueRepository;
+    @Mock private LeagueMembershipGuard leagueMembershipGuard;
 
     private GetStandingsCommandHandler handler;
 
     @BeforeEach
     void setUp() {
-        handler = new GetStandingsCommandHandler(scheduleRepository, leagueRepository);
+        handler = new GetStandingsCommandHandler(scheduleRepository, leagueRepository, leagueMembershipGuard);
     }
 
     @Test
     void handle_leagueNotFound_throwsIllegalArgument() {
         when(leagueRepository.findById("l1")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> handler.handle(new GetStandingsCommand("l1")))
+        assertThatThrownBy(() -> handler.handle(new GetStandingsCommand("l1", "ash")))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("l1");
     }
@@ -53,7 +55,7 @@ class GetStandingsCommandHandlerTest {
         when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
         when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.empty());
 
-        StandingsResponse response = handler.handle(new GetStandingsCommand("l1"));
+        StandingsResponse response = handler.handle(new GetStandingsCommand("l1", "ash"));
 
         assertThat(response.getStandings()).hasSize(2);
         assertThat(response.getStandings()).allSatisfy(s -> {
@@ -77,7 +79,7 @@ class GetStandingsCommandHandlerTest {
         schedule.setJornadas(new ArrayList<>(List.of(j1)));
         when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
 
-        StandingsResponse response = handler.handle(new GetStandingsCommand("l1"));
+        StandingsResponse response = handler.handle(new GetStandingsCommand("l1", "ash"));
 
         PlayerStandingResponse ash = findPlayer(response, "ash");
         PlayerStandingResponse brock = findPlayer(response, "brock");
@@ -113,7 +115,7 @@ class GetStandingsCommandHandlerTest {
         schedule.setJornadas(new ArrayList<>(List.of(j)));
         when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
 
-        StandingsResponse response = handler.handle(new GetStandingsCommand("l1"));
+        StandingsResponse response = handler.handle(new GetStandingsCommand("l1", "ash"));
         List<PlayerStandingResponse> standings = response.getStandings();
 
         // brock: 2W, 200 coins → 1st
@@ -130,7 +132,7 @@ class GetStandingsCommandHandlerTest {
         when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
         when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.empty());
 
-        StandingsResponse response = handler.handle(new GetStandingsCommand("l1"));
+        StandingsResponse response = handler.handle(new GetStandingsCommand("l1", "ash"));
 
         assertThat(findPlayer(response, "ash").getCoins()).isEqualTo(150);
         assertThat(findPlayer(response, "brock").getCoins()).isEqualTo(75);

@@ -21,8 +21,9 @@ public class ScheduleController {
     }
 
     @GetMapping("/{leagueId}/schedule")
-    public ResponseEntity<ScheduleResponse> getSchedule(@PathVariable String leagueId) throws Exception {
-        ScheduleResponse response = scheduleFacade.getSchedule(leagueId);
+    public ResponseEntity<ScheduleResponse> getSchedule(@PathVariable String leagueId,
+                                                         @AuthenticationPrincipal UserDetails userDetails) throws Exception {
+        ScheduleResponse response = scheduleFacade.getSchedule(leagueId, userDetails.getUsername());
         if (response == null) {
             return ResponseEntity.noContent().build();
         }
@@ -40,12 +41,14 @@ public class ScheduleController {
     }
 
     @GetMapping("/{leagueId}/standings")
-    public ResponseEntity<StandingsResponse> getStandings(@PathVariable String leagueId) throws Exception {
-        return ResponseEntity.ok(scheduleFacade.getStandings(leagueId));
+    public ResponseEntity<StandingsResponse> getStandings(@PathVariable String leagueId,
+                                                           @AuthenticationPrincipal UserDetails userDetails) throws Exception {
+        return ResponseEntity.ok(scheduleFacade.getStandings(leagueId, userDetails.getUsername()));
     }
 
     @GetMapping("/{leagueId}/season-stats")
-    public ResponseEntity<SeasonStatsResponse> getSeasonStats(@PathVariable String leagueId) throws Exception {
-        return ResponseEntity.ok(scheduleFacade.getSeasonStats(leagueId));
+    public ResponseEntity<SeasonStatsResponse> getSeasonStats(@PathVariable String leagueId,
+                                                               @AuthenticationPrincipal UserDetails userDetails) throws Exception {
+        return ResponseEntity.ok(scheduleFacade.getSeasonStats(leagueId, userDetails.getUsername()));
     }
 }

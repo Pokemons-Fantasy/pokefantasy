@@ -2,6 +2,7 @@ package com.villu.pokefantasy.commands.bench;
 
 import com.villu.pokefantasy.dto.LeagueSettings;
 import com.villu.pokefantasy.dto.Tier;
+import com.villu.pokefantasy.league.LeagueMembershipGuard;
 import com.villu.pokefantasy.mediator.CommandHandler;
 import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
@@ -20,18 +21,22 @@ public class GetBenchCommandHandler implements CommandHandler<GetBenchCommand, L
     private final ClosedListRepository closedListRepository;
     private final LeagueRepository leagueRepository;
     private final UserRepository userRepository;
+    private final LeagueMembershipGuard leagueMembershipGuard;
 
     public GetBenchCommandHandler(ClosedListRepository closedListRepository,
                                   LeagueRepository leagueRepository,
-                                  UserRepository userRepository) {
+                                  UserRepository userRepository,
+                                  LeagueMembershipGuard leagueMembershipGuard) {
         this.closedListRepository = closedListRepository;
         this.leagueRepository = leagueRepository;
         this.userRepository = userRepository;
+        this.leagueMembershipGuard = leagueMembershipGuard;
     }
 
     @Override
     public List<BenchEntryResponse> handle(GetBenchCommand command) {
         String leagueId = command.leagueId();
+        leagueMembershipGuard.requireMember(leagueId, command.requestingUsername());
 
         LeagueEntity league = leagueRepository.findById(leagueId)
                 .orElseThrow(() -> new IllegalArgumentException("League not found: " + leagueId));

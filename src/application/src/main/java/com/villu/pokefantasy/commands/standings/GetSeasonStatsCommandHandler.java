@@ -1,6 +1,7 @@
 package com.villu.pokefantasy.commands.standings;
 
 import com.villu.pokefantasy.dto.MatchStatus;
+import com.villu.pokefantasy.league.LeagueMembershipGuard;
 import com.villu.pokefantasy.mediator.CommandHandler;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
@@ -23,17 +24,22 @@ public class GetSeasonStatsCommandHandler
     private final ScheduleRepository scheduleRepository;
     private final LeagueRepository leagueRepository;
     private final DraftRepository draftRepository;
+    private final LeagueMembershipGuard leagueMembershipGuard;
 
     public GetSeasonStatsCommandHandler(ScheduleRepository scheduleRepository,
                                         LeagueRepository leagueRepository,
-                                        DraftRepository draftRepository) {
+                                        DraftRepository draftRepository,
+                                        LeagueMembershipGuard leagueMembershipGuard) {
         this.scheduleRepository = scheduleRepository;
         this.leagueRepository = leagueRepository;
         this.draftRepository = draftRepository;
+        this.leagueMembershipGuard = leagueMembershipGuard;
     }
 
     @Override
     public SeasonStatsResponse handle(GetSeasonStatsCommand command) {
+        leagueMembershipGuard.requireMember(command.leagueId(), command.requestingUsername());
+
         LeagueEntity league = leagueRepository.findById(command.leagueId())
                 .orElseThrow(() -> new IllegalArgumentException("League not found: " + command.leagueId()));
 

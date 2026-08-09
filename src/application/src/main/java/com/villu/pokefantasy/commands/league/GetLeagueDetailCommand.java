@@ -2,5 +2,5 @@ package com.villu.pokefantasy.commands.league;
 
 import com.villu.pokefantasy.mediator.Command;
 
-public record GetLeagueDetailCommand(String leagueId) implements Command {
+public record GetLeagueDetailCommand(String leagueId, String requestingUsername) implements Command {
 }

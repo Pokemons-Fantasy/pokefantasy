@@ -15,8 +15,8 @@ public class BenchFacade {
         this.mediator = mediator;
     }
 
-    public List<BenchEntryResponse> getBench(String leagueId) throws Exception {
-        return mediator.send(new GetBenchCommand(leagueId));
+    public List<BenchEntryResponse> getBench(String leagueId, String requestingUsername) throws Exception {
+        return mediator.send(new GetBenchCommand(leagueId, requestingUsername));
     }
 
     public void swap(String leagueId, String username, String pokemonToGive, String pokemonToTake) throws Exception {
