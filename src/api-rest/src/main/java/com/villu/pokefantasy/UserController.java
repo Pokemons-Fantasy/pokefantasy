@@ -1,7 +1,6 @@
 package com.villu.pokefantasy;
 
 import com.villu.pokefantasy.commands.users.UserFacade;
-import com.villu.pokefantasy.request.user.AddPokemonsUserRequest;
 import com.villu.pokefantasy.request.user.RegisterPushTokenRequest;
 import com.villu.pokefantasy.request.user.UserRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -64,12 +63,6 @@ public class UserController {
                 .maxAge(0)
                 .build();
         response.addHeader(HttpHeaders.SET_COOKIE, clear.toString());
-        return ResponseEntity.ok().build();
-    }
-
-    @PostMapping("/user/add/pokemons")
-    public ResponseEntity<Void> addPokemonsToUser(@RequestBody AddPokemonsUserRequest request) throws Exception {
-        userFacade.addPokemonsToUser(request.getUserName(), request.getPokemons());
         return ResponseEntity.ok().build();
     }
 
