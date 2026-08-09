@@ -94,6 +94,23 @@ class RecordMatchResultCommandHandlerTest {
     }
 
     @Test
+    void handle_matchAlreadyCompleted_throwsIllegalState() {
+        when(leagueAdminGuard.requireLeagueAdmin(LEAGUE_ID, ADMIN)).thenReturn(leagueWithSettings(100, 50));
+        ScheduleEntity schedule = scheduleWithMatch(MATCH_ID);
+        schedule.getJornadas().get(0).getMatches().get(0).setStatus(MatchStatus.COMPLETED);
+        schedule.getJornadas().get(0).getMatches().get(0).setWinnerUsername(PLAYER1);
+        when(scheduleRepository.findByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(schedule));
+
+        assertThatThrownBy(() -> handler.handle(
+                new RecordMatchResultCommand(LEAGUE_ID, MATCH_ID, PLAYER2, ADMIN)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("ya fue registrado");
+
+        verify(scheduleRepository, never()).save(any());
+        verify(leagueRepository, never()).save(any());
+    }
+
+    @Test
     void handle_winnerNotParticipant_throwsIllegalArgument() {
         when(leagueAdminGuard.requireLeagueAdmin(LEAGUE_ID, ADMIN)).thenReturn(leagueWithSettings(100, 50));
         when(scheduleRepository.findByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(scheduleWithMatch(MATCH_ID)));

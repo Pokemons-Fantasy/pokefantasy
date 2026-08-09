@@ -49,6 +49,10 @@ public class RecordMatchResultCommandHandler implements CommandHandler<RecordMat
 
         ScheduleEntity.Match match = findMatch(schedule, command.matchId());
 
+        if (match.getStatus() == MatchStatus.COMPLETED) {
+            throw new IllegalStateException("El resultado de este partido ya fue registrado");
+        }
+
         if (!command.winnerUsername().equals(match.getPlayer1())
                 && !command.winnerUsername().equals(match.getPlayer2())) {
             throw new IllegalArgumentException(
