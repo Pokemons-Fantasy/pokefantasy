@@ -5,12 +5,14 @@ import com.villu.pokefantasy.dto.Tier;
 import com.villu.pokefantasy.dto.Type;
 import lombok.Data;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.util.List;
 
 @Data
 @Document(collection = "closed_list")
+@CompoundIndex(def = "{'leagueId': 1, 'pokemonName': 1}")
 public class ClosedListEntity {
     @Id
     private String id;

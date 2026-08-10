@@ -4,6 +4,7 @@ import com.villu.pokefantasy.dto.DraftStatus;
 import lombok.Data;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Version;
+import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.Instant;
@@ -24,6 +25,7 @@ public class DraftEntity {
     /** Copia inmutable del draft original: cada pick tal como se eligió, sin las mutaciones
      *  posteriores de robos/swaps/trades. Alimenta el historial del draft. */
     private List<DraftPick> draftHistory;
+    @Indexed
     private String leagueId;
     /** Timestamp when the current turn started; reset on each pick or auto-pick. */
     private Instant currentTurnStartedAt;
