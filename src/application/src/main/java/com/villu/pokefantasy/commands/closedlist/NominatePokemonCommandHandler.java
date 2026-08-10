@@ -3,6 +3,7 @@ package com.villu.pokefantasy.commands.closedlist;
 import com.villu.pokefantasy.cache.dto.PokemonCacheDto;
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.Pokemons;
+import com.villu.pokefantasy.league.LeagueMembershipGuard;
 import com.villu.pokefantasy.mediator.CommandHandler;
 import com.villu.pokefantasy.ports.CachePort;
 import com.villu.pokefantasy.ports.PokemonApiPort;
@@ -23,15 +24,18 @@ public class NominatePokemonCommandHandler implements CommandHandler<NominatePok
     private final CachePort cachePort;
     private final PokemonApiPort pokemonApiPort;
     private final DraftRepository draftRepository;
+    private final LeagueMembershipGuard leagueMembershipGuard;
 
     public NominatePokemonCommandHandler(ClosedListRepository closedListRepository,
                                          CachePort cachePort,
                                          PokemonApiPort pokemonApiPort,
-                                         DraftRepository draftRepository) {
+                                         DraftRepository draftRepository,
+                                         LeagueMembershipGuard leagueMembershipGuard) {
         this.closedListRepository = closedListRepository;
         this.cachePort = cachePort;
         this.pokemonApiPort = pokemonApiPort;
         this.draftRepository = draftRepository;
+        this.leagueMembershipGuard = leagueMembershipGuard;
     }
 
     @Override
@@ -40,6 +44,8 @@ public class NominatePokemonCommandHandler implements CommandHandler<NominatePok
                 || command.username().isBlank() || command.pokemonName().isBlank() || command.leagueId().isBlank()) {
             throw new IllegalArgumentException("Username, pokemonName and leagueId are required");
         }
+
+        leagueMembershipGuard.requireMember(command.leagueId(), command.username());
 
         draftRepository.findLatestByLeagueId(command.leagueId()).ifPresent(draft -> {
             if (draft.getStatus() != DraftStatus.PENDING) {

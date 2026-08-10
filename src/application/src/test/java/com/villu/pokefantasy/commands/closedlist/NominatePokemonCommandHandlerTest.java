@@ -3,6 +3,8 @@ package com.villu.pokefantasy.commands.closedlist;
 import com.villu.pokefantasy.cache.dto.PokemonCacheDto;
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.Pokemons;
+import com.villu.pokefantasy.exception.ForbiddenOperationException;
+import com.villu.pokefantasy.league.LeagueMembershipGuard;
 import com.villu.pokefantasy.ports.CachePort;
 import com.villu.pokefantasy.ports.PokemonApiPort;
 import com.villu.pokefantasy.repository.ClosedListRepository;
@@ -29,12 +31,22 @@ class NominatePokemonCommandHandlerTest {
     @Mock private CachePort cachePort;
     @Mock private PokemonApiPort pokemonApiPort;
     @Mock private DraftRepository draftRepository;
+    @Mock private LeagueMembershipGuard leagueMembershipGuard;
 
     private NominatePokemonCommandHandler handler;
 
     @BeforeEach
     void setUp() {
-        handler = new NominatePokemonCommandHandler(closedListRepository, cachePort, pokemonApiPort, draftRepository);
+        handler = new NominatePokemonCommandHandler(closedListRepository, cachePort, pokemonApiPort, draftRepository, leagueMembershipGuard);
+    }
+
+    @Test
+    void handle_notLeagueMember_propagatesForbidden() {
+        when(leagueMembershipGuard.requireMember("l1", "ash"))
+                .thenThrow(new ForbiddenOperationException("not a member"));
+
+        assertThatThrownBy(() -> handler.handle(new NominatePokemonCommand("ash", "pikachu", "l1")))
+                .isInstanceOf(ForbiddenOperationException.class);
     }
 
     @Test
