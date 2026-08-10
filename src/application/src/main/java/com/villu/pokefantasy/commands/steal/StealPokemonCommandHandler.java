@@ -209,16 +209,16 @@ public class StealPokemonCommandHandler implements CommandHandler<StealPokemonCo
         victimMember.setCoinBalance(victimMember.getCoinBalance() - stealPrice * 2);
         leagueRepository.save(league);
 
-        if (victimUser != null && removedFromVictim != null) {
-            List<Pokemons> vPokemons = victimUser.getPokemons() != null
-                    ? new ArrayList<>(victimUser.getPokemons()) : new ArrayList<>();
+        // removedFromVictim/stolen solo son no-null si victimUser/stealerUser ya lo eran
+        // en el flujo principal (misma referencia, misma invocación del handler).
+        if (removedFromVictim != null) {
+            List<Pokemons> vPokemons = new ArrayList<>(victimUser.getPokemons());
             vPokemons.add(removedFromVictim);
             victimUser.setPokemons(vPokemons);
             userRepository.updateUserWithPokemons(victimUser);
         }
-        if (stealerUser != null && stolen != null) {
-            List<Pokemons> sPokemons = stealerUser.getPokemons() != null
-                    ? new ArrayList<>(stealerUser.getPokemons()) : new ArrayList<>();
+        if (stolen != null) {
+            List<Pokemons> sPokemons = new ArrayList<>(stealerUser.getPokemons());
             sPokemons.removeIf(p -> leagueId.equals(p.getLeagueId()) && stolen.getName().equalsIgnoreCase(p.getName()));
             stealerUser.setPokemons(sPokemons);
             userRepository.updateUserWithPokemons(stealerUser);

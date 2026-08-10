@@ -172,6 +172,106 @@ class StealPokemonCommandHandlerTest {
         verify(userRepository, times(4)).updateUserWithPokemons(any());
     }
 
+    @Test
+    void handle_draftSaveGenericRuntimeException_compensatesAndRethrowsOriginal() {
+        int stealPrice = 300;
+
+        DraftEntity draft = completedDraftWithPick(VICTIM, TARGET, 6);
+        ScheduleEntity schedule = scheduleWithActiveJornada(1);
+        LeagueEntity league = leagueWithTwoMembers(1000, 500);
+        league.setSettings(LeagueSettings.builder().priceTierS(stealPrice).build());
+        ClosedListEntity entry = closedListEntry(TARGET, 6, Tier.S);
+
+        when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+        when(scheduleRepository.findByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(schedule));
+        when(jornadaWindowService.isStealWindowOpen(any(), any())).thenReturn(true);
+        when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
+        when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TARGET, LEAGUE_ID))
+                .thenReturn(Optional.of(entry));
+
+        UserEntity stealerUser = userWithPokemon(STEALER, "pikachu");
+        UserEntity victimUser  = userWithPokemon(VICTIM, TARGET);
+        when(userRepository.findByUsername(STEALER)).thenReturn(stealerUser);
+        when(userRepository.findByUsername(VICTIM)).thenReturn(victimUser);
+
+        RuntimeException dbError = new RuntimeException("mongo unreachable");
+        doThrow(dbError).when(draftRepository).save(draft);
+
+        assertThatThrownBy(() -> handler.handle(new StealPokemonCommand(LEAGUE_ID, STEALER, TARGET)))
+                .isSameAs(dbError);
+
+        // Coins and pokemon reverted, same as the OptimisticLockingFailureException path
+        assertThat(getMember(league, STEALER).getCoinBalance()).isEqualTo(1000);
+        assertThat(getMember(league, VICTIM).getCoinBalance()).isEqualTo(500);
+        assertThat(stealerUser.getPokemons()).noneMatch(p -> TARGET.equals(p.getName()));
+        assertThat(victimUser.getPokemons()).anyMatch(p -> TARGET.equals(p.getName()));
+    }
+
+    @Test
+    void handle_draftSaveFails_victimUserNotFound_skipsVictimCompensation() {
+        int stealPrice = 300;
+
+        DraftEntity draft = completedDraftWithPick(VICTIM, TARGET, 6);
+        ScheduleEntity schedule = scheduleWithActiveJornada(1);
+        LeagueEntity league = leagueWithTwoMembers(1000, 500);
+        league.setSettings(LeagueSettings.builder().priceTierS(stealPrice).build());
+        ClosedListEntity entry = closedListEntry(TARGET, 6, Tier.S);
+
+        when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+        when(scheduleRepository.findByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(schedule));
+        when(jornadaWindowService.isStealWindowOpen(any(), any())).thenReturn(true);
+        when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
+        when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TARGET, LEAGUE_ID))
+                .thenReturn(Optional.of(entry));
+
+        UserEntity stealerUser = userWithPokemon(STEALER, "pikachu");
+        when(userRepository.findByUsername(STEALER)).thenReturn(stealerUser);
+        when(userRepository.findByUsername(VICTIM)).thenReturn(null); // victim record missing
+
+        doThrow(new OptimisticLockingFailureException("stale draft")).when(draftRepository).save(draft);
+
+        assertThatThrownBy(() -> handler.handle(new StealPokemonCommand(LEAGUE_ID, STEALER, TARGET)))
+                .isInstanceOf(IllegalStateException.class);
+
+        // Coins still reverted even though the victim's user record was missing
+        assertThat(getMember(league, STEALER).getCoinBalance()).isEqualTo(1000);
+        assertThat(getMember(league, VICTIM).getCoinBalance()).isEqualTo(500);
+        // Stealer's pokemon transfer reverted (only compensation possible)
+        assertThat(stealerUser.getPokemons()).noneMatch(p -> TARGET.equals(p.getName()));
+    }
+
+    @Test
+    void handle_draftSaveFails_stealerUserNotFound_skipsStealerCompensation() {
+        int stealPrice = 300;
+
+        DraftEntity draft = completedDraftWithPick(VICTIM, TARGET, 6);
+        ScheduleEntity schedule = scheduleWithActiveJornada(1);
+        LeagueEntity league = leagueWithTwoMembers(1000, 500);
+        league.setSettings(LeagueSettings.builder().priceTierS(stealPrice).build());
+        ClosedListEntity entry = closedListEntry(TARGET, 6, Tier.S);
+
+        when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+        when(scheduleRepository.findByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(schedule));
+        when(jornadaWindowService.isStealWindowOpen(any(), any())).thenReturn(true);
+        when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
+        when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TARGET, LEAGUE_ID))
+                .thenReturn(Optional.of(entry));
+
+        UserEntity victimUser = userWithPokemon(VICTIM, TARGET);
+        when(userRepository.findByUsername(STEALER)).thenReturn(null); // stealer record missing
+        when(userRepository.findByUsername(VICTIM)).thenReturn(victimUser);
+
+        doThrow(new OptimisticLockingFailureException("stale draft")).when(draftRepository).save(draft);
+
+        assertThatThrownBy(() -> handler.handle(new StealPokemonCommand(LEAGUE_ID, STEALER, TARGET)))
+                .isInstanceOf(IllegalStateException.class);
+
+        assertThat(getMember(league, STEALER).getCoinBalance()).isEqualTo(1000);
+        assertThat(getMember(league, VICTIM).getCoinBalance()).isEqualTo(500);
+        // Victim's pokemon restored (only compensation possible)
+        assertThat(victimUser.getPokemons()).anyMatch(p -> TARGET.equals(p.getName()));
+    }
+
     // ── Steal window closed ───────────────────────────────────────────────────
 
     @Test
