@@ -78,7 +78,7 @@
         <dependency>
             <groupId>com.google.firebase</groupId>
             <artifactId>firebase-admin</artifactId>
-            <version>9.4.2</version>
+            <version>9.10.0</version>
         </dependency>
         <!-- Force google-auth-library-credentials to match oauth2-http:1.29.0 transitive version.
              Spring Boot 4.0.2 BOM pins credentials to 1.23.0 which lacks CredentialTypeForMetrics,
