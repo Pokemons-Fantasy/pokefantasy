@@ -28,6 +28,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.OptimisticLockingFailureException;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -40,6 +41,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -443,6 +446,176 @@ class RespondToTradeCommandHandlerTest {
         assertThatThrownBy(() -> handler.handle(new RespondToTradeCommand("l1", "t1", "brock", true)))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("bloqueado");
+    }
+
+    // ── Concurrencia: draft.save falla → compensar monedas y pokémon de ambos ─
+
+    @Test
+    void handle_draftSaveOptimisticLockFailure_compensatesBothSides() {
+        TradeEntity trade = pendingTrade();
+        when(tradeRepository.findById("t1")).thenReturn(Optional.of(trade));
+
+        DraftEntity draft = new DraftEntity();
+        draft.setStatus(DraftStatus.COMPLETED);
+        DraftPick ashPick = new DraftPick("ash", "pikachu", 25, 1, Instant.now(), null, null);
+        DraftPick brockPick = new DraftPick("brock", "onix", 95, 1, Instant.now(), null, null);
+        draft.setPicks(new ArrayList<>(List.of(ashPick, brockPick)));
+        when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.of(draft));
+
+        ScheduleEntity schedule = new ScheduleEntity();
+        when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
+        LeagueEntity league = new LeagueEntity();
+        league.setMembers(List.of(
+                new LeagueMember("ash", LeagueRole.USER, 500),
+                new LeagueMember("brock", LeagueRole.USER, 200)));
+        when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
+        when(jornadaWindowService.isSwapWindowOpen(schedule, league.getSettings())).thenReturn(true);
+
+        UserEntity ash = userWith("ash", "pikachu", 25);
+        UserEntity brock = userWith("brock", "onix", 95);
+        when(userRepository.findByUsername("ash")).thenReturn(ash);
+        when(userRepository.findByUsername("brock")).thenReturn(brock);
+        when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(anyString(), eq("l1")))
+                .thenReturn(Optional.empty());
+
+        doThrow(new OptimisticLockingFailureException("stale draft")).when(draftRepository).save(draft);
+
+        assertThatThrownBy(() -> handler.handle(new RespondToTradeCommand("l1", "t1", "brock", true)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("mismo tiempo");
+
+        // Coins reverted
+        assertThat(league.getMembers().get(0).getCoinBalance()).isEqualTo(500);
+        assertThat(league.getMembers().get(1).getCoinBalance()).isEqualTo(200);
+        // Pokemon reverted on both sides
+        assertThat(ash.getPokemons()).anyMatch(p -> "pikachu".equals(p.getName()));
+        assertThat(ash.getPokemons()).noneMatch(p -> "onix".equals(p.getName()));
+        assertThat(brock.getPokemons()).anyMatch(p -> "onix".equals(p.getName()));
+        assertThat(brock.getPokemons()).noneMatch(p -> "pikachu".equals(p.getName()));
+        // Trade never marked ACCEPTED
+        assertThat(trade.getStatus()).isEqualTo(TradeStatus.PENDING);
+        verify(leagueRepository, times(2)).save(league);
+        verify(userRepository, times(4)).updateUserWithPokemons(any());
+    }
+
+    @Test
+    void handle_draftSaveGenericRuntimeException_compensatesAndRethrowsOriginal() {
+        TradeEntity trade = pendingTrade();
+        when(tradeRepository.findById("t1")).thenReturn(Optional.of(trade));
+
+        DraftEntity draft = new DraftEntity();
+        draft.setStatus(DraftStatus.COMPLETED);
+        DraftPick ashPick = new DraftPick("ash", "pikachu", 25, 1, Instant.now(), null, null);
+        DraftPick brockPick = new DraftPick("brock", "onix", 95, 1, Instant.now(), null, null);
+        draft.setPicks(new ArrayList<>(List.of(ashPick, brockPick)));
+        when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.of(draft));
+
+        ScheduleEntity schedule = new ScheduleEntity();
+        when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
+        LeagueEntity league = new LeagueEntity();
+        league.setMembers(List.of(
+                new LeagueMember("ash", LeagueRole.USER, 500),
+                new LeagueMember("brock", LeagueRole.USER, 200)));
+        when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
+        when(jornadaWindowService.isSwapWindowOpen(schedule, league.getSettings())).thenReturn(true);
+
+        UserEntity ash = userWith("ash", "pikachu", 25);
+        UserEntity brock = userWith("brock", "onix", 95);
+        when(userRepository.findByUsername("ash")).thenReturn(ash);
+        when(userRepository.findByUsername("brock")).thenReturn(brock);
+        when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(anyString(), eq("l1")))
+                .thenReturn(Optional.empty());
+
+        RuntimeException dbError = new RuntimeException("mongo unreachable");
+        doThrow(dbError).when(draftRepository).save(draft);
+
+        assertThatThrownBy(() -> handler.handle(new RespondToTradeCommand("l1", "t1", "brock", true)))
+                .isSameAs(dbError);
+
+        assertThat(league.getMembers().get(0).getCoinBalance()).isEqualTo(500);
+        assertThat(league.getMembers().get(1).getCoinBalance()).isEqualTo(200);
+        assertThat(ash.getPokemons()).anyMatch(p -> "pikachu".equals(p.getName()));
+        assertThat(brock.getPokemons()).anyMatch(p -> "onix".equals(p.getName()));
+    }
+
+    @Test
+    void handle_draftSaveFails_proposerUserMissing_skipsProposerCompensation() {
+        TradeEntity trade = pendingTrade();
+        when(tradeRepository.findById("t1")).thenReturn(Optional.of(trade));
+
+        DraftEntity draft = new DraftEntity();
+        draft.setStatus(DraftStatus.COMPLETED);
+        DraftPick ashPick = new DraftPick("ash", "pikachu", 25, 1, Instant.now(), null, null);
+        DraftPick brockPick = new DraftPick("brock", "onix", 95, 1, Instant.now(), null, null);
+        draft.setPicks(new ArrayList<>(List.of(ashPick, brockPick)));
+        when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.of(draft));
+
+        ScheduleEntity schedule = new ScheduleEntity();
+        when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
+        LeagueEntity league = new LeagueEntity();
+        league.setMembers(List.of(
+                new LeagueMember("ash", LeagueRole.USER, 500),
+                new LeagueMember("brock", LeagueRole.USER, 200)));
+        when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
+        when(jornadaWindowService.isSwapWindowOpen(schedule, league.getSettings())).thenReturn(true);
+
+        UserEntity brock = userWith("brock", "onix", 95);
+        when(userRepository.findByUsername("ash")).thenReturn(null); // proposer record missing
+        when(userRepository.findByUsername("brock")).thenReturn(brock);
+        when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(anyString(), eq("l1")))
+                .thenReturn(Optional.empty());
+
+        doThrow(new OptimisticLockingFailureException("stale draft")).when(draftRepository).save(draft);
+
+        assertThatThrownBy(() -> handler.handle(new RespondToTradeCommand("l1", "t1", "brock", true)))
+                .isInstanceOf(IllegalStateException.class);
+
+        assertThat(league.getMembers().get(0).getCoinBalance()).isEqualTo(500);
+        assertThat(league.getMembers().get(1).getCoinBalance()).isEqualTo(200);
+        assertThat(brock.getPokemons()).anyMatch(p -> "onix".equals(p.getName()));
+    }
+
+    @Test
+    void handle_draftSaveFails_proposerUserRecordMissingGivenPokemon_skipsProposerPokemonRevert() {
+        // Inconsistencia de datos: la ficha del proponente no tiene "pikachu" en su lista
+        // (p.ej. otra operación concurrente ya lo movió) — movePokemon/revertPokemon deben
+        // manejarlo sin lanzar, simplemente sin nada que revertir en ese lado.
+        TradeEntity trade = pendingTrade();
+        when(tradeRepository.findById("t1")).thenReturn(Optional.of(trade));
+
+        DraftEntity draft = new DraftEntity();
+        draft.setStatus(DraftStatus.COMPLETED);
+        DraftPick ashPick = new DraftPick("ash", "pikachu", 25, 1, Instant.now(), null, null);
+        DraftPick brockPick = new DraftPick("brock", "onix", 95, 1, Instant.now(), null, null);
+        draft.setPicks(new ArrayList<>(List.of(ashPick, brockPick)));
+        when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.of(draft));
+
+        ScheduleEntity schedule = new ScheduleEntity();
+        when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
+        LeagueEntity league = new LeagueEntity();
+        league.setMembers(List.of(
+                new LeagueMember("ash", LeagueRole.USER, 500),
+                new LeagueMember("brock", LeagueRole.USER, 200)));
+        when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
+        when(jornadaWindowService.isSwapWindowOpen(schedule, league.getSettings())).thenReturn(true);
+
+        UserEntity ash = userWith("ash", "some-other-pokemon", 999); // does NOT have pikachu
+        UserEntity brock = userWith("brock", "onix", 95);
+        when(userRepository.findByUsername("ash")).thenReturn(ash);
+        when(userRepository.findByUsername("brock")).thenReturn(brock);
+        when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(anyString(), eq("l1")))
+                .thenReturn(Optional.empty());
+
+        doThrow(new OptimisticLockingFailureException("stale draft")).when(draftRepository).save(draft);
+
+        assertThatThrownBy(() -> handler.handle(new RespondToTradeCommand("l1", "t1", "brock", true)))
+                .isInstanceOf(IllegalStateException.class);
+
+        assertThat(league.getMembers().get(0).getCoinBalance()).isEqualTo(500);
+        assertThat(league.getMembers().get(1).getCoinBalance()).isEqualTo(200);
+        // Ash never had pikachu, so nothing to revert for them — but the received "onix" is removed
+        assertThat(ash.getPokemons()).noneMatch(p -> "onix".equals(p.getName()));
+        assertThat(brock.getPokemons()).anyMatch(p -> "onix".equals(p.getName()));
     }
 
     @Test

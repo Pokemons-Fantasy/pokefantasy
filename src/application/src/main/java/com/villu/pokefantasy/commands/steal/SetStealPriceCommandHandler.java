@@ -12,6 +12,7 @@ import com.villu.pokefantasy.repository.entity.DraftEntity;
 import com.villu.pokefantasy.repository.entity.DraftPick;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import com.villu.pokefantasy.repository.entity.LeagueMember;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -88,9 +89,27 @@ public class SetStealPriceCommandHandler implements CommandHandler<SetStealPrice
         leagueRepository.save(league);
 
         pick.setCustomStealPrice(newPrice);
-        draftRepository.save(draft);
+
+        try {
+            draftRepository.save(draft);
+        } catch (OptimisticLockingFailureException exception) {
+            compensatePriceChange(league, member, investment);
+            throw new IllegalStateException("Otro jugador modificó el draft al mismo tiempo. Inténtalo de nuevo.", exception);
+        } catch (RuntimeException exception) {
+            compensatePriceChange(league, member, investment);
+            throw exception;
+        }
 
         return null;
+    }
+
+    /**
+     * Revierte la inversión en monedas si draftRepository.save(draft) falla —
+     * el nuevo customStealPrice solo existe en el draft in-memory descartado, no se persiste.
+     */
+    private void compensatePriceChange(LeagueEntity league, LeagueMember member, int investment) {
+        member.setCoinBalance(member.getCoinBalance() + investment);
+        leagueRepository.save(league);
     }
 
     private int priceForTier(LeagueSettings settings, Tier tier) {
