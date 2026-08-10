@@ -1,6 +1,5 @@
 package com.villu.pokefantasy;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.villu.pokefantasy.commands.steal.StealFacade;
 import com.villu.pokefantasy.request.steal.SetStealPriceRequest;
 import com.villu.pokefantasy.request.steal.StealPokemonRequest;
@@ -8,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+import tools.jackson.databind.ObjectMapper;
 
 @RestController
 @RequestMapping("/v1/leagues/{leagueId}")
@@ -15,11 +15,12 @@ public class StealController {
 
     private final StealFacade stealFacade;
     private final UserSseEmitterRegistry userSseRegistry;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
 
-    public StealController(StealFacade stealFacade, UserSseEmitterRegistry userSseRegistry) {
+    public StealController(StealFacade stealFacade, UserSseEmitterRegistry userSseRegistry, ObjectMapper redisObjectMapper) {
         this.stealFacade = stealFacade;
         this.userSseRegistry = userSseRegistry;
+        this.objectMapper = redisObjectMapper;
     }
 
     @PostMapping("/steal")

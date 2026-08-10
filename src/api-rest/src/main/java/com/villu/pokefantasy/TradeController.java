@@ -1,6 +1,5 @@
 package com.villu.pokefantasy;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.villu.pokefantasy.commands.trade.TradeFacade;
 import com.villu.pokefantasy.request.trade.ProposeTradeRequest;
 import com.villu.pokefantasy.request.trade.RespondToTradeRequest;
@@ -9,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+import tools.jackson.databind.ObjectMapper;
 
 import java.util.List;
 
@@ -18,11 +18,12 @@ public class TradeController {
 
     private final TradeFacade tradeFacade;
     private final UserSseEmitterRegistry userSseRegistry;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
 
-    public TradeController(TradeFacade tradeFacade, UserSseEmitterRegistry userSseRegistry) {
+    public TradeController(TradeFacade tradeFacade, UserSseEmitterRegistry userSseRegistry, ObjectMapper redisObjectMapper) {
         this.tradeFacade = tradeFacade;
         this.userSseRegistry = userSseRegistry;
+        this.objectMapper = redisObjectMapper;
     }
 
     @PostMapping("/trades")
