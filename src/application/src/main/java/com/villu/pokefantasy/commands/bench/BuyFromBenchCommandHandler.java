@@ -5,7 +5,9 @@ import com.villu.pokefantasy.dto.ActivityEventType;
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueSettings;
 import com.villu.pokefantasy.dto.Pokemons;
-import com.villu.pokefantasy.dto.Tier;
+import com.villu.pokefantasy.exception.ForbiddenOperationException;
+import com.villu.pokefantasy.league.LeagueMemberService;
+import com.villu.pokefantasy.league.TierPricingService;
 import com.villu.pokefantasy.mediator.CommandHandler;
 import com.villu.pokefantasy.repository.ActivityEventRepository;
 import com.villu.pokefantasy.repository.ClosedListRepository;
@@ -40,6 +42,8 @@ public class BuyFromBenchCommandHandler implements CommandHandler<BuyFromBenchCo
     private final ScheduleRepository scheduleRepository;
     private final JornadaWindowService jornadaWindowService;
     private final ActivityEventRepository activityEventRepository;
+    private final LeagueMemberService leagueMemberService;
+    private final TierPricingService tierPricingService;
 
     public BuyFromBenchCommandHandler(DraftRepository draftRepository,
                                       ClosedListRepository closedListRepository,
@@ -47,7 +51,9 @@ public class BuyFromBenchCommandHandler implements CommandHandler<BuyFromBenchCo
                                       UserRepository userRepository,
                                       ScheduleRepository scheduleRepository,
                                       JornadaWindowService jornadaWindowService,
-                                      ActivityEventRepository activityEventRepository) {
+                                      ActivityEventRepository activityEventRepository,
+                                      LeagueMemberService leagueMemberService,
+                                      TierPricingService tierPricingService) {
         this.draftRepository = draftRepository;
         this.closedListRepository = closedListRepository;
         this.leagueRepository = leagueRepository;
@@ -55,6 +61,8 @@ public class BuyFromBenchCommandHandler implements CommandHandler<BuyFromBenchCo
         this.scheduleRepository = scheduleRepository;
         this.jornadaWindowService = jornadaWindowService;
         this.activityEventRepository = activityEventRepository;
+        this.leagueMemberService = leagueMemberService;
+        this.tierPricingService = tierPricingService;
     }
 
     @Override
@@ -84,7 +92,7 @@ public class BuyFromBenchCommandHandler implements CommandHandler<BuyFromBenchCo
         boolean isMember = league.getMembers().stream()
                 .anyMatch(m -> username.equals(m.getUsername()));
         if (!isMember) {
-            throw new IllegalArgumentException("User is not a member of this league");
+            throw new ForbiddenOperationException("User '" + username + "' is not a member of league: " + leagueId);
         }
 
         // 4. Pokemon must exist in the pool
@@ -124,8 +132,8 @@ public class BuyFromBenchCommandHandler implements CommandHandler<BuyFromBenchCo
         }
 
         // 7. Buyer must have enough coins
-        int price = priceForTier(settings, benchEntry.getTier());
-        LeagueMember buyerMember = getMember(league, username);
+        int price = tierPricingService.priceForTier(settings, benchEntry.getTier());
+        LeagueMember buyerMember = leagueMemberService.requireMember(league, username);
 
         if (buyerMember.getCoinBalance() < price) {
             throw new IllegalStateException(
@@ -203,25 +211,6 @@ public class BuyFromBenchCommandHandler implements CommandHandler<BuyFromBenchCo
         pokemons.removeIf(p -> leagueId.equals(p.getLeagueId()) && newPokemon.getName().equalsIgnoreCase(p.getName()));
         buyer.setPokemons(pokemons);
         userRepository.updateUserWithPokemons(buyer);
-    }
-
-    private LeagueMember getMember(LeagueEntity league, String username) {
-        return league.getMembers().stream()
-                .filter(m -> username.equals(m.getUsername()))
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("Member not found: " + username));
-    }
-
-    private int priceForTier(LeagueSettings settings, Tier tier) {
-        if (settings == null || tier == null) return 0;
-        Integer price = switch (tier) {
-            case S -> settings.getPriceTierS();
-            case A -> settings.getPriceTierA();
-            case B -> settings.getPriceTierB();
-            case C -> settings.getPriceTierC();
-            case D -> settings.getPriceTierD();
-        };
-        return price != null ? price : 0;
     }
 
     @Override

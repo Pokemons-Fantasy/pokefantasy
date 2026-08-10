@@ -7,6 +7,8 @@ import com.villu.pokefantasy.dto.LeagueRole;
 import com.villu.pokefantasy.dto.LeagueSettings;
 import com.villu.pokefantasy.dto.Pokemons;
 import com.villu.pokefantasy.dto.Tier;
+import com.villu.pokefantasy.league.LeagueMemberService;
+import com.villu.pokefantasy.league.TierPricingService;
 import com.villu.pokefantasy.repository.ActivityEventRepository;
 import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
@@ -68,7 +70,8 @@ class StealPokemonCommandHandlerTest {
         handler = new StealPokemonCommandHandler(
                 draftRepository, closedListRepository, leagueRepository,
                 userRepository, scheduleRepository, jornadaWindowService,
-                activityEventRepository, pushNotificationPort);
+                activityEventRepository, pushNotificationPort,
+                new LeagueMemberService(), new TierPricingService());
 
         // Default stub — tests that need specific settings override this
         LeagueEntity defaultLeague = leagueWithTwoMembers(1000, 500);

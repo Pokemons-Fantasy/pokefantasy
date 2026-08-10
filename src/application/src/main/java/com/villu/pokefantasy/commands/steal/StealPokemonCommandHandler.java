@@ -6,6 +6,8 @@ import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueSettings;
 import com.villu.pokefantasy.dto.Pokemons;
 import com.villu.pokefantasy.dto.Tier;
+import com.villu.pokefantasy.league.LeagueMemberService;
+import com.villu.pokefantasy.league.TierPricingService;
 import com.villu.pokefantasy.mediator.CommandHandler;
 import lombok.extern.slf4j.Slf4j;
 import com.villu.pokefantasy.repository.ActivityEventRepository;
@@ -43,6 +45,8 @@ public class StealPokemonCommandHandler implements CommandHandler<StealPokemonCo
     private final JornadaWindowService jornadaWindowService;
     private final ActivityEventRepository activityEventRepository;
     private final PushNotificationPort pushNotificationPort;
+    private final LeagueMemberService leagueMemberService;
+    private final TierPricingService tierPricingService;
 
     public StealPokemonCommandHandler(DraftRepository draftRepository,
                                       ClosedListRepository closedListRepository,
@@ -51,7 +55,9 @@ public class StealPokemonCommandHandler implements CommandHandler<StealPokemonCo
                                       ScheduleRepository scheduleRepository,
                                       JornadaWindowService jornadaWindowService,
                                       ActivityEventRepository activityEventRepository,
-                                      PushNotificationPort pushNotificationPort) {
+                                      PushNotificationPort pushNotificationPort,
+                                      LeagueMemberService leagueMemberService,
+                                      TierPricingService tierPricingService) {
         this.draftRepository = draftRepository;
         this.closedListRepository = closedListRepository;
         this.leagueRepository = leagueRepository;
@@ -60,6 +66,8 @@ public class StealPokemonCommandHandler implements CommandHandler<StealPokemonCo
         this.jornadaWindowService = jornadaWindowService;
         this.activityEventRepository = activityEventRepository;
         this.pushNotificationPort = pushNotificationPort;
+        this.leagueMemberService = leagueMemberService;
+        this.tierPricingService = tierPricingService;
     }
 
     @Override
@@ -108,11 +116,11 @@ public class StealPokemonCommandHandler implements CommandHandler<StealPokemonCo
                     .findByPokemonNameIgnoreCaseAndLeagueId(targetName, leagueId)
                     .orElse(null);
             Tier tier = entry != null ? entry.getTier() : null;
-            stealPrice = priceForTier(settings, tier);
+            stealPrice = tierPricingService.priceForTier(settings, tier);
         }
 
         // Validate stealer balance
-        LeagueMember stealerMember = getMember(league, stealer);
+        LeagueMember stealerMember = leagueMemberService.requireMember(league, stealer);
         if (stealerMember.getCoinBalance() < stealPrice) {
             throw new IllegalStateException(
                     "No tienes suficientes monedas. Necesitas " + stealPrice +
@@ -121,7 +129,7 @@ public class StealPokemonCommandHandler implements CommandHandler<StealPokemonCo
 
         // Transfer coins: stealer pays, victim receives 2×
         stealerMember.setCoinBalance(stealerMember.getCoinBalance() - stealPrice);
-        LeagueMember victimMember = getMember(league, victim);
+        LeagueMember victimMember = leagueMemberService.requireMember(league, victim);
         victimMember.setCoinBalance(victimMember.getCoinBalance() + stealPrice * 2);
         leagueRepository.save(league);
 
@@ -223,25 +231,6 @@ public class StealPokemonCommandHandler implements CommandHandler<StealPokemonCo
             stealerUser.setPokemons(sPokemons);
             userRepository.updateUserWithPokemons(stealerUser);
         }
-    }
-
-    private LeagueMember getMember(LeagueEntity league, String username) {
-        return league.getMembers().stream()
-                .filter(m -> username.equals(m.getUsername()))
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("Member not found: " + username));
-    }
-
-    private int priceForTier(LeagueSettings settings, Tier tier) {
-        if (settings == null || tier == null) return 0;
-        Integer price = switch (tier) {
-            case S -> settings.getPriceTierS();
-            case A -> settings.getPriceTierA();
-            case B -> settings.getPriceTierB();
-            case C -> settings.getPriceTierC();
-            case D -> settings.getPriceTierD();
-        };
-        return price != null ? price : 0;
     }
 
     @Override

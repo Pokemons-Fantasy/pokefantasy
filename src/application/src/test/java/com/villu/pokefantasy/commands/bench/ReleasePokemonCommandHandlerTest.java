@@ -6,6 +6,8 @@ import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueSettings;
 import com.villu.pokefantasy.dto.Pokemons;
 import com.villu.pokefantasy.dto.Tier;
+import com.villu.pokefantasy.league.LeagueMemberService;
+import com.villu.pokefantasy.league.TierPricingService;
 import com.villu.pokefantasy.repository.ActivityEventRepository;
 import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
@@ -61,7 +63,8 @@ class ReleasePokemonCommandHandlerTest {
     void setUp() {
         handler = new ReleasePokemonCommandHandler(
                 draftRepository, closedListRepository, leagueRepository, userRepository,
-                scheduleRepository, jornadaWindowService, activityEventRepository);
+                scheduleRepository, jornadaWindowService, activityEventRepository,
+                new LeagueMemberService(), new TierPricingService());
 
         lenient().when(scheduleRepository.findByLeagueId(LEAGUE_ID))
                 .thenReturn(Optional.of(new ScheduleEntity()));

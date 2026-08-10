@@ -6,6 +6,9 @@ import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueSettings;
 import com.villu.pokefantasy.dto.Pokemons;
 import com.villu.pokefantasy.dto.Tier;
+import com.villu.pokefantasy.exception.ForbiddenOperationException;
+import com.villu.pokefantasy.league.LeagueMemberService;
+import com.villu.pokefantasy.league.TierPricingService;
 import com.villu.pokefantasy.mediator.CommandHandler;
 import com.villu.pokefantasy.repository.ActivityEventRepository;
 import com.villu.pokefantasy.repository.ClosedListRepository;
@@ -41,6 +44,8 @@ public class SwapWithBenchCommandHandler implements CommandHandler<SwapWithBench
     private final ScheduleRepository scheduleRepository;
     private final JornadaWindowService jornadaWindowService;
     private final ActivityEventRepository activityEventRepository;
+    private final LeagueMemberService leagueMemberService;
+    private final TierPricingService tierPricingService;
 
     public SwapWithBenchCommandHandler(DraftRepository draftRepository,
                                        ClosedListRepository closedListRepository,
@@ -48,7 +53,9 @@ public class SwapWithBenchCommandHandler implements CommandHandler<SwapWithBench
                                        UserRepository userRepository,
                                        ScheduleRepository scheduleRepository,
                                        JornadaWindowService jornadaWindowService,
-                                       ActivityEventRepository activityEventRepository) {
+                                       ActivityEventRepository activityEventRepository,
+                                       LeagueMemberService leagueMemberService,
+                                       TierPricingService tierPricingService) {
         this.draftRepository = draftRepository;
         this.closedListRepository = closedListRepository;
         this.leagueRepository = leagueRepository;
@@ -56,6 +63,8 @@ public class SwapWithBenchCommandHandler implements CommandHandler<SwapWithBench
         this.scheduleRepository = scheduleRepository;
         this.jornadaWindowService = jornadaWindowService;
         this.activityEventRepository = activityEventRepository;
+        this.leagueMemberService = leagueMemberService;
+        this.tierPricingService = tierPricingService;
     }
 
     @Override
@@ -84,7 +93,7 @@ public class SwapWithBenchCommandHandler implements CommandHandler<SwapWithBench
         boolean isMember = league.getMembers().stream()
                 .anyMatch(m -> username.equals(m.getUsername()));
         if (!isMember) {
-            throw new IllegalStateException("User is not a member of this league");
+            throw new ForbiddenOperationException("User '" + username + "' is not a member of league: " + leagueId);
         }
 
         UserEntity user = userRepository.findByUsername(username);
@@ -128,11 +137,11 @@ public class SwapWithBenchCommandHandler implements CommandHandler<SwapWithBench
         }
 
         LeagueSettings settings = league.getSettings();
-        int priceGive = priceForTier(settings, giveTier);
-        int priceTake = priceForTier(settings, benchEntry.getTier());
+        int priceGive = tierPricingService.priceForTier(settings, giveTier);
+        int priceTake = tierPricingService.priceForTier(settings, benchEntry.getTier());
         int net = priceGive - priceTake; // positive = player receives coins; negative = player pays
 
-        LeagueMember member = getMember(league, username);
+        LeagueMember member = leagueMemberService.requireMember(league, username);
         if (net < 0 && member.getCoinBalance() < -net) {
             throw new IllegalStateException(
                     "No tienes suficientes monedas. Necesitas " + (-net) +
@@ -211,25 +220,6 @@ public class SwapWithBenchCommandHandler implements CommandHandler<SwapWithBench
     private int tierRank(Tier tier) {
         if (tier == null) return 4;
         return switch (tier) { case S -> 0; case A -> 1; case B -> 2; case C -> 3; case D -> 4; };
-    }
-
-    private LeagueMember getMember(LeagueEntity league, String username) {
-        return league.getMembers().stream()
-                .filter(m -> username.equals(m.getUsername()))
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("Member not found: " + username));
-    }
-
-    private int priceForTier(LeagueSettings settings, Tier tier) {
-        if (settings == null || tier == null) return 0;
-        Integer price = switch (tier) {
-            case S -> settings.getPriceTierS();
-            case A -> settings.getPriceTierA();
-            case B -> settings.getPriceTierB();
-            case C -> settings.getPriceTierC();
-            case D -> settings.getPriceTierD();
-        };
-        return price != null ? price : 0;
     }
 
     @Override

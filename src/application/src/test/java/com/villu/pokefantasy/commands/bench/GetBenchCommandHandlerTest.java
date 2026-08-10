@@ -5,6 +5,7 @@ import com.villu.pokefantasy.dto.LeagueSettings;
 import com.villu.pokefantasy.dto.Pokemons;
 import com.villu.pokefantasy.dto.Tier;
 import com.villu.pokefantasy.league.LeagueMembershipGuard;
+import com.villu.pokefantasy.league.TierPricingService;
 import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.UserRepository;
@@ -38,7 +39,7 @@ class GetBenchCommandHandlerTest {
 
     @BeforeEach
     void setUp() {
-        handler = new GetBenchCommandHandler(closedListRepository, leagueRepository, userRepository, leagueMembershipGuard);
+        handler = new GetBenchCommandHandler(closedListRepository, leagueRepository, userRepository, leagueMembershipGuard, new TierPricingService());
     }
 
     @Test

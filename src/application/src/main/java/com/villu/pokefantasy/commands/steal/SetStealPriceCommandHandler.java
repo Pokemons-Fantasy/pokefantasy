@@ -3,6 +3,8 @@ package com.villu.pokefantasy.commands.steal;
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueSettings;
 import com.villu.pokefantasy.dto.Tier;
+import com.villu.pokefantasy.league.LeagueMemberService;
+import com.villu.pokefantasy.league.TierPricingService;
 import com.villu.pokefantasy.mediator.CommandHandler;
 import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
@@ -21,13 +23,19 @@ public class SetStealPriceCommandHandler implements CommandHandler<SetStealPrice
     private final DraftRepository draftRepository;
     private final ClosedListRepository closedListRepository;
     private final LeagueRepository leagueRepository;
+    private final LeagueMemberService leagueMemberService;
+    private final TierPricingService tierPricingService;
 
     public SetStealPriceCommandHandler(DraftRepository draftRepository,
                                        ClosedListRepository closedListRepository,
-                                       LeagueRepository leagueRepository) {
+                                       LeagueRepository leagueRepository,
+                                       LeagueMemberService leagueMemberService,
+                                       TierPricingService tierPricingService) {
         this.draftRepository = draftRepository;
         this.closedListRepository = closedListRepository;
         this.leagueRepository = leagueRepository;
+        this.leagueMemberService = leagueMemberService;
+        this.tierPricingService = tierPricingService;
     }
 
     @Override
@@ -65,7 +73,7 @@ public class SetStealPriceCommandHandler implements CommandHandler<SetStealPrice
                     .findByPokemonNameIgnoreCaseAndLeagueId(pokemonName, leagueId)
                     .orElse(null);
             Tier tier = entry != null ? entry.getTier() : null;
-            currentEffectivePrice = priceForTier(settings, tier);
+            currentEffectivePrice = tierPricingService.priceForTier(settings, tier);
         }
 
         if (newPrice <= currentEffectivePrice) {
@@ -74,10 +82,7 @@ public class SetStealPriceCommandHandler implements CommandHandler<SetStealPrice
         }
 
         int investment = newPrice - currentEffectivePrice;
-        LeagueMember member = league.getMembers().stream()
-                .filter(m -> username.equals(m.getUsername()))
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("Member not found: " + username));
+        LeagueMember member = leagueMemberService.requireMember(league, username);
 
         if (member.getCoinBalance() < investment) {
             throw new IllegalStateException(
@@ -110,18 +115,6 @@ public class SetStealPriceCommandHandler implements CommandHandler<SetStealPrice
     private void compensatePriceChange(LeagueEntity league, LeagueMember member, int investment) {
         member.setCoinBalance(member.getCoinBalance() + investment);
         leagueRepository.save(league);
-    }
-
-    private int priceForTier(LeagueSettings settings, Tier tier) {
-        if (settings == null || tier == null) return 0;
-        Integer price = switch (tier) {
-            case S -> settings.getPriceTierS();
-            case A -> settings.getPriceTierA();
-            case B -> settings.getPriceTierB();
-            case C -> settings.getPriceTierC();
-            case D -> settings.getPriceTierD();
-        };
-        return price != null ? price : 0;
     }
 
     @Override

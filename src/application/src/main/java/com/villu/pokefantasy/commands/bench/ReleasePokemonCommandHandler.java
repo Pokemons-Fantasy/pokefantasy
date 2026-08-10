@@ -5,6 +5,8 @@ import com.villu.pokefantasy.dto.ActivityEventType;
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueSettings;
 import com.villu.pokefantasy.dto.Tier;
+import com.villu.pokefantasy.league.LeagueMemberService;
+import com.villu.pokefantasy.league.TierPricingService;
 import com.villu.pokefantasy.mediator.CommandHandler;
 import com.villu.pokefantasy.repository.ActivityEventRepository;
 import com.villu.pokefantasy.repository.ClosedListRepository;
@@ -34,6 +36,8 @@ public class ReleasePokemonCommandHandler implements CommandHandler<ReleasePokem
     private final ScheduleRepository scheduleRepository;
     private final JornadaWindowService jornadaWindowService;
     private final ActivityEventRepository activityEventRepository;
+    private final LeagueMemberService leagueMemberService;
+    private final TierPricingService tierPricingService;
 
     public ReleasePokemonCommandHandler(DraftRepository draftRepository,
                                         ClosedListRepository closedListRepository,
@@ -41,7 +45,9 @@ public class ReleasePokemonCommandHandler implements CommandHandler<ReleasePokem
                                         UserRepository userRepository,
                                         ScheduleRepository scheduleRepository,
                                         JornadaWindowService jornadaWindowService,
-                                        ActivityEventRepository activityEventRepository) {
+                                        ActivityEventRepository activityEventRepository,
+                                        LeagueMemberService leagueMemberService,
+                                        TierPricingService tierPricingService) {
         this.draftRepository = draftRepository;
         this.closedListRepository = closedListRepository;
         this.leagueRepository = leagueRepository;
@@ -49,6 +55,8 @@ public class ReleasePokemonCommandHandler implements CommandHandler<ReleasePokem
         this.scheduleRepository = scheduleRepository;
         this.jornadaWindowService = jornadaWindowService;
         this.activityEventRepository = activityEventRepository;
+        this.leagueMemberService = leagueMemberService;
+        this.tierPricingService = tierPricingService;
     }
 
     @Override
@@ -94,7 +102,7 @@ public class ReleasePokemonCommandHandler implements CommandHandler<ReleasePokem
                 .findByPokemonNameIgnoreCaseAndLeagueId(pokemonName, leagueId)
                 .orElse(null);
         Tier tier = entry != null ? entry.getTier() : null;
-        int reward = priceForTier(settings, tier) / 2;
+        int reward = tierPricingService.priceForTier(settings, tier) / 2;
 
         // --- Execute ---
 
@@ -111,10 +119,7 @@ public class ReleasePokemonCommandHandler implements CommandHandler<ReleasePokem
         }
 
         // Add coins to member (reward = 0 if tier unknown, safe fallback)
-        LeagueMember member = league.getMembers().stream()
-                .filter(m -> username.equals(m.getUsername()))
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("Member not found: " + username));
+        LeagueMember member = leagueMemberService.requireMember(league, username);
         member.setCoinBalance(member.getCoinBalance() + reward);
         leagueRepository.save(league);
 
@@ -129,18 +134,6 @@ public class ReleasePokemonCommandHandler implements CommandHandler<ReleasePokem
                 .build());
 
         return null;
-    }
-
-    private int priceForTier(LeagueSettings settings, Tier tier) {
-        if (settings == null || tier == null) return 0;
-        Integer price = switch (tier) {
-            case S -> settings.getPriceTierS();
-            case A -> settings.getPriceTierA();
-            case B -> settings.getPriceTierB();
-            case C -> settings.getPriceTierC();
-            case D -> settings.getPriceTierD();
-        };
-        return price != null ? price : 0;
     }
 
     @Override

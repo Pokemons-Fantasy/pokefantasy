@@ -8,6 +8,9 @@ import com.villu.pokefantasy.dto.LeagueSettings;
 import com.villu.pokefantasy.dto.MatchStatus;
 import com.villu.pokefantasy.dto.Pokemons;
 import com.villu.pokefantasy.dto.Tier;
+import com.villu.pokefantasy.exception.ForbiddenOperationException;
+import com.villu.pokefantasy.league.LeagueMemberService;
+import com.villu.pokefantasy.league.TierPricingService;
 import com.villu.pokefantasy.repository.ActivityEventRepository;
 import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
@@ -63,7 +66,8 @@ class BuyFromBenchCommandHandlerTest {
     void setUp() {
         handler = new BuyFromBenchCommandHandler(
                 draftRepository, closedListRepository, leagueRepository, userRepository,
-                scheduleRepository, jornadaWindowService, activityEventRepository);
+                scheduleRepository, jornadaWindowService, activityEventRepository,
+                new LeagueMemberService(), new TierPricingService());
 
         lenient().when(scheduleRepository.findByLeagueId(LEAGUE_ID))
                 .thenReturn(Optional.of(scheduleWithPendingJornada()));
@@ -131,13 +135,13 @@ class BuyFromBenchCommandHandlerTest {
     }
 
     @Test
-    void handle_userNotMember_throwsIllegalArgument() {
+    void handle_userNotMember_throwsForbiddenOperation() {
         when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(completedDraft()));
         when(leagueRepository.findById(LEAGUE_ID))
                 .thenReturn(Optional.of(leagueWithMembers(new LeagueMember("brock", LeagueRole.USER, 999))));
 
         assertThatThrownBy(() -> handler.handle(cmd()))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(ForbiddenOperationException.class)
                 .hasMessageContaining("not a member");
     }
 
