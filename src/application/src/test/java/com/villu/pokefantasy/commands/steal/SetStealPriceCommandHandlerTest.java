@@ -18,6 +18,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.OptimisticLockingFailureException;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -193,6 +194,53 @@ class SetStealPriceCommandHandlerTest {
 
         LeagueMember member = getMember(league);
         assertThat(member.getCoinBalance()).isEqualTo(465); // 500 - 35
+    }
+
+    // ── Concurrencia: draft.save falla → compensar inversión en monedas ───────
+
+    @Test
+    void handle_draftSaveOptimisticLockFailure_compensatesInvestment() {
+        int currentTierPrice = 300;
+        int newPrice = 500;
+        int initialBalance = 1000;
+
+        DraftEntity draft = draftWithPick(USERNAME, POKEMON, null);
+        LeagueEntity league = leagueWithMember(initialBalance);
+        league.setSettings(LeagueSettings.builder().priceTierS(currentTierPrice).build());
+        ClosedListEntity entry = closedListEntry(POKEMON, Tier.S);
+
+        when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+        when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
+        when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(POKEMON, LEAGUE_ID))
+                .thenReturn(Optional.of(entry));
+        doThrow(new OptimisticLockingFailureException("stale draft")).when(draftRepository).save(draft);
+
+        assertThatThrownBy(() -> handler.handle(new SetStealPriceCommand(LEAGUE_ID, USERNAME, POKEMON, newPrice)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("mismo tiempo");
+
+        assertThat(getMember(league).getCoinBalance()).isEqualTo(initialBalance); // reverted
+        verify(leagueRepository, times(2)).save(league);
+    }
+
+    @Test
+    void handle_draftSaveGenericRuntimeException_compensatesAndRethrowsOriginal() {
+        DraftEntity draft = draftWithPick(USERNAME, POKEMON, null);
+        LeagueEntity league = leagueWithMember(1000);
+        league.setSettings(LeagueSettings.builder().priceTierC(50).build());
+        ClosedListEntity entry = closedListEntry(POKEMON, Tier.C);
+
+        when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+        when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
+        when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(POKEMON, LEAGUE_ID))
+                .thenReturn(Optional.of(entry));
+        RuntimeException dbError = new RuntimeException("mongo unreachable");
+        doThrow(dbError).when(draftRepository).save(draft);
+
+        assertThatThrownBy(() -> handler.handle(new SetStealPriceCommand(LEAGUE_ID, USERNAME, POKEMON, 120)))
+                .isSameAs(dbError);
+
+        assertThat(getMember(league).getCoinBalance()).isEqualTo(1000);
     }
 
     @Test

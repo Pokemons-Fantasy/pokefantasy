@@ -21,6 +21,7 @@ import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import com.villu.pokefantasy.repository.entity.LeagueMember;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity;
 import com.villu.pokefantasy.repository.entity.UserEntity;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -165,7 +166,16 @@ public class BuyFromBenchCommandHandler implements CommandHandler<BuyFromBenchCo
                 null
         );
         draft.getPicks().add(newPick);
-        draftRepository.save(draft);
+
+        try {
+            draftRepository.save(draft);
+        } catch (OptimisticLockingFailureException exception) {
+            compensateBuy(league, buyerMember, price, buyer, newPokemon, leagueId);
+            throw new IllegalStateException("Otro jugador modificó el draft al mismo tiempo. Inténtalo de nuevo.", exception);
+        } catch (RuntimeException exception) {
+            compensateBuy(league, buyerMember, price, buyer, newPokemon, leagueId);
+            throw exception;
+        }
 
         // Log activity event
         activityEventRepository.save(ActivityEventEntity.builder()
@@ -178,6 +188,21 @@ public class BuyFromBenchCommandHandler implements CommandHandler<BuyFromBenchCo
                 .build());
 
         return null;
+    }
+
+    /**
+     * Revierte monedas y pokémon si draftRepository.save(draft) falla — evita dejar
+     * user.pokemons/coinBalance mutados sin el DraftPick correspondiente actualizado.
+     */
+    private void compensateBuy(LeagueEntity league, LeagueMember buyerMember, int price,
+                               UserEntity buyer, Pokemons newPokemon, String leagueId) {
+        buyerMember.setCoinBalance(buyerMember.getCoinBalance() + price);
+        leagueRepository.save(league);
+
+        List<Pokemons> pokemons = new ArrayList<>(buyer.getPokemons());
+        pokemons.removeIf(p -> leagueId.equals(p.getLeagueId()) && newPokemon.getName().equalsIgnoreCase(p.getName()));
+        buyer.setPokemons(pokemons);
+        userRepository.updateUserWithPokemons(buyer);
     }
 
     private LeagueMember getMember(LeagueEntity league, String username) {

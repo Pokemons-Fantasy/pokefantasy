@@ -30,6 +30,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.OptimisticLockingFailureException;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -533,6 +534,72 @@ class SwapWithBenchCommandHandlerTest {
         assertThat(saved.getPokemonName()).isEqualTo(GIVE);
         assertThat(saved.getPokemonName2()).isEqualTo(TAKE);
         assertThat(saved.getCreatedAt()).isNotNull();
+    }
+
+    // ── Concurrencia: draft.save falla → compensar monedas y pokémon ──────────
+
+    @Test
+    void handle_draftSaveOptimisticLockFailure_compensatesCoinsAndPokemon() {
+        // S → D: net=+500 (refund) — cubre la rama net!=0 de la compensación
+        DraftEntity draft = completedDraftWithPick(USERNAME, GIVE, 6);
+        LeagueEntity league = leagueWithMembers(new LeagueMember(USERNAME, LeagueRole.USER, 100));
+        league.setSettings(LeagueSettings.builder().priceTierS(500).priceTierD(0).build());
+        UserEntity user = userWithPokemon(GIVE);
+        ClosedListEntity giveEntry = closedListEntry(GIVE, 6);
+        giveEntry.setTier(Tier.S);
+        ClosedListEntity takeEntry = closedListEntry(TAKE, 25);
+        takeEntry.setTier(Tier.D);
+
+        when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+        when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
+        when(userRepository.findByUsername(USERNAME)).thenReturn(user);
+        when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TAKE, LEAGUE_ID))
+                .thenReturn(Optional.of(takeEntry));
+        when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(GIVE, LEAGUE_ID))
+                .thenReturn(Optional.of(giveEntry));
+        doThrow(new OptimisticLockingFailureException("stale draft")).when(draftRepository).save(draft);
+
+        assertThatThrownBy(() -> handler.handle(new SwapWithBenchCommand(LEAGUE_ID, USERNAME, GIVE, TAKE)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("mismo tiempo");
+
+        LeagueMember member = league.getMembers().stream()
+                .filter(m -> USERNAME.equals(m.getUsername())).findFirst().orElseThrow();
+        assertThat(member.getCoinBalance()).isEqualTo(100); // reverted
+        assertThat(user.getPokemons()).anyMatch(p -> GIVE.equals(p.getName()));
+        assertThat(user.getPokemons()).noneMatch(p -> TAKE.equals(p.getName()));
+        verify(leagueRepository, times(2)).save(league);
+        verify(userRepository, times(2)).updateUserWithPokemons(any());
+    }
+
+    @Test
+    void handle_draftSaveGenericRuntimeException_compensatesPokemon_netZero() {
+        // A → A: net=0 — cubre la rama net==0 de la compensación (no debe tocar leagueRepository)
+        DraftEntity draft = completedDraftWithPick(USERNAME, GIVE, 6);
+        LeagueEntity league = leagueWithMembers(new LeagueMember(USERNAME, LeagueRole.USER, 100));
+        league.setSettings(settingsWithTierAPrice(200));
+        UserEntity user = userWithPokemon(GIVE);
+        ClosedListEntity giveEntry = closedListEntry(GIVE, 6);
+        giveEntry.setTier(Tier.A);
+        ClosedListEntity takeEntry = closedListEntry(TAKE, 25);
+        takeEntry.setTier(Tier.A);
+
+        when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+        when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
+        when(userRepository.findByUsername(USERNAME)).thenReturn(user);
+        when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TAKE, LEAGUE_ID))
+                .thenReturn(Optional.of(takeEntry));
+        when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(GIVE, LEAGUE_ID))
+                .thenReturn(Optional.of(giveEntry));
+        RuntimeException dbError = new RuntimeException("mongo unreachable");
+        doThrow(dbError).when(draftRepository).save(draft);
+
+        assertThatThrownBy(() -> handler.handle(new SwapWithBenchCommand(LEAGUE_ID, USERNAME, GIVE, TAKE)))
+                .isSameAs(dbError);
+
+        assertThat(user.getPokemons()).anyMatch(p -> GIVE.equals(p.getName()));
+        assertThat(user.getPokemons()).noneMatch(p -> TAKE.equals(p.getName()));
+        verify(leagueRepository, never()).save(any()); // net==0 → never touched
     }
 
     @Test

@@ -22,6 +22,7 @@ import com.villu.pokefantasy.repository.entity.LeagueMember;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity;
 import com.villu.pokefantasy.repository.entity.TradeEntity;
 import com.villu.pokefantasy.repository.entity.UserEntity;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -122,9 +123,9 @@ public class RespondToTradeCommandHandler implements CommandHandler<RespondToTra
         leagueRepository.save(league);
 
         // 2. user.getPokemons() de ambos
-        movePokemon(trade.getProposer(), trade.getProposerPokemonName(),
+        Pokemons removedFromProposer = movePokemon(trade.getProposer(), trade.getProposerPokemonName(),
                 trade.getResponderPokemonName(), trade.getResponderPokemonId(), leagueId);
-        movePokemon(trade.getResponder(), trade.getResponderPokemonName(),
+        Pokemons removedFromResponder = movePokemon(trade.getResponder(), trade.getResponderPokemonName(),
                 trade.getProposerPokemonName(), trade.getProposerPokemonId(), leagueId);
 
         // 3. DraftPicks: intercambio de username + bloqueo
@@ -136,7 +137,18 @@ public class RespondToTradeCommandHandler implements CommandHandler<RespondToTra
         responderPick.setUsername(trade.getProposer());
         responderPick.setLockedUntil(lockUntil);
         responderPick.setPickedAt(now);
-        draftRepository.save(draft);
+
+        try {
+            draftRepository.save(draft);
+        } catch (OptimisticLockingFailureException exception) {
+            compensateTrade(league, proposerMember, responderMember, trade,
+                    removedFromProposer, removedFromResponder, leagueId);
+            throw new IllegalStateException("Otro jugador modificó el draft al mismo tiempo. Inténtalo de nuevo.", exception);
+        } catch (RuntimeException exception) {
+            compensateTrade(league, proposerMember, responderMember, trade,
+                    removedFromProposer, removedFromResponder, leagueId);
+            throw exception;
+        }
 
         // 4. Trade aceptado
         trade.setStatus(TradeStatus.ACCEPTED);
@@ -175,14 +187,19 @@ public class RespondToTradeCommandHandler implements CommandHandler<RespondToTra
                 });
     }
 
-    private void movePokemon(String username, String giveName,
-                             String takeName, int takeId, String leagueId) {
+    /** @return el Pokemons entregado (removido), o null si el usuario no existe / no lo tenía. */
+    private Pokemons movePokemon(String username, String giveName,
+                                 String takeName, int takeId, String leagueId) {
         UserEntity user = userRepository.findByUsername(username);
-        if (user == null) return;
+        if (user == null) return null;
         List<Pokemons> pokemons = user.getPokemons() != null
                 ? new ArrayList<>(user.getPokemons()) : new ArrayList<>();
-        pokemons.removeIf(p -> leagueId.equals(p.getLeagueId())
-                && giveName.equalsIgnoreCase(p.getName()));
+        Pokemons removed = pokemons.stream()
+                .filter(p -> leagueId.equals(p.getLeagueId()) && giveName.equalsIgnoreCase(p.getName()))
+                .findFirst().orElse(null);
+        if (removed != null) {
+            pokemons.remove(removed);
+        }
         Pokemons received = new Pokemons();
         received.setId(takeId);
         received.setName(takeName);
@@ -193,6 +210,34 @@ public class RespondToTradeCommandHandler implements CommandHandler<RespondToTra
                     received.setTypes(entry.getTypes());
                 });
         pokemons.add(received);
+        user.setPokemons(pokemons);
+        userRepository.updateUserWithPokemons(user);
+        return removed;
+    }
+
+    /**
+     * Revierte monedas y pokémon de ambos jugadores si draftRepository.save(draft) falla —
+     * evita dejar user.pokemons/coinBalance mutados sin el DraftPick correspondiente actualizado.
+     */
+    private void compensateTrade(LeagueEntity league, LeagueMember proposerMember, LeagueMember responderMember,
+                                 TradeEntity trade, Pokemons removedFromProposer, Pokemons removedFromResponder,
+                                 String leagueId) {
+        proposerMember.setCoinBalance(proposerMember.getCoinBalance() + trade.getCoinsOffered());
+        responderMember.setCoinBalance(responderMember.getCoinBalance() - trade.getCoinsOffered());
+        leagueRepository.save(league);
+
+        revertPokemon(trade.getProposer(), trade.getResponderPokemonName(), removedFromProposer, leagueId);
+        revertPokemon(trade.getResponder(), trade.getProposerPokemonName(), removedFromResponder, leagueId);
+    }
+
+    private void revertPokemon(String username, String receivedName, Pokemons removed, String leagueId) {
+        UserEntity user = userRepository.findByUsername(username);
+        if (user == null) return;
+        List<Pokemons> pokemons = new ArrayList<>(user.getPokemons());
+        pokemons.removeIf(p -> leagueId.equals(p.getLeagueId()) && receivedName.equalsIgnoreCase(p.getName()));
+        if (removed != null) {
+            pokemons.add(removed);
+        }
         user.setPokemons(pokemons);
         userRepository.updateUserWithPokemons(user);
     }
