@@ -101,18 +101,21 @@
                     </execution>
                 </executions>
             </plugin>
-            <!-- Infra module has only a handful of unit tests today (loader only).
-                 Skip the coverage gate here until we round out the suite — the
-                 gate still applies to `application` (the business-logic module). -->
+            <!-- Excluidos del gate de cobertura: *RepositoryImpl son wrappers finos sobre
+                 MongoTemplate (Query/Update/Criteria) sin lógica de negocio propia, y las
+                 clases @Configuration solo declaran beans. La cobertura real se exige sobre
+                 security/, push/, adapters/ y loader/, donde sí vive lógica de negocio. -->
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>check</id>
-                        <phase>none</phase>
-                    </execution>
-                </executions>
+                <configuration>
+                    <excludes>
+                        <exclude>**/repository/*RepositoryImpl.class</exclude>
+                        <exclude>**/repository/ActivityEventMongoRepository.class</exclude>
+                        <exclude>**/redis/RedisConfig.class</exclude>
+                        <exclude>**/security/SecurityConfig.class</exclude>
+                    </excludes>
+                </configuration>
             </plugin>
         </plugins>
     </build>
