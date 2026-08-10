@@ -4,6 +4,8 @@ import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueRole;
 import com.villu.pokefantasy.dto.LeagueSettings;
 import com.villu.pokefantasy.dto.Tier;
+import com.villu.pokefantasy.league.LeagueMemberService;
+import com.villu.pokefantasy.league.TierPricingService;
 import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
@@ -44,7 +46,8 @@ class SetStealPriceCommandHandlerTest {
 
     @BeforeEach
     void setUp() {
-        handler = new SetStealPriceCommandHandler(draftRepository, closedListRepository, leagueRepository);
+        handler = new SetStealPriceCommandHandler(draftRepository, closedListRepository, leagueRepository,
+                new LeagueMemberService(), new TierPricingService());
     }
 
     // ── Happy path ────────────────────────────────────────────────────────────

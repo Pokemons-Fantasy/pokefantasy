@@ -1,8 +1,8 @@
 package com.villu.pokefantasy.commands.bench;
 
 import com.villu.pokefantasy.dto.LeagueSettings;
-import com.villu.pokefantasy.dto.Tier;
 import com.villu.pokefantasy.league.LeagueMembershipGuard;
+import com.villu.pokefantasy.league.TierPricingService;
 import com.villu.pokefantasy.mediator.CommandHandler;
 import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
@@ -22,15 +22,18 @@ public class GetBenchCommandHandler implements CommandHandler<GetBenchCommand, L
     private final LeagueRepository leagueRepository;
     private final UserRepository userRepository;
     private final LeagueMembershipGuard leagueMembershipGuard;
+    private final TierPricingService tierPricingService;
 
     public GetBenchCommandHandler(ClosedListRepository closedListRepository,
                                   LeagueRepository leagueRepository,
                                   UserRepository userRepository,
-                                  LeagueMembershipGuard leagueMembershipGuard) {
+                                  LeagueMembershipGuard leagueMembershipGuard,
+                                  TierPricingService tierPricingService) {
         this.closedListRepository = closedListRepository;
         this.leagueRepository = leagueRepository;
         this.userRepository = userRepository;
         this.leagueMembershipGuard = leagueMembershipGuard;
+        this.tierPricingService = tierPricingService;
     }
 
     @Override
@@ -54,7 +57,7 @@ public class GetBenchCommandHandler implements CommandHandler<GetBenchCommand, L
         return closedListRepository.findAllByLeagueId(leagueId).stream()
                 .filter(entry -> !ownedPokemonNames.contains(entry.getPokemonName().toLowerCase()))
                 .map(entry -> {
-                    int price = priceForTier(settings, entry.getTier());
+                    int price = tierPricingService.priceForTier(settings, entry.getTier());
                     return BenchEntryResponse.builder()
                             .pokemonId(entry.getPokemonId())
                             .pokemonName(entry.getPokemonName())
@@ -64,18 +67,6 @@ public class GetBenchCommandHandler implements CommandHandler<GetBenchCommand, L
                             .build();
                 })
                 .toList();
-    }
-
-    private int priceForTier(LeagueSettings settings, Tier tier) {
-        if (settings == null || tier == null) return 0;
-        Integer price = switch (tier) {
-            case S -> settings.getPriceTierS();
-            case A -> settings.getPriceTierA();
-            case B -> settings.getPriceTierB();
-            case C -> settings.getPriceTierC();
-            case D -> settings.getPriceTierD();
-        };
-        return price != null ? price : 0;
     }
 
     @Override

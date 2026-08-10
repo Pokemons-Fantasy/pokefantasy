@@ -8,6 +8,9 @@ import com.villu.pokefantasy.dto.LeagueSettings;
 import com.villu.pokefantasy.dto.MatchStatus;
 import com.villu.pokefantasy.dto.Pokemons;
 import com.villu.pokefantasy.dto.Tier;
+import com.villu.pokefantasy.exception.ForbiddenOperationException;
+import com.villu.pokefantasy.league.LeagueMemberService;
+import com.villu.pokefantasy.league.TierPricingService;
 import com.villu.pokefantasy.repository.ActivityEventRepository;
 import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
@@ -63,7 +66,8 @@ class SwapWithBenchCommandHandlerTest {
     void setUp() {
         handler = new SwapWithBenchCommandHandler(
                 draftRepository, closedListRepository, leagueRepository, userRepository,
-                scheduleRepository, jornadaWindowService, activityEventRepository);
+                scheduleRepository, jornadaWindowService, activityEventRepository,
+                new LeagueMemberService(), new TierPricingService());
         // Default: schedule present con la ventana de swap abierta → la comprobación de
         // tiempo pasa y cada test se centra en sus validaciones de negocio.
         lenient().when(scheduleRepository.findByLeagueId(LEAGUE_ID))
@@ -103,14 +107,14 @@ class SwapWithBenchCommandHandlerTest {
     }
 
     @Test
-    void handle_userNotMember_throwsIllegalState() {
+    void handle_userNotMember_throwsForbiddenOperation() {
         DraftEntity draft = draftWithStatus(DraftStatus.COMPLETED);
         LeagueEntity league = leagueWithMembers(new LeagueMember("brock", LeagueRole.USER, 0));
         when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
         when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
 
         assertThatThrownBy(() -> handler.handle(new SwapWithBenchCommand(LEAGUE_ID, USERNAME, GIVE, TAKE)))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(ForbiddenOperationException.class)
                 .hasMessageContaining("not a member");
     }
 
