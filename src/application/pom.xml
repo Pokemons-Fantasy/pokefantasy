@@ -76,8 +76,6 @@
                 <configuration>
                     <excludes>
                         <exclude>**/mapper/*MapperImpl.class</exclude>
-                        <exclude>**/GetPokemonCommandResponse.class</exclude>
-                        <exclude>**/GetSavedPokemonsCommandResponse.class</exclude>
                     </excludes>
                 </configuration>
             </plugin>
