@@ -10,6 +10,7 @@ spring:
         enabled: ${REDIS_SSL:false}
   mongodb:
     uri: ${MONGODB_URI:mongodb://root:password@localhost:27017/pokefantasy?authSource=admin}
+    auto-index-creation: true
 server:
   port: ${PORT:8080}
 management:
