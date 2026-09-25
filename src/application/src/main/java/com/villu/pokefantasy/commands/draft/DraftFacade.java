@@ -39,4 +39,14 @@ public class DraftFacade {
     public void requireDraftWatcher(String leagueId, String requestingUsername) throws Exception {
         mediator.send(new WatchDraftCommand(leagueId, requestingUsername));
     }
+
+    /** Ligas cuyo turno de draft ha vencido (para el job del servidor). */
+    public List<String> expiredTurnLeagueIds() throws Exception {
+        return mediator.send(new ListExpiredDraftTurnsCommand());
+    }
+
+    /** Auto-pick del turno vencido sin usuario que lo pida (job del servidor). */
+    public void expireTurn(String leagueId) throws Exception {
+        mediator.send(new ExpireDraftTurnCommand(leagueId));
+    }
 }

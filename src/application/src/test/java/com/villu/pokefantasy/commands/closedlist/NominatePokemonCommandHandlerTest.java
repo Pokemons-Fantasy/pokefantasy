@@ -113,6 +113,19 @@ class NominatePokemonCommandHandlerTest {
     }
 
     @Test
+    void handle_pokemonCacheNotLoadedYet_conflictInsteadOfNotFound() {
+        when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.empty());
+        when(closedListRepository.existsByPokemonNameAndLeagueId("pikachu", "l1")).thenReturn(false);
+        when(closedListRepository.countByNominatedByAndLeagueId("ash", "l1")).thenReturn(0L);
+        when(cachePort.getPokemon("pokemons")).thenReturn(List.of());
+
+        assertThatThrownBy(() -> handler.handle(new NominatePokemonCommand("ash", "pikachu", "l1")))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("cargando");
+        verify(closedListRepository, never()).save(any());
+    }
+
+    @Test
     void handle_validNomination_savesEntry() throws Exception {
         when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.empty());
         when(closedListRepository.existsByPokemonNameAndLeagueId("pikachu", "l1")).thenReturn(false);

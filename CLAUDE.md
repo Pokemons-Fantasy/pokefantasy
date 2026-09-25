@@ -73,7 +73,7 @@ cd src && docker-compose up -d   # MongoDB :27017, Redis :6379
 
 Required env var: `JWT_SECRET` (Base64-encoded 256-bit key). Optional: `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD`, `REDIS_SSL`, `MONGODB_URI`.
 
-On startup, `PokemonCacheLoader` (`@PostConstruct`) fetches all ~1300 Pokémon from PokeAPI into Redis — **app fails to start if PokeAPI is unreachable**.
+`PokemonCacheLoader` carga los ~1300 Pokémon de PokeAPI en Redis **en segundo plano** (`@Scheduled`: al arrancar y cada minuto; si la clave `all_pokemons` ya existe no hace nada). Si PokeAPI no responde la app arranca igual y lo reintenta cada minuto; también se recupera sola si Redis se vacía. Mientras la caché esté vacía, nominar devuelve 409 ("aún se está cargando"). Los jobs `@Scheduled` comparten un pool de 3 hilos (`spring.task.scheduling.pool.size`).
 
 ## Architecture
 
@@ -175,7 +175,7 @@ POST   /v1/leagues/{id}/draft/start                start draft
 POST   /v1/leagues/{id}/draft/pick                 make pick
 GET    /v1/leagues/{id}/draft                      draft status
 DELETE /v1/leagues/{id}/draft                      cancel draft
-POST   /v1/leagues/{id}/draft/auto-pick             auto-pick random pokemon when turn timer expires
+POST   /v1/leagues/{id}/draft/auto-pick             auto-pick random pokemon when turn timer expires (el cliente lo lanza al llegar a 0; además `DraftTurnTimeoutJob` lo hace en servidor cada 15 s por si nadie tiene la app abierta)
 GET    /v1/leagues/{id}/bench                      bench (unchosen pokemons)
 POST   /v1/leagues/{id}/bench/swap                 bench swap (tier parity + net coin change)
 POST   /v1/leagues/{id}/bench/buy                  buy bench pokémon with coins (round=0 sentinel)

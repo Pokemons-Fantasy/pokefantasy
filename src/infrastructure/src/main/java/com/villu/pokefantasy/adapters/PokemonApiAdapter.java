@@ -61,8 +61,8 @@ public class PokemonApiAdapter implements PokemonApiPort {
 
     /**
      * Reintenta hasta MAX_ATTEMPTS veces con espera fija entre intentos. Si todos fallan,
-     * relanza la última excepción — el arranque sigue abortando si PokeAPI no responde,
-     * pero ahora con timeout acotado en vez de colgarse indefinidamente.
+     * relanza la última excepción (con timeout acotado en vez de colgarse indefinidamente);
+     * {@code PokemonCacheLoader} la absorbe y vuelve a intentarlo más tarde.
      */
     private <T> T fetchWithRetry(Supplier<T> call, String context) {
         RestClientException lastError = null;

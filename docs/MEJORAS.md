@@ -20,8 +20,8 @@ Lista surgida de la revisión del backend (septiembre 2026). Se tacha cada punto
 
 ## 🟡 Robustez e infraestructura
 
-11. **Arranque dependiente de PokeAPI.** `PokemonCacheLoader` tumba el arranque si PokeAPI falla y Redis está vacío. Reintentos con backoff o carga en segundo plano.
-12. **Auto-pick dependiente del cliente.** Si nadie tiene la app abierta, el draft se atasca. Añadir un `@Scheduled` en servidor que procese los turnos vencidos.
+11. ~~**Arranque dependiente de PokeAPI.** `PokemonCacheLoader` tumba el arranque si PokeAPI falla y Redis está vacío. Reintentos con backoff o carga en segundo plano.~~ ✅ PR #108 (carga en segundo plano y reintento cada minuto; se recupera también si Redis se vacía).
+12. ~~**Auto-pick dependiente del cliente.** Si nadie tiene la app abierta, el draft se atasca. Añadir un `@Scheduled` en servidor que procese los turnos vencidos.~~ ✅ PR #108 (`DraftTurnTimeoutJob` cada 15 s).
 13. **Dockerfile.** Se ejecuta como root, no limita la memoria de la JVM (`-XX:MaxRAMPercentage=75`, clave con 512 MB), no cachea la capa de dependencias y usa `mvn` en vez de `./mvnw`.
 14. **CI.** `workflow.yml` se lanza con push a `main`/`master`, pero la rama base es `develop`.
 15. **Versiones mezcladas.** El `pom.xml` fija `spring-boot-starter-web` a `4.1.0` con parent `4.0.2`.
