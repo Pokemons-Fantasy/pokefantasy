@@ -52,7 +52,7 @@ Shell: PowerShell on Windows. Git Bash also available via Bash tool (use paths l
 Use the Maven wrapper `./mvnw` from the **repo root** (`C:\PokeFantasy\pokefantasy`) with `-f src/pom.xml` (el `pom.xml` padre está en `src/`; el wrapper fija Maven 3.9.12). Maven is not on PATH. La CI (`.github/workflows/workflow.yml`, en cada PR y push a `develop`) ejecuta exactamente el primer comando y además construye la imagen Docker:
 
 ```bash
-# Build + tests + coverage gate (80% instruction & branch, JaCoCo; api-rest solo informe)
+# Build + tests (unit, controllers, integration with Testcontainers if Docker is available) + coverage gate (80% JaCoCo)
 ./mvnw -B -ntp -f src/pom.xml clean verify
 
 # Build without tests
