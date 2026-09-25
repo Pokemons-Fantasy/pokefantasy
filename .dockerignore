@@ -1,3 +1,7 @@
 src/**/target/
 .git/
+.github/
+.claude/
+docs/
+scripts/
 *.md

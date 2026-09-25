@@ -27,13 +27,10 @@
 		<sonar.coverage.jacoco.xmlReportPaths>${project.basedir}/target/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
 	</properties>
 	<dependencyManagement>
+		<!-- Las versiones de Spring Boot (starters, autoconfigure, plugin) las gestiona solo el parent
+		     spring-boot-starter-parent: para actualizar Spring Boot basta con cambiar su versión arriba.
+		     No fijes aquí versiones de artefactos org.springframework.boot. -->
 		<dependencies>
-			<dependency>
-				<groupId>org.springframework.boot</groupId>
-				<artifactId>spring-boot-starter-web</artifactId>
-				<version>4.1.0</version>
-				<scope>compile</scope>
-			</dependency>
 			<dependency>
 				<groupId>org.projectlombok</groupId>
 				<artifactId>lombok</artifactId>
@@ -59,13 +56,6 @@
 				<artifactId>infrastructure</artifactId>
 				<version>1.1.0</version>
 			</dependency>
-			<!-- Source: https://mvnrepository.com/artifact/org.springframework.boot/spring-boot-starter-data-redis -->
-			<dependency>
-				<groupId>org.springframework.boot</groupId>
-				<artifactId>spring-boot-starter-data-redis</artifactId>
-				<version>4.0.2</version>
-				<scope>compile</scope>
-			</dependency>
 			<dependency>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-devtools</artifactId>
@@ -78,27 +68,9 @@
 				<scope>compile</scope>
 			</dependency>
 			<dependency>
-				<groupId>org.springframework.boot</groupId>
-				<artifactId>spring-boot-autoconfigure</artifactId>
-				<version>4.0.2</version>
-				<scope>compile</scope>
-			</dependency>
-			<!-- Source: https://mvnrepository.com/artifact/org.springframework.boot/spring-boot-starter-logging -->
-			<dependency>
-				<groupId>org.springframework.boot</groupId>
-				<artifactId>spring-boot-starter-logging</artifactId>
-				<version>4.0.2</version>
-				<scope>compile</scope>
-			</dependency>
-			<dependency>
 				<groupId>org.mapstruct</groupId>
 				<artifactId>mapstruct</artifactId>
 				<version>1.6.3</version>
-			</dependency>
-			<dependency>
-				<groupId>org.springframework.boot</groupId>
-				<artifactId>spring-boot-starter-security</artifactId>
-				<version>4.1.0</version>
 			</dependency>
 			<dependency>
 				<groupId>io.jsonwebtoken</groupId>

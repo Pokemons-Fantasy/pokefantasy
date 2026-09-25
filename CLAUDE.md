@@ -49,21 +49,25 @@ Shell: PowerShell on Windows. Git Bash also available via Bash tool (use paths l
 
 ## Build commands
 
-Use the Maven wrapper `./mvnw` from the **repo root** (`C:\PokeFantasy\pokefantasy`). Maven is not on PATH:
+Use the Maven wrapper `./mvnw` from the **repo root** (`C:\PokeFantasy\pokefantasy`) with `-f src/pom.xml` (el `pom.xml` padre está en `src/`; el wrapper fija Maven 3.9.12). Maven is not on PATH. La CI (`.github/workflows/workflow.yml`, en cada PR y push a `develop`) ejecuta exactamente el primer comando y además construye la imagen Docker:
 
 ```bash
-# Build + tests + coverage gate (80% instruction & branch, JaCoCo)
-./mvnw -B -ntp clean verify
+# Build + tests + coverage gate (80% instruction & branch, JaCoCo; api-rest solo informe)
+./mvnw -B -ntp -f src/pom.xml clean verify
 
-# Build without tests (used by Docker)
-./mvnw -B -ntp clean package -DskipTests
+# Build without tests
+./mvnw -B -ntp -f src/pom.xml clean package -DskipTests
 
 # Application module tests only (fast, no infra/Redis/MongoDB needed)
-./mvnw -B -ntp test -pl application -am       # -am builds domain dependency first
+./mvnw -B -ntp -f src/pom.xml test -pl application -am       # -am builds domain dependency first
 
 # Single test class
-./mvnw -B -ntp test -pl application -am -Dtest=MyTestClass
+./mvnw -B -ntp -f src/pom.xml test -pl application -am -Dtest=MyTestClass
 ```
+
+**Versiones**: Spring Boot se versiona **solo** con el parent `spring-boot-starter-parent` de `src/pom.xml`; no fijes versiones de artefactos `org.springframework.boot` en los POM.
+
+**Docker** (`Dockerfile` en la raíz, lo usa Render): build multi-stage con `./mvnw`; la capa de dependencias (`dependency:go-offline`) solo se rehace si cambia algún `pom.xml`. La imagen final corre como usuario `app` (no root) con `-XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError` (heap ≈ 384 MB en los 512 MB de Render; ~240 MB en uso tras arrancar).
 
 Start infrastructure before running locally:
 
@@ -163,7 +167,7 @@ CORS is restricted to `https://*.netlify.app` and `localhost` — no wildcard or
 ```
 POST   /v1/user                                    register
 POST   /v1/user/login                              login
-GET    /v1/leagues                                 my leagues
+GET    /v1/leagues/my                              my leagues
 POST   /v1/leagues                                 create league
 GET    /v1/leagues/{id}                            league detail
 POST   /v1/leagues/{id}/members                    add member

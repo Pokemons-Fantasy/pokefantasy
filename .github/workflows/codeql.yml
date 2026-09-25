@@ -34,8 +34,7 @@ jobs:
           build-mode: manual
 
       - name: Build
-        working-directory: ./src/
-        run: mvn -B -ntp clean compile -DskipTests
+        run: ./mvnw -B -ntp -f src/pom.xml clean compile -DskipTests
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
