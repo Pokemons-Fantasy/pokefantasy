@@ -1,8 +1,10 @@
 package com.villu.pokefantasy.mediator;
 
+import com.villu.pokefantasy.ports.CommandMetricsPort;
 import com.villu.pokefantasy.ports.TransactionPort;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -13,8 +15,10 @@ public class SpringMediator implements Mediator {
 
     private final Map<Class<?>, CommandHandler<?, ?>> handlers;
     private final TransactionPort transactionPort;
+    private final CommandMetricsPort commandMetricsPort;
 
-    public SpringMediator(List<CommandHandler<?, ?>> handlers, TransactionPort transactionPort) {
+    public SpringMediator(List<CommandHandler<?, ?>> handlers, TransactionPort transactionPort,
+                          CommandMetricsPort commandMetricsPort) {
         this.handlers = handlers.stream()
                 .collect(Collectors.toUnmodifiableMap(
                         CommandHandler::commandType,
@@ -24,6 +28,7 @@ public class SpringMediator implements Mediator {
                         }
                 ));
         this.transactionPort = transactionPort;
+        this.commandMetricsPort = commandMetricsPort;
     }
 
     @SuppressWarnings("unchecked")
@@ -36,7 +41,17 @@ public class SpringMediator implements Mediator {
         if (handler == null) {
             throw new IllegalStateException("No handler registered for command type: " + command.getClass().getName());
         }
-        // Cada comando es una unidad atómica: si falla cualquier escritura, no se persiste ninguna.
-        return transactionPort.execute(() -> handler.handle(command));
+        long start = System.nanoTime();
+        Throwable failure = null;
+        try {
+            // Cada comando es una unidad atómica: si falla cualquier escritura, no se persiste ninguna.
+            return transactionPort.execute(() -> handler.handle(command));
+        } catch (Exception | Error e) {
+            failure = e;
+            throw e;
+        } finally {
+            commandMetricsPort.record(command.getClass().getSimpleName(),
+                    Duration.ofNanos(System.nanoTime() - start), failure);
+        }
     }
 }

@@ -55,6 +55,18 @@
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
 
+        <!-- Errores 500 a Sentry (solo si SENTRY_DSN está definido). -->
+        <dependency>
+            <groupId>io.sentry</groupId>
+            <artifactId>sentry-spring-boot-4-starter</artifactId>
+            <version>${sentry.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.sentry</groupId>
+            <artifactId>sentry-logback</artifactId>
+            <version>${sentry.version}</version>
+        </dependency>
+
         <!-- Tests de integración: la app completa contra Mongo (replica set) y Redis reales en Docker.
              Se saltan solos si no hay Docker (disabledWithoutDocker). -->
         <dependency>
@@ -80,6 +92,7 @@
     </dependencies>
 
     <properties>
+        <sentry.version>8.58.0</sentry.version>
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

@@ -1,0 +1,50 @@
+package com.villu.pokefantasy;
+
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.MDC;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+import java.io.IOException;
+import java.util.UUID;
+import java.util.regex.Pattern;
+
+/**
+ * Identificador de petición para seguir un error de punta a punta: se toma de {@code X-Request-Id} si
+ * viene (y es seguro) o se genera, va en el MDC ({@value #MDC_KEY}, sale en cada línea de log y en los
+ * logs JSON), se devuelve en la cabecera y en el {@code requestId} de los errores ProblemDetail. Un
+ * usuario puede pasar ese id y se encuentra su traza en los logs (o en Sentry).
+ *
+ * <p>Va antes que la seguridad para que también los 401/403 lleven id.
+ */
+@Component
+@Order(Ordered.HIGHEST_PRECEDENCE)
+public class RequestIdFilter extends OncePerRequestFilter {
+
+    public static final String HEADER = "X-Request-Id";
+    public static final String MDC_KEY = "requestId";
+    private static final Pattern SAFE_ID = Pattern.compile("[A-Za-z0-9._-]{1,64}");
+
+    @Override
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
+            throws ServletException, IOException {
+        String requestId = resolve(request.getHeader(HEADER));
+        MDC.put(MDC_KEY, requestId);
+        response.setHeader(HEADER, requestId);
+        try {
+            chain.doFilter(request, response);
+        } finally {
+            MDC.remove(MDC_KEY);
+        }
+    }
+
+    /** Solo se acepta un id entrante inofensivo: no puede inyectar líneas ni cosas raras en los logs. */
+    static String resolve(String incoming) {
+        return incoming != null && SAFE_ID.matcher(incoming).matches() ? incoming : UUID.randomUUID().toString();
+    }
+}

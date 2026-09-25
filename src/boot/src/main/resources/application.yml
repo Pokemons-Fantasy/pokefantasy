@@ -27,7 +27,8 @@ management:
   endpoints:
     web:
       exposure:
-        include: health
+        # metrics solo para usuarios con rol ADMIN (SecurityConfig). Métrica de negocio: pokefantasy.commands
+        include: health, metrics
   endpoint:
     health:
       show-details: when-authorized
@@ -43,3 +44,17 @@ jwt:
   # en Redis), que caduca tras estos días sin actividad.
   expiration-ms: 900000
   refresh-expiration-days: 30
+
+logging:
+  pattern:
+    # requestId (RequestIdFilter) en cada línea. Para logs JSON en producción:
+    # LOGGING_STRUCTURED_FORMAT_CONSOLE=ecs (incluye el requestId del MDC).
+    correlation: "[%X{requestId:-}] "
+
+# Errores 500 a Sentry si se define SENTRY_DSN (sin DSN, Sentry no hace nada).
+sentry:
+  dsn: ${SENTRY_DSN:}
+  send-default-pii: false
+  logging:
+    minimum-event-level: error
+    minimum-breadcrumb-level: info

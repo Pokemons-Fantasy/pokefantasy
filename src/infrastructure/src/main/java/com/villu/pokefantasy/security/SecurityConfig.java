@@ -46,6 +46,9 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                         .requestMatchers(publicPaths).permitAll()
+                        // Métricas: solo administradores de la app (rol global ADMIN, no de liga).
+                        .requestMatchers(request -> request.getServletPath().startsWith("/actuator/metrics"))
+                        .hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)

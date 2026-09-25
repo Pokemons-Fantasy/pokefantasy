@@ -24,6 +24,11 @@ class SpringMediatorTest {
         }
     };
 
+    record Recorded(String command, java.time.Duration duration, Throwable failure) {}
+    private final List<Recorded> metrics = new java.util.ArrayList<>();
+    private final com.villu.pokefantasy.ports.CommandMetricsPort metricsPort =
+            (command, duration, failure) -> metrics.add(new Recorded(command, duration, failure));
+
     private SpringMediator mediator;
 
     @BeforeEach
@@ -31,6 +36,7 @@ class SpringMediatorTest {
         CommandHandler<TestCommand, String> handler = new CommandHandler<>() {
             @Override
             public String handle(TestCommand command) {
+                if ("boom".equals(command.value())) throw new IllegalStateException("boom");
                 return "result-" + command.value();
             }
             @Override
@@ -38,7 +44,7 @@ class SpringMediatorTest {
                 return TestCommand.class;
             }
         };
-        mediator = new SpringMediator(List.of(handler), transactionPort);
+        mediator = new SpringMediator(List.of(handler), transactionPort, metricsPort);
     }
 
     @Test
@@ -84,8 +90,26 @@ class SpringMediatorTest {
             @Override public String handle(TestCommand cmd) { return "b"; }
             @Override public Class<TestCommand> commandType() { return TestCommand.class; }
         };
-        assertThatThrownBy(() -> new SpringMediator(List.of(h1, h2), transactionPort))
+        assertThatThrownBy(() -> new SpringMediator(List.of(h1, h2), transactionPort, metricsPort))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Duplicate handler");
+    }
+
+    @Test
+    void send_recordsCommandMetrics() throws Exception {
+        mediator.send(new TestCommand("hello"));
+        assertThatThrownBy(() -> mediator.send(new TestCommand("boom"))).isInstanceOf(IllegalStateException.class);
+
+        assertThat(metrics).hasSize(2);
+        assertThat(metrics.get(0).command()).isEqualTo("TestCommand");
+        assertThat(metrics.get(0).failure()).isNull();
+        assertThat(metrics.get(0).duration()).isPositive();
+        assertThat(metrics.get(1).failure()).isInstanceOf(IllegalStateException.class).hasMessage("boom");
+    }
+
+    @Test
+    void send_invalidCommand_recordsNoMetrics() {
+        assertThatThrownBy(() -> mediator.send(new UnknownCommand())).isInstanceOf(IllegalStateException.class);
+        assertThat(metrics).isEmpty();
     }
 }
