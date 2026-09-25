@@ -314,10 +314,10 @@ class BuyFromBenchCommandHandlerTest {
         assertThat(saved.getCreatedAt()).isNotNull();
     }
 
-    // ── Concurrencia: draft.save falla → compensar monedas y pokémon ──────────
+    // ── Concurrencia: draft.save falla → se propaga sin compensar ──────────
 
     @Test
-    void handle_draftSaveOptimisticLockFailure_compensatesCoinsAndPokemon() {
+    void handle_draftSaveConflict_propagatesWithoutCompensating() {
         LeagueEntity league = leagueWithBuyer(500);
         league.setSettings(LeagueSettings.builder().priceTierA(200).build());
         ClosedListEntity entry = benchEntry();
@@ -333,41 +333,12 @@ class BuyFromBenchCommandHandlerTest {
         doThrow(new OptimisticLockingFailureException("stale draft")).when(draftRepository).save(draft);
 
         assertThatThrownBy(() -> handler.handle(cmd()))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("mismo tiempo");
+                .isInstanceOf(OptimisticLockingFailureException.class);
 
-        LeagueMember member = league.getMembers().stream()
-                .filter(m -> USERNAME.equals(m.getUsername())).findFirst().orElseThrow();
-        assertThat(member.getCoinBalance()).isEqualTo(500); // reverted
-        assertThat(buyer.getPokemons()).noneMatch(p -> POKEMON.equals(p.getName()));
-        verify(leagueRepository, times(2)).save(league);
-        verify(userRepository, times(2)).updateUserWithPokemons(any());
-    }
-
-    @Test
-    void handle_draftSaveGenericRuntimeException_compensatesAndRethrowsOriginal() {
-        LeagueEntity league = leagueWithBuyer(500);
-        league.setSettings(LeagueSettings.builder().priceTierS(300).build());
-        ClosedListEntity entry = benchEntry();
-        entry.setTier(Tier.S);
-        DraftEntity draft = completedDraft();
-        UserEntity buyer = userWithPokemons(0);
-
-        when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
-        when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
-        when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(POKEMON, LEAGUE_ID))
-                .thenReturn(Optional.of(entry));
-        when(userRepository.findByUsername(USERNAME)).thenReturn(buyer);
-        RuntimeException dbError = new RuntimeException("mongo unreachable");
-        doThrow(dbError).when(draftRepository).save(draft);
-
-        assertThatThrownBy(() -> handler.handle(cmd()))
-                .isSameAs(dbError);
-
-        LeagueMember member = league.getMembers().stream()
-                .filter(m -> USERNAME.equals(m.getUsername())).findFirst().orElseThrow();
-        assertThat(member.getCoinBalance()).isEqualTo(500);
-        assertThat(buyer.getPokemons()).noneMatch(p -> POKEMON.equals(p.getName()));
+        // Sin compensaciones manuales: el conflicto se propaga intacto para que la transacción
+        // del mediator deshaga todas las escrituras y reintente el comando.
+        verify(leagueRepository, times(1)).save(any());
+        verify(userRepository, times(1)).updateUserWithPokemons(any());
     }
 
     @Test

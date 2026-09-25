@@ -102,6 +102,14 @@ Folder: `application/src/main/java/com/villu/pokefantasy/commands/{feature}/`
 
 `SpringMediator` auto-discovers all `CommandHandler` beans via constructor injection. Never call handlers directly.
 
+### Transacciones y concurrencia
+
+- `SpringMediator` ejecuta **cada comando dentro de una transacción MongoDB** (`TransactionPort` → `MongoTransactionAdapter`). Si algo falla, se deshacen todas las escrituras del comando: **no escribas compensaciones manuales**.
+- Ante conflictos (`OptimisticLockingFailureException` o `TransientTransactionError`) el comando completo se **reintenta hasta 3 veces** → los handlers deben releer de BD todo lo que validan (ya lo hacen) y no tener efectos externos antes del commit. Push FCM se difiere a `afterCommit` automáticamente.
+- `@Version` en `LeagueEntity`, `UserEntity`, `DraftEntity`, `ScheduleEntity`, `TradeEntity`, `ClosedListEntity`: un `save()` con datos desactualizados falla en vez de pisar cambios ajenos. Los updates atómicos (`$push`, `$addToSet`…) también incrementan `version`. `VersionFieldMigration` inicializa `version: 0` en documentos antiguos al arrancar.
+- Para rechazar una operación **persistiendo** una limpieza previa (p. ej. cancelar un trade obsoleto) lanza `StaleOperationException`: la transacción se confirma y luego se devuelve 409.
+- Requiere replica set (Atlas lo es). En local `docker-compose` levanta un replica set de un nodo. Contra un Mongo standalone los comandos corren sin transacción (WARN en el log al primer comando).
+
 ## Exception → HTTP mapping (`ApiExceptionHandler`)
 
 | Exception | HTTP |
@@ -109,6 +117,8 @@ Folder: `application/src/main/java/com/villu/pokefantasy/commands/{feature}/`
 | `IllegalArgumentException` | 400 |
 | `IllegalStateException` | 409 |
 | `ForbiddenOperationException` | 403 |
+| `OptimisticLockingFailureException` | 409 |
+| `StaleOperationException` (commits, then) | 409 |
 | `Exception` | 500 |
 
 ## Security

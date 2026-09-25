@@ -169,7 +169,7 @@ class DraftPickCommandHandlerTest {
     }
 
     @Test
-    void handle_optimisticLockFailure_rollsBackAndThrowsIllegalState() {
+    void handle_draftSaveConflict_propagatesWithoutCompensating() {
         DraftEntity draft = activeDraft(List.of(USERNAME), 0, 1, new ArrayList<>());
         UserEntity user = new UserEntity();
         user.setPokemons(new ArrayList<>());
@@ -183,11 +183,11 @@ class DraftPickCommandHandlerTest {
                 .when(draftRepository).save(any());
 
         assertThatThrownBy(() -> handler.handle(new DraftPickCommand(USERNAME, POKEMON, LEAGUE_ID)))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("try your pick again");
+                .isInstanceOf(OptimisticLockingFailureException.class);
 
-        // Pokemon should have been rolled back from user
-        verify(userRepository, times(2)).updateUserWithPokemons(user);
+        // Sin compensaciones manuales: el conflicto se propaga intacto para que la transacción
+        // del mediator deshaga todas las escrituras y reintente el comando.
+        verify(userRepository, times(1)).updateUserWithPokemons(any());
     }
 
     @Test

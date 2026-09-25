@@ -16,13 +16,11 @@ import com.villu.pokefantasy.repository.entity.DraftPick;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity;
 import com.villu.pokefantasy.repository.entity.UserEntity;
-import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 
 @Service
 public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand, Void> {
@@ -126,15 +124,7 @@ public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand,
 
         advanceTurn(draft, maxTeamSize);
         draft.setCurrentTurnStartedAt(Instant.now());
-        try {
-            draftRepository.save(draft);
-        } catch (OptimisticLockingFailureException exception) {
-            removeAddedPokemon(user, currentPokemons, pokemon, leagueId);
-            throw new IllegalStateException("Another player made a pick at the same time. Please try your pick again.", exception);
-        } catch (RuntimeException exception) {
-            removeAddedPokemon(user, currentPokemons, pokemon, leagueId);
-            throw exception;
-        }
+        draftRepository.save(draft);
 
         // When this pick completes the draft:
         // 1. Lazily initialize league settings with defaults.
@@ -165,13 +155,6 @@ public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand,
         if (league != null && league.getSettings() == null) {
             league.setSettings(LeagueSettings.defaults());
             leagueRepository.save(league);
-        }
-    }
-
-    private void removeAddedPokemon(UserEntity user, List<Pokemons> currentPokemons, Pokemons pokemon, String leagueId) {
-        if (currentPokemons.removeIf(p -> Objects.equals(p.getId(), pokemon.getId()) && leagueId.equals(p.getLeagueId()))) {
-            user.setPokemons(currentPokemons);
-            userRepository.updateUserWithPokemons(user);
         }
     }
 

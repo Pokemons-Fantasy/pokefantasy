@@ -199,10 +199,10 @@ class SetStealPriceCommandHandlerTest {
         assertThat(member.getCoinBalance()).isEqualTo(465); // 500 - 35
     }
 
-    // ── Concurrencia: draft.save falla → compensar inversión en monedas ───────
+    // ── Concurrencia: draft.save falla → se propaga sin compensar ───────
 
     @Test
-    void handle_draftSaveOptimisticLockFailure_compensatesInvestment() {
+    void handle_draftSaveConflict_propagatesWithoutCompensating() {
         int currentTierPrice = 300;
         int newPrice = 500;
         int initialBalance = 1000;
@@ -219,31 +219,11 @@ class SetStealPriceCommandHandlerTest {
         doThrow(new OptimisticLockingFailureException("stale draft")).when(draftRepository).save(draft);
 
         assertThatThrownBy(() -> handler.handle(new SetStealPriceCommand(LEAGUE_ID, USERNAME, POKEMON, newPrice)))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("mismo tiempo");
+                .isInstanceOf(OptimisticLockingFailureException.class);
 
-        assertThat(getMember(league).getCoinBalance()).isEqualTo(initialBalance); // reverted
-        verify(leagueRepository, times(2)).save(league);
-    }
-
-    @Test
-    void handle_draftSaveGenericRuntimeException_compensatesAndRethrowsOriginal() {
-        DraftEntity draft = draftWithPick(USERNAME, POKEMON, null);
-        LeagueEntity league = leagueWithMember(1000);
-        league.setSettings(LeagueSettings.builder().priceTierC(50).build());
-        ClosedListEntity entry = closedListEntry(POKEMON, Tier.C);
-
-        when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
-        when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
-        when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(POKEMON, LEAGUE_ID))
-                .thenReturn(Optional.of(entry));
-        RuntimeException dbError = new RuntimeException("mongo unreachable");
-        doThrow(dbError).when(draftRepository).save(draft);
-
-        assertThatThrownBy(() -> handler.handle(new SetStealPriceCommand(LEAGUE_ID, USERNAME, POKEMON, 120)))
-                .isSameAs(dbError);
-
-        assertThat(getMember(league).getCoinBalance()).isEqualTo(1000);
+        // Sin compensaciones manuales: el conflicto se propaga intacto para que la transacción
+        // del mediator deshaga todas las escrituras y reintente el comando.
+        verify(leagueRepository, times(1)).save(any());
     }
 
     @Test
