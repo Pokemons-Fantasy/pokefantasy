@@ -124,4 +124,30 @@ class ApiExceptionHandlerTest {
                 .andExpect(status().isUnsupportedMediaType())
                 .andExpect(jsonPath("$.code").value("UNSUPPORTED_MEDIA_TYPE"));
     }
+
+    @Test
+    void springErrorWithNonStandardStatus_getsGenericCode() {
+        ApiExceptionHandler handler = new ApiExceptionHandler();
+        org.springframework.http.ProblemDetail body = org.springframework.http.ProblemDetail.forStatus(499);
+
+        var response = handler.handleExceptionInternal(new RuntimeException("x"), body,
+                new org.springframework.http.HttpHeaders(), org.springframework.http.HttpStatusCode.valueOf(499),
+                new org.springframework.web.context.request.ServletWebRequest(
+                        new org.springframework.mock.web.MockHttpServletRequest()));
+
+        org.assertj.core.api.Assertions.assertThat(body.getProperties()).containsEntry("code", "HTTP_499");
+        org.assertj.core.api.Assertions.assertThat(response.getStatusCode().value()).isEqualTo(499);
+    }
+
+    @Test
+    void springErrorWithNonProblemBody_isLeftAsIs() {
+        ApiExceptionHandler handler = new ApiExceptionHandler();
+
+        var response = handler.handleExceptionInternal(new RuntimeException("x"), "plain",
+                new org.springframework.http.HttpHeaders(), org.springframework.http.HttpStatus.BAD_REQUEST,
+                new org.springframework.web.context.request.ServletWebRequest(
+                        new org.springframework.mock.web.MockHttpServletRequest()));
+
+        org.assertj.core.api.Assertions.assertThat(response.getBody()).isEqualTo("plain");
+    }
 }

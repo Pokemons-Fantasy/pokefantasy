@@ -35,6 +35,7 @@ public class UserSseEmitterRegistry implements RealtimeEventPort.Listener {
         emitter.onTimeout(cleanup);
         emitter.onError(e -> cleanup.run());
 
+        sendConnected(emitter);
         return emitter;
     }
 
@@ -74,5 +75,9 @@ public class UserSseEmitterRegistry implements RealtimeEventPort.Listener {
             }
             list.removeAll(dead);
         });
+    }
+
+    private static void sendConnected(SseEmitter emitter) {
+        SseEmitterRegistry.sendConnected(emitter);
     }
 }

@@ -32,6 +32,7 @@ class MongoTransactionAdapterTest {
 
     private PlatformTransactionManager transactionManager;
     private AtomicInteger probes;
+    private java.util.List<Long> sleeps;
     private MongoTransactionAdapter adapter;
 
     @BeforeEach
@@ -39,10 +40,11 @@ class MongoTransactionAdapterTest {
         transactionManager = mock(PlatformTransactionManager.class);
         when(transactionManager.getTransaction(any())).thenAnswer(invocation -> new SimpleTransactionStatus());
         probes = new AtomicInteger();
+        sleeps = new java.util.ArrayList<>();
         adapter = new MongoTransactionAdapter(transactionManager, () -> {
             probes.incrementAndGet();
             return true;
-        });
+        }, sleeps::add);
     }
 
     @AfterEach
@@ -54,7 +56,7 @@ class MongoTransactionAdapterTest {
 
     @Test
     void execute_standaloneServer_runsWorkWithoutTransaction() throws Exception {
-        MongoTransactionAdapter standalone = new MongoTransactionAdapter(transactionManager, () -> false);
+        MongoTransactionAdapter standalone = new MongoTransactionAdapter(transactionManager, () -> false, sleeps::add);
 
         assertThat(standalone.execute(() -> "done")).isEqualTo("done");
         assertThat(standalone.execute(() -> "again")).isEqualTo("again");
@@ -64,7 +66,7 @@ class MongoTransactionAdapterTest {
 
     @Test
     void execute_standaloneServer_doesNotRetryConflicts() {
-        MongoTransactionAdapter standalone = new MongoTransactionAdapter(transactionManager, () -> false);
+        MongoTransactionAdapter standalone = new MongoTransactionAdapter(transactionManager, () -> false, sleeps::add);
         AtomicInteger runs = new AtomicInteger();
 
         assertThatThrownBy(() -> standalone.execute(() -> {
@@ -83,7 +85,7 @@ class MongoTransactionAdapterTest {
                 throw new DataAccessResourceFailureException("mongo down");
             }
             return true;
-        });
+        }, sleeps::add);
 
         assertThat(flaky.execute(() -> "first")).isEqualTo("first");
         verifyNoInteractions(transactionManager);
@@ -143,6 +145,11 @@ class MongoTransactionAdapterTest {
         assertThat(runs).hasValue(MongoTransactionAdapter.MAX_ATTEMPTS);
         verify(transactionManager, times(MongoTransactionAdapter.MAX_ATTEMPTS - 1)).rollback(any());
         verify(transactionManager).commit(any());
+        // Espera aleatoria y creciente antes de cada reintento (no antes del primer intento).
+        assertThat(sleeps).hasSize(MongoTransactionAdapter.MAX_ATTEMPTS - 1);
+        for (int i = 0; i < sleeps.size(); i++) {
+            assertThat(sleeps.get(i)).isBetween(0L, (MongoTransactionAdapter.BASE_BACKOFF_MS << i) - 1);
+        }
     }
 
     @Test

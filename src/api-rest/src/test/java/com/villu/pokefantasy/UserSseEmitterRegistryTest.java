@@ -38,4 +38,17 @@ class UserSseEmitterRegistryTest {
                 .doesNotThrowAnyException();
         assertThatCode(registry::heartbeat).doesNotThrowAnyException();
     }
+
+    @Test
+    void heartbeatAndDelivery_dropOnlyClosedConnections() {
+        registry.register("misty");
+        SseEmitter closed = registry.register("misty");
+        closed.complete();
+
+        registry.heartbeat();
+        assertThat(registry.connectionCount("misty")).isEqualTo(1);
+
+        registry.onEvent(new RealtimeEvent(Audience.USER, "misty", "steal", "{}"));
+        assertThat(registry.connectionCount("misty")).isEqualTo(1);
+    }
 }
