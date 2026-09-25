@@ -10,6 +10,7 @@ import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
@@ -24,6 +25,9 @@ import java.util.Optional;
  *      2. The active jornada has a startDate set
  *      3. now < deadline
  *
+ * Deadlines are wall-clock times in {@link #LEAGUE_ZONE} (Spain), independent of the server's
+ * timezone — Render runs in UTC, which would otherwise shift them by 1–2 hours (DST aware).
+ *
  * Pass {@code null} for {@code LeagueSettings} to use hardcoded defaults (backward compatible).
  */
 @Service
@@ -35,11 +39,14 @@ public class JornadaWindowService {
     private static final int    DEFAULT_SWAP_CLOSE_DAY   = 5;       // Friday
     private static final String DEFAULT_SWAP_CLOSE_TIME  = "16:00";
 
+    /** Timezone in which the configured deadline day/time are interpreted. */
+    public static final ZoneId LEAGUE_ZONE = ZoneId.of("Europe/Madrid");
+
     private final Clock clock;
 
     /** Production constructor — uses system clock. */
     public JornadaWindowService() {
-        this.clock = Clock.systemDefaultZone();
+        this.clock = Clock.system(LEAGUE_ZONE);
     }
 
     /** Test constructor — allows injecting a fixed clock. */
@@ -164,7 +171,7 @@ public class JornadaWindowService {
                 ? getStealDeadline(active.getStartDate(), settings)
                 : getSwapDeadline(active.getStartDate(), settings);
 
-        return LocalDateTime.now(clock).isBefore(deadline);
+        return LocalDateTime.now(clock.withZone(LEAGUE_ZONE)).isBefore(deadline);
     }
 
     private LocalDateTime buildDeadline(String startDate, int dayOfWeek, String time) {

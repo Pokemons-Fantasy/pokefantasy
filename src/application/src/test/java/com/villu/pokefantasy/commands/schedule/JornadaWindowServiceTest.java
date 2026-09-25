@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -21,12 +21,17 @@ class JornadaWindowServiceTest {
     // Thursday of that ISO week = 2026-06-04
     // Friday of that ISO week  = 2026-06-05
 
-    /** Build a service with a fixed clock at the given LocalDateTime (system default zone). */
+    /** Build a service with a fixed clock at the given LocalDateTime (Spanish wall-clock time). */
     private JornadaWindowService serviceAt(LocalDateTime now) {
         Clock fixed = Clock.fixed(
-                now.atZone(ZoneId.systemDefault()).toInstant(),
-                ZoneId.systemDefault());
+                now.atZone(JornadaWindowService.LEAGUE_ZONE).toInstant(),
+                JornadaWindowService.LEAGUE_ZONE);
         return new JornadaWindowService(fixed);
+    }
+
+    /** Build a service whose clock runs in UTC, like the Render server. */
+    private JornadaWindowService utcServerAt(LocalDateTime utcNow) {
+        return new JornadaWindowService(Clock.fixed(utcNow.toInstant(ZoneOffset.UTC), ZoneOffset.UTC));
     }
 
     private JornadaWindowService service() {
@@ -177,6 +182,39 @@ class JornadaWindowServiceTest {
 
         assertThat(svc.isStealWindowOpen(schedule)).isFalse();
         assertThat(svc.isSwapWindowOpen(schedule)).isTrue();
+    }
+
+    // -------------------------------------------------------------------------
+    // Timezone: deadlines are Spanish wall-clock time even on a UTC server
+    // -------------------------------------------------------------------------
+
+    @Test
+    void utcServer_summer_stealClosesAtSpanishMidnight() {
+        // Jue 2026-06-04 22:30 UTC = vie 00:30 en Madrid (CEST, UTC+2) → robo ya cerrado (jue 23:59).
+        ScheduleEntity schedule = scheduleWithJornadas(pendingJornada(1, START_DATE));
+
+        assertThat(utcServerAt(LocalDateTime.of(2026, 6, 4, 22, 30)).isStealWindowOpen(schedule)).isFalse();
+        // Jue 21:30 UTC = 23:30 en Madrid → todavía abierto.
+        assertThat(utcServerAt(LocalDateTime.of(2026, 6, 4, 21, 30)).isStealWindowOpen(schedule)).isTrue();
+    }
+
+    @Test
+    void utcServer_summer_swapClosesAt16SpanishTime() {
+        // Vie 2026-06-05 14:30 UTC = 16:30 en Madrid → swap cerrado (vie 16:00).
+        ScheduleEntity schedule = scheduleWithJornadas(pendingJornada(1, START_DATE));
+
+        assertThat(utcServerAt(LocalDateTime.of(2026, 6, 5, 14, 30)).isSwapWindowOpen(schedule)).isFalse();
+        assertThat(utcServerAt(LocalDateTime.of(2026, 6, 5, 13, 30)).isSwapWindowOpen(schedule)).isTrue();
+    }
+
+    @Test
+    void utcServer_winter_usesOneHourOffset() {
+        // Semana de 2026-01-10 (sábado): viernes = 2026-01-09. En invierno Madrid es CET (UTC+1).
+        ScheduleEntity schedule = scheduleWithJornadas(pendingJornada(1, "2026-01-10"));
+
+        // 15:30 UTC = 16:30 en Madrid → cerrado; 14:30 UTC = 15:30 → abierto.
+        assertThat(utcServerAt(LocalDateTime.of(2026, 1, 9, 15, 30)).isSwapWindowOpen(schedule)).isFalse();
+        assertThat(utcServerAt(LocalDateTime.of(2026, 1, 9, 14, 30)).isSwapWindowOpen(schedule)).isTrue();
     }
 
     // -------------------------------------------------------------------------
