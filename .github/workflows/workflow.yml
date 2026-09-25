@@ -5,8 +5,12 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches:
-      - main
-      - master
+      - develop
+
+# Un push nuevo a la misma rama/PR cancela la ejecución anterior.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-and-test:
@@ -24,5 +28,15 @@ jobs:
           cache: maven
 
       - name: Build, test and enforce coverage
-        working-directory: ./src/
-        run: mvn -B -ntp clean verify
+        run: ./mvnw -B -ntp -f src/pom.xml clean verify
+
+  # Render despliega con este Dockerfile: si deja de construir, que falle aquí y no en el deploy.
+  docker-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Build image
+        run: docker build -t pokefantasy:ci .
