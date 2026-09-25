@@ -16,11 +16,11 @@ import java.util.List;
 public class DraftTurnTimeoutJob {
 
     private final DraftFacade draftFacade;
-    private final SseEmitterRegistry sseRegistry;
+    private final RealtimeNotifier realtimeNotifier;
 
-    public DraftTurnTimeoutJob(DraftFacade draftFacade, SseEmitterRegistry sseRegistry) {
+    public DraftTurnTimeoutJob(DraftFacade draftFacade, RealtimeNotifier realtimeNotifier) {
         this.draftFacade = draftFacade;
-        this.sseRegistry = sseRegistry;
+        this.realtimeNotifier = realtimeNotifier;
     }
 
     @Scheduled(initialDelayString = "${draft.turn-timeout-check-ms:15000}",
@@ -37,7 +37,7 @@ public class DraftTurnTimeoutJob {
             try {
                 draftFacade.expireTurn(leagueId);
                 log.info("Server auto-pick for expired draft turn in league {}", leagueId);
-                sseRegistry.broadcastUpdate(leagueId);
+                realtimeNotifier.draftUpdated(leagueId);
             } catch (IllegalStateException e) {
                 // Carrera normal: el jugador o un cliente hicieron el pick entre el listado y ahora.
                 log.debug("Skipped auto-pick for league {}: {}", leagueId, e.getMessage());

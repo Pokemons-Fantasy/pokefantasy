@@ -1,5 +1,6 @@
 package com.villu.pokefantasy;
 
+import com.villu.pokefantasy.ports.RealtimeEventPort;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -14,7 +15,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Supplier;
 
 @Component
-public class SseEmitterRegistry {
+public class SseEmitterRegistry implements RealtimeEventPort.Listener {
 
     /**
      * Conexiones abiertas por usuario y liga (varias pestañas o dispositivos). Al superar el límite se
@@ -53,9 +54,12 @@ public class SseEmitterRegistry {
         return emitters.getOrDefault(leagueId, Collections.emptyList()).size();
     }
 
-    public void broadcastUpdate(String leagueId) {
-        send(emitters.getOrDefault(leagueId, Collections.emptyList()),
-                () -> SseEmitter.event().name("draft-updated").data("{}"));
+    /** Entrega local de los eventos de liga; para emitir uno usa {@link RealtimeNotifier}. */
+    @Override
+    public void onEvent(RealtimeEventPort.RealtimeEvent event) {
+        if (event.audience() != RealtimeEventPort.Audience.LEAGUE) return;
+        send(emitters.getOrDefault(event.target(), Collections.emptyList()),
+                () -> SseEmitter.event().name(event.name()).data(event.data()));
     }
 
     /** Heartbeat cada 30 s para evitar que el proxy de Render cierre conexiones idle */

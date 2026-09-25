@@ -8,6 +8,10 @@ spring:
       password: ${REDIS_PASSWORD:}
       ssl:
         enabled: ${REDIS_SSL:false}
+      # Sin esto Lettuce espera 60 s por comando: con Redis caído cada petición que lo toca
+      # (login, refresh, eventos en tiempo real…) se quedaría colgada un minuto.
+      timeout: 2s
+      connect-timeout: 2s
   task:
     scheduling:
       pool:

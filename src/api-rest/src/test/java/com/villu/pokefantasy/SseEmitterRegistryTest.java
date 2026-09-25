@@ -1,5 +1,7 @@
 package com.villu.pokefantasy;
 
+import com.villu.pokefantasy.ports.RealtimeEventPort.Audience;
+import com.villu.pokefantasy.ports.RealtimeEventPort.RealtimeEvent;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -36,9 +38,19 @@ class SseEmitterRegistryTest {
         SseEmitter emitter = registry.register("l1", "ash");
         emitter.complete(); // cerrada por el cliente: el siguiente envío falla
 
-        assertThatCode(() -> registry.broadcastUpdate("l1")).doesNotThrowAnyException();
+        assertThatCode(() -> registry.onEvent(new RealtimeEvent(Audience.LEAGUE, "l1", "draft-updated", "{}"))).doesNotThrowAnyException();
         assertThat(registry.connectionCount("l1")).isZero();
         assertThatCode(registry::heartbeat).doesNotThrowAnyException();
-        assertThatCode(() -> registry.broadcastUpdate("unknown")).doesNotThrowAnyException();
+        assertThatCode(() -> registry.onEvent(new RealtimeEvent(Audience.LEAGUE, "unknown", "draft-updated", "{}"))).doesNotThrowAnyException();
+    }
+
+    @Test
+    void onEvent_ignoresUserEvents() {
+        SseEmitter emitter = registry.register("l1", "ash");
+        emitter.complete(); // si intentara enviar, fallaría y la quitaría
+
+        registry.onEvent(new RealtimeEvent(Audience.USER, "l1", "steal", "{}"));
+
+        assertThat(registry.connectionCount("l1")).isEqualTo(1);
     }
 }

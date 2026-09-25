@@ -25,7 +25,7 @@ Lista surgida de la revisión del backend (septiembre 2026). Se tacha cada punto
 13. ~~**Dockerfile.** Se ejecuta como root, no limita la memoria de la JVM (`-XX:MaxRAMPercentage=75`, clave con 512 MB), no cachea la capa de dependencias y usa `mvn` en vez de `./mvnw`.~~ ✅ PR #109 (usuario no root, `MaxRAMPercentage=75` + `ExitOnOutOfMemoryError`, capa de dependencias cacheada, `./mvnw`).
 14. ~~**CI.** `workflow.yml` se lanza con push a `main`/`master`, pero la rama base es `develop`.~~ ✅ PR #109 (push a `develop`, `./mvnw`, cancela ejecuciones obsoletas y construye la imagen Docker).
 15. ~~**Versiones mezcladas.** El `pom.xml` fija `spring-boot-starter-web` a `4.1.0` con parent `4.0.2`.~~ ✅ PR #109 (todas las versiones de Spring Boot las fija solo el parent: 4.0.2).
-16. **SSE en memoria.** `SseEmitterRegistry` no escala a más de una instancia; haría falta Redis Pub/Sub.
+16. ~~**SSE en memoria.** `SseEmitterRegistry` no escala a más de una instancia; haría falta Redis Pub/Sub.~~ ✅ PR #111 (Redis Pub/Sub con entrega local si Redis falla; timeouts de Redis a 2 s).
 17. ~~**Errores como texto plano.** Migrar `ApiExceptionHandler` a `ProblemDetail` (RFC 7807) con un `code` estable. Ojo: hoy los errores de Spring MVC (método no soportado, JSON mal formado, parámetro ausente…) caen en el `catch (Exception)` y salen como **500** en vez de 405/400.~~ ✅ PR #110 (`ProblemDetail` con `code` y `message`; errores de Spring MVC con su código real).
 18. ~~**Sin corrección de resultados.** `RecordMatchResult` no permite corregir ni deshacer un resultado (revirtiendo también las monedas).~~ ✅ PR #110 (`PUT`/`DELETE .../result`; devuelve las monedas realmente dadas).
 
