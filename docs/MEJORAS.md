@@ -31,11 +31,11 @@ Lista surgida de la revisión del backend (septiembre 2026). Se tacha cada punto
 
 ## 🔵 Calidad de código y tests
 
-19. **Lógica duplicada** entre steal/trade/swap/buy/release: extraer un `TeamTransferService`.
-20. **Tests.** `api-rest` no tiene tests e `infrastructure` tiene pocos. Faltan tests de integración con Testcontainers (Mongo + Redis), sobre todo de transacciones y concurrencia.
-21. **Sin documentación de la API.** Añadir OpenAPI con springdoc y generar el cliente TS.
-22. **Observabilidad.** Logs en JSON, métricas Micrometer de negocio y Sentry o similar para los errores 500.
-23. **Paginación y rendimiento.** `findAllByLeagueId` y `findPendingByLeagueId` no paginan; el regex case-insensitive de `SearchUsers` impide usar el índice.
+19. ~~**Lógica duplicada** entre steal/trade/swap/buy/release: extraer un `TeamTransferService`.~~ ✅ PR #112 (`TeamTransferService` + `TeamOperation`; mismos mensajes y excepciones).
+20. ~~**Tests.** `api-rest` no tiene tests e `infrastructure` tiene pocos. Faltan tests de integración con Testcontainers (Mongo + Redis), sobre todo de transacciones y concurrencia.~~ ✅ PR #112 (Testcontainers: sesión, transacciones, concurrencia, SSE, índices, OpenAPI; MockMvc en todos los controladores. Destapó 3 bugs: reintentos sin espera, SSE sin cabeceras hasta 30 s e índices de Mongo que no se creaban).
+21. ~~**Sin documentación de la API.** Añadir OpenAPI con springdoc y generar el cliente TS.~~ ✅ PR #112 (springdoc 3.0.3; `openapi.json` como artefacto de CI para el cliente TS).
+22. ~~**Observabilidad.** Logs en JSON, métricas Micrometer de negocio y Sentry o similar para los errores 500.~~ ✅ PR #112 (request id, métricas `pokefantasy.commands`, logs JSON opcionales, Sentry opcional).
+23. ~~**Paginación y rendimiento.** `findAllByLeagueId` y `findPendingByLeagueId` no paginan; el regex case-insensitive de `SearchUsers` impide usar el índice.~~ ✅ PR #112 (índices reales —antes no se creaba ninguno—, búsqueda por `nameLower` con índice, historial de trades acotado).
 
 ## ✨ Features nuevas
 
