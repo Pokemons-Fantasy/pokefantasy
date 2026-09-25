@@ -114,6 +114,12 @@ Folder: `application/src/main/java/com/villu/pokefantasy/commands/{feature}/`
 - Para rechazar una operación **persistiendo** una limpieza previa (p. ej. cancelar un trade obsoleto) lanza `StaleOperationException`: la transacción se confirma y luego se devuelve 409.
 - Requiere replica set (Atlas lo es). En local `docker-compose` levanta un replica set de un nodo. Contra un Mongo standalone los comandos corren sin transacción (WARN en el log al primer comando).
 
+### Tiempo real (SSE) con varias instancias
+
+- Para emitir un evento SSE usa **`RealtimeNotifier`** (`draftUpdated(leagueId)`, `notifyUser(username, event, data)`), nunca los registros directamente. Publica vía `RealtimeEventPort` → `RedisRealtimeEventAdapter` en el canal Redis `pokefantasy:realtime`; cada instancia está suscrita y entrega el evento a sus conexiones locales (`SseEmitterRegistry` / `UserSseEmitterRegistry` implementan `RealtimeEventPort.Listener`). Así funciona aunque el cliente esté conectado a otra instancia.
+- Si Redis no acepta la publicación, el evento se entrega solo en la instancia local (con una sola instancia no se pierde nada). La suscripción la arranca `RealtimeSubscriptionStarter` en segundo plano (reintenta cada 10 s): la app arranca aunque Redis esté caído, y luego el contenedor se resuscribe solo.
+- `spring.data.redis.timeout`/`connect-timeout` = 2 s: sin ello Lettuce espera 60 s por comando y, con Redis caído, cada petición que lo toca se colgaba un minuto.
+
 ### Zona horaria
 
 Los deadlines de robo/swap (`stealWindowCloseDay/Time`, `swapWindowCloseDay/Time`) son hora de pared española: `JornadaWindowService` los evalúa en `JornadaWindowService.LEAGUE_ZONE` (`Europe/Madrid`, con horario de verano), no en la zona del servidor (Render corre en UTC).

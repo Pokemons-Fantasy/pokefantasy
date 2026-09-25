@@ -20,13 +20,13 @@ import static org.mockito.Mockito.when;
 class DraftTurnTimeoutJobTest {
 
     @Mock private DraftFacade draftFacade;
-    @Mock private SseEmitterRegistry sseRegistry;
+    @Mock private RealtimeNotifier realtimeNotifier;
 
     private DraftTurnTimeoutJob job;
 
     @BeforeEach
     void setUp() {
-        job = new DraftTurnTimeoutJob(draftFacade, sseRegistry);
+        job = new DraftTurnTimeoutJob(draftFacade, realtimeNotifier);
     }
 
     @Test
@@ -37,8 +37,8 @@ class DraftTurnTimeoutJobTest {
 
         verify(draftFacade).expireTurn("l1");
         verify(draftFacade).expireTurn("l2");
-        verify(sseRegistry).broadcastUpdate("l1");
-        verify(sseRegistry).broadcastUpdate("l2");
+        verify(realtimeNotifier).draftUpdated("l1");
+        verify(realtimeNotifier).draftUpdated("l2");
     }
 
     @Test
@@ -50,9 +50,9 @@ class DraftTurnTimeoutJobTest {
         job.autoPickExpiredTurns();
 
         verify(draftFacade).expireTurn("ok");
-        verify(sseRegistry).broadcastUpdate("ok");
-        verify(sseRegistry, never()).broadcastUpdate("raced");
-        verify(sseRegistry, never()).broadcastUpdate("broken");
+        verify(realtimeNotifier).draftUpdated("ok");
+        verify(realtimeNotifier, never()).draftUpdated("raced");
+        verify(realtimeNotifier, never()).draftUpdated("broken");
     }
 
     @Test
@@ -62,6 +62,6 @@ class DraftTurnTimeoutJobTest {
         job.autoPickExpiredTurns();
 
         verify(draftFacade, never()).expireTurn(anyString());
-        verifyNoInteractions(sseRegistry);
+        verifyNoInteractions(realtimeNotifier);
     }
 }

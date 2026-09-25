@@ -16,10 +16,13 @@ public class DraftController {
 
     private final DraftFacade draftFacade;
     private final SseEmitterRegistry sseRegistry;
+    private final RealtimeNotifier realtimeNotifier;
 
-    public DraftController(DraftFacade draftFacade, SseEmitterRegistry sseRegistry) {
+    public DraftController(DraftFacade draftFacade, SseEmitterRegistry sseRegistry,
+                           RealtimeNotifier realtimeNotifier) {
         this.draftFacade = draftFacade;
         this.sseRegistry = sseRegistry;
+        this.realtimeNotifier = realtimeNotifier;
     }
 
     @PostMapping("/start")
@@ -27,7 +30,7 @@ public class DraftController {
                                            @AuthenticationPrincipal UserDetails userDetails,
                                            @RequestBody StartDraftRequest request) throws Exception {
         draftFacade.startDraft(request.getTurnOrder(), leagueId, userDetails.getUsername());
-        sseRegistry.broadcastUpdate(leagueId);
+        realtimeNotifier.draftUpdated(leagueId);
         return ResponseEntity.ok().build();
     }
 
@@ -36,7 +39,7 @@ public class DraftController {
                                      @AuthenticationPrincipal UserDetails userDetails,
                                      @RequestBody DraftPickRequest request) throws Exception {
         draftFacade.pick(userDetails.getUsername(), request.getPokemonName(), leagueId);
-        sseRegistry.broadcastUpdate(leagueId);
+        realtimeNotifier.draftUpdated(leagueId);
         return ResponseEntity.ok().build();
     }
 
@@ -50,7 +53,7 @@ public class DraftController {
     public ResponseEntity<Void> cancelDraft(@PathVariable String leagueId,
                                             @AuthenticationPrincipal UserDetails userDetails) throws Exception {
         draftFacade.cancelDraft(leagueId, userDetails.getUsername());
-        sseRegistry.broadcastUpdate(leagueId);
+        realtimeNotifier.draftUpdated(leagueId);
         return ResponseEntity.ok().build();
     }
 
@@ -58,7 +61,7 @@ public class DraftController {
     public ResponseEntity<Void> autoPick(@PathVariable String leagueId,
                                          @AuthenticationPrincipal UserDetails userDetails) throws Exception {
         draftFacade.autoPick(leagueId, userDetails.getUsername());
-        sseRegistry.broadcastUpdate(leagueId);
+        realtimeNotifier.draftUpdated(leagueId);
         return ResponseEntity.ok().build();
     }
 
