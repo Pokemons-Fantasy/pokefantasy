@@ -4,7 +4,6 @@ import com.villu.pokefantasy.commands.schedule.JornadaWindowService;
 import com.villu.pokefantasy.dto.ActivityEventType;
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueSettings;
-import com.villu.pokefantasy.dto.Pokemons;
 import com.villu.pokefantasy.dto.Tier;
 import com.villu.pokefantasy.league.LeagueMemberService;
 import com.villu.pokefantasy.league.TierPricingService;
@@ -13,7 +12,6 @@ import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.ScheduleRepository;
-import com.villu.pokefantasy.repository.UserRepository;
 import com.villu.pokefantasy.repository.entity.ActivityEventEntity;
 import com.villu.pokefantasy.repository.entity.ClosedListEntity;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
@@ -21,7 +19,6 @@ import com.villu.pokefantasy.repository.entity.DraftPick;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import com.villu.pokefantasy.repository.entity.LeagueMember;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity;
-import com.villu.pokefantasy.repository.entity.UserEntity;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -45,7 +42,6 @@ class ReleasePokemonCommandHandlerTest {
     @Mock private DraftRepository draftRepository;
     @Mock private ClosedListRepository closedListRepository;
     @Mock private LeagueRepository leagueRepository;
-    @Mock private UserRepository userRepository;
     @Mock private ScheduleRepository scheduleRepository;
     @Mock private JornadaWindowService jornadaWindowService;
     @Mock private ActivityEventRepository activityEventRepository;
@@ -62,7 +58,7 @@ class ReleasePokemonCommandHandlerTest {
     @BeforeEach
     void setUp() {
         handler = new ReleasePokemonCommandHandler(
-                draftRepository, closedListRepository, leagueRepository, userRepository,
+                draftRepository, closedListRepository, leagueRepository,
                 scheduleRepository, jornadaWindowService, activityEventRepository,
                 new LeagueMemberService(), new TierPricingService());
 
@@ -77,13 +73,11 @@ class ReleasePokemonCommandHandlerTest {
         DraftPick pick = pick(USERNAME, POKEMON, null);
         DraftEntity draft = draftWithPicks(new ArrayList<>(List.of(pick)));
         LeagueEntity league = leagueWithMember(USERNAME, 200);
-        UserEntity user = userWithPokemon(USERNAME, POKEMON);
 
         when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
         when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
         when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(POKEMON, LEAGUE_ID))
                 .thenReturn(Optional.of(closedListEntry(POKEMON, Tier.A)));
-        when(userRepository.findByUsername(USERNAME)).thenReturn(user);
 
         handler.handle(new ReleasePokemonCommand(LEAGUE_ID, USERNAME, POKEMON));
 
@@ -94,10 +88,6 @@ class ReleasePokemonCommandHandlerTest {
         // Coins added to member
         assertThat(league.getMembers().get(0).getCoinBalance()).isEqualTo(200 + REWARD);
         verify(leagueRepository).save(league);
-
-        // Pokemon removed from user document
-        assertThat(user.getPokemons()).isEmpty();
-        verify(userRepository).updateUserWithPokemons(user);
 
         // Activity event
         ArgumentCaptor<ActivityEventEntity> captor = ArgumentCaptor.forClass(ActivityEventEntity.class);
@@ -115,13 +105,11 @@ class ReleasePokemonCommandHandlerTest {
         DraftPick pick = pick(USERNAME, POKEMON, null);
         DraftEntity draft = draftWithPicks(new ArrayList<>(List.of(pick)));
         LeagueEntity league = leagueWithMemberAndTierPrice(USERNAME, 200, 75);
-        UserEntity user = userWithPokemon(USERNAME, POKEMON);
 
         when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
         when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
         when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(POKEMON, LEAGUE_ID))
                 .thenReturn(Optional.of(closedListEntry(POKEMON, Tier.A)));
-        when(userRepository.findByUsername(USERNAME)).thenReturn(user);
 
         handler.handle(new ReleasePokemonCommand(LEAGUE_ID, USERNAME, POKEMON));
 
@@ -230,15 +218,4 @@ class ReleasePokemonCommandHandlerTest {
         return entry;
     }
 
-    private UserEntity userWithPokemon(String username, String pokemonName) {
-        Pokemons p = new Pokemons();
-        p.setId(POKEMON_ID);
-        p.setName(pokemonName);
-        p.setLeagueId(LEAGUE_ID);
-
-        UserEntity user = new UserEntity();
-        user.setName(username);
-        user.setPokemons(new ArrayList<>(List.of(p)));
-        return user;
-    }
 }

@@ -13,7 +13,6 @@ import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.ScheduleRepository;
-import com.villu.pokefantasy.repository.UserRepository;
 import com.villu.pokefantasy.repository.entity.ActivityEventEntity;
 import com.villu.pokefantasy.repository.entity.ClosedListEntity;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
@@ -21,7 +20,6 @@ import com.villu.pokefantasy.repository.entity.DraftPick;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import com.villu.pokefantasy.repository.entity.LeagueMember;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity;
-import com.villu.pokefantasy.repository.entity.UserEntity;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -32,7 +30,6 @@ public class ReleasePokemonCommandHandler implements CommandHandler<ReleasePokem
     private final DraftRepository draftRepository;
     private final ClosedListRepository closedListRepository;
     private final LeagueRepository leagueRepository;
-    private final UserRepository userRepository;
     private final ScheduleRepository scheduleRepository;
     private final JornadaWindowService jornadaWindowService;
     private final ActivityEventRepository activityEventRepository;
@@ -42,7 +39,6 @@ public class ReleasePokemonCommandHandler implements CommandHandler<ReleasePokem
     public ReleasePokemonCommandHandler(DraftRepository draftRepository,
                                         ClosedListRepository closedListRepository,
                                         LeagueRepository leagueRepository,
-                                        UserRepository userRepository,
                                         ScheduleRepository scheduleRepository,
                                         JornadaWindowService jornadaWindowService,
                                         ActivityEventRepository activityEventRepository,
@@ -51,7 +47,6 @@ public class ReleasePokemonCommandHandler implements CommandHandler<ReleasePokem
         this.draftRepository = draftRepository;
         this.closedListRepository = closedListRepository;
         this.leagueRepository = leagueRepository;
-        this.userRepository = userRepository;
         this.scheduleRepository = scheduleRepository;
         this.jornadaWindowService = jornadaWindowService;
         this.activityEventRepository = activityEventRepository;
@@ -109,14 +104,6 @@ public class ReleasePokemonCommandHandler implements CommandHandler<ReleasePokem
         // Remove DraftPick
         draft.getPicks().remove(pick);
         draftRepository.save(draft);
-
-        // Remove from UserEntity.pokemons for this league
-        UserEntity user = userRepository.findByUsername(username);
-        if (user != null && user.getPokemons() != null) {
-            user.getPokemons().removeIf(p ->
-                    leagueId.equals(p.getLeagueId()) && pokemonName.equalsIgnoreCase(p.getName()));
-            userRepository.updateUserWithPokemons(user);
-        }
 
         // Add coins to member (reward = 0 if tier unknown, safe fallback)
         LeagueMember member = leagueMemberService.requireMember(league, username);

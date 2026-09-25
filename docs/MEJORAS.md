@@ -6,7 +6,7 @@ Lista surgida de la revisión del backend (septiembre 2026). Se tacha cada punto
 
 1. ~~**Actualizaciones perdidas en monedas y equipos.** `LeagueEntity`/`UserEntity` sin `@Version`; los handlers hacen leer → modificar → `save()` del documento completo, así que dos operaciones simultáneas se pisan `coinBalance` o `user.pokemons`.~~ ✅ PR #103 (`@Version` en league/user/schedule/trade/closed_list + updates atómicos que incrementan version).
 2. ~~**Compensaciones manuales frágiles.** Steal/trade/swap/buy/steal-price/draft-pick escriben varios documentos por separado y "deshacen" con objetos en memoria desactualizados; si el proceso muere a mitad, el estado queda incoherente.~~ ✅ PR #103 (transacción MongoDB por comando en `SpringMediator` con reintentos; compensaciones eliminadas).
-3. **Dos fuentes de verdad para los equipos.** `user.pokemons` y `draft.picks` se sincronizan a mano en cada operación. Hacer que `draft.picks` sea la única fuente y eliminar `UserEntity.pokemons`.
+3. ~~**Dos fuentes de verdad para los equipos.** `user.pokemons` y `draft.picks` se sincronizan a mano en cada operación. Hacer que `draft.picks` sea la única fuente y eliminar `UserEntity.pokemons`.~~ ✅ PR #105 (`draft.picks` como única fuente; corrige de paso que un draft cancelado dejaba Pokémon "cogidos" en la banca).
 4. ~~**Zona horaria de las ventanas de robo/swap.** `JornadaWindowService` usa `Clock.systemDefaultZone()` (UTC en Render): "viernes 16:00" es en realidad las 18:00 (verano) o 17:00 (invierno) en Madrid.~~ ✅ PR #104 (deadlines evaluados siempre en `Europe/Madrid`, con horario de verano).
 
 ## 🟠 Seguridad

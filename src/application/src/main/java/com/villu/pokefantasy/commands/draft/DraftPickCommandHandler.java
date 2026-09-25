@@ -3,7 +3,6 @@ package com.villu.pokefantasy.commands.draft;
 import com.villu.pokefantasy.commands.schedule.RoundRobinScheduler;
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueSettings;
-import com.villu.pokefantasy.dto.Pokemons;
 import com.villu.pokefantasy.mediator.CommandHandler;
 import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
@@ -84,8 +83,6 @@ public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand,
             throw new IllegalStateException("User already has the maximum of " + maxTeamSize + " Pokémon in this league");
         }
 
-        List<Pokemons> currentPokemons = user.getPokemons() != null ? user.getPokemons() : new ArrayList<>();
-
         if (draft.getPicks() == null) {
             draft.setPicks(new ArrayList<>());
         }
@@ -98,17 +95,6 @@ public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand,
 
         ClosedListEntity entry = closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(pokemonName, leagueId)
                 .orElseThrow(() -> new IllegalArgumentException("Pokémon '" + pokemonName + "' is not in the closed list for this league"));
-
-        Pokemons pokemon = new Pokemons();
-        pokemon.setId(entry.getPokemonId());
-        pokemon.setName(entry.getPokemonName());
-        pokemon.setStats(entry.getStats());
-        pokemon.setTypes(entry.getTypes());
-        pokemon.setLeagueId(leagueId);
-
-        currentPokemons.add(pokemon);
-        user.setPokemons(currentPokemons);
-        userRepository.updateUserWithPokemons(user);
 
         DraftPick pick = new DraftPick(username, entry.getPokemonName(),
                 entry.getPokemonId(), draft.getCurrentRound(), Instant.now(), null, null);

@@ -4,20 +4,20 @@ import com.villu.pokefantasy.dto.ActivityEventType;
 import com.villu.pokefantasy.dto.LeagueRole;
 import com.villu.pokefantasy.dto.LeagueSettings;
 import com.villu.pokefantasy.dto.MatchStatus;
-import com.villu.pokefantasy.dto.Pokemons;
 import com.villu.pokefantasy.exception.ForbiddenOperationException;
 import com.villu.pokefantasy.league.LeagueAdminGuard;
 import com.villu.pokefantasy.repository.ActivityEventRepository;
+import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.ScheduleRepository;
-import com.villu.pokefantasy.repository.UserRepository;
 import com.villu.pokefantasy.repository.entity.ActivityEventEntity;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import com.villu.pokefantasy.repository.entity.LeagueMember;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity.Jornada;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity.Match;
-import com.villu.pokefantasy.repository.entity.UserEntity;
+import com.villu.pokefantasy.repository.entity.DraftEntity;
+import com.villu.pokefantasy.repository.entity.DraftPick;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,6 +25,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -40,7 +41,7 @@ class RecordMatchResultCommandHandlerTest {
     @Mock private ScheduleRepository scheduleRepository;
     @Mock private LeagueAdminGuard leagueAdminGuard;
     @Mock private LeagueRepository leagueRepository;
-    @Mock private UserRepository userRepository;
+    @Mock private DraftRepository draftRepository;
     @Mock private ActivityEventRepository activityEventRepository;
 
     private RecordMatchResultCommandHandler handler;
@@ -54,11 +55,11 @@ class RecordMatchResultCommandHandlerTest {
     @BeforeEach
     void setUp() {
         handler = new RecordMatchResultCommandHandler(
-                scheduleRepository, leagueAdminGuard, leagueRepository, userRepository,
+                scheduleRepository, leagueAdminGuard, leagueRepository, draftRepository,
                 activityEventRepository);
         // Default: both players have pokémon in the league (forfeit check passes)
-        lenient().when(userRepository.findByUsername(PLAYER1)).thenReturn(userWithPokemon(PLAYER1));
-        lenient().when(userRepository.findByUsername(PLAYER2)).thenReturn(userWithPokemon(PLAYER2));
+        lenient().when(draftRepository.findLatestByLeagueId(LEAGUE_ID))
+                .thenReturn(Optional.of(draftWithPicks(pick(PLAYER1, "pikachu"), pick(PLAYER2, "bulbasaur"))));
     }
 
     @Test
@@ -209,7 +210,8 @@ class RecordMatchResultCommandHandlerTest {
         when(leagueAdminGuard.requireLeagueAdmin(LEAGUE_ID, ADMIN)).thenReturn(leagueWithSettings(100, 50));
         when(scheduleRepository.findByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(scheduleWithMatch(MATCH_ID)));
         // Override: declared winner has no pokémon → reject
-        when(userRepository.findByUsername(PLAYER1)).thenReturn(userWithNoPokemon());
+        when(draftRepository.findLatestByLeagueId(LEAGUE_ID))
+                .thenReturn(Optional.of(draftWithPicks(pick(PLAYER2, "bulbasaur"))));
 
         assertThatThrownBy(() -> handler.handle(
                 new RecordMatchResultCommand(LEAGUE_ID, MATCH_ID, PLAYER1, ADMIN)))
@@ -272,21 +274,14 @@ class RecordMatchResultCommandHandlerTest {
         return schedule;
     }
 
-    private UserEntity userWithPokemon(String username) {
-        Pokemons p = new Pokemons();
-        p.setName("pikachu");
-        p.setLeagueId(LEAGUE_ID);
-        UserEntity user = new UserEntity();
-        user.setName(username);
-        user.setPokemons(new ArrayList<>(List.of(p)));
-        return user;
+    private DraftEntity draftWithPicks(DraftPick... picks) {
+        DraftEntity draft = new DraftEntity();
+        draft.setPicks(new ArrayList<>(List.of(picks)));
+        return draft;
     }
 
-    private UserEntity userWithNoPokemon() {
-        UserEntity user = new UserEntity();
-        user.setName("someone");
-        user.setPokemons(new ArrayList<>());
-        return user;
+    private DraftPick pick(String username, String pokemonName) {
+        return new DraftPick(username, pokemonName, 0, 1, Instant.now(), null, null);
     }
 
     private LeagueEntity leagueWithSettings(Integer coinsPerWin, Integer coinsPerLoss) {

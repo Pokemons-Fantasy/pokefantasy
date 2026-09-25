@@ -6,14 +6,13 @@ import com.villu.pokefantasy.dto.MatchStatus;
 import com.villu.pokefantasy.league.LeagueAdminGuard;
 import com.villu.pokefantasy.mediator.CommandHandler;
 import com.villu.pokefantasy.repository.ActivityEventRepository;
+import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.ScheduleRepository;
-import com.villu.pokefantasy.repository.UserRepository;
 import com.villu.pokefantasy.repository.entity.ActivityEventEntity;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import com.villu.pokefantasy.repository.entity.LeagueMember;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity;
-import com.villu.pokefantasy.repository.entity.UserEntity;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -24,18 +23,18 @@ public class RecordMatchResultCommandHandler implements CommandHandler<RecordMat
     private final ScheduleRepository scheduleRepository;
     private final LeagueAdminGuard leagueAdminGuard;
     private final LeagueRepository leagueRepository;
-    private final UserRepository userRepository;
+    private final DraftRepository draftRepository;
     private final ActivityEventRepository activityEventRepository;
 
     public RecordMatchResultCommandHandler(ScheduleRepository scheduleRepository,
                                            LeagueAdminGuard leagueAdminGuard,
                                            LeagueRepository leagueRepository,
-                                           UserRepository userRepository,
+                                           DraftRepository draftRepository,
                                            ActivityEventRepository activityEventRepository) {
         this.scheduleRepository = scheduleRepository;
         this.leagueAdminGuard = leagueAdminGuard;
         this.leagueRepository = leagueRepository;
-        this.userRepository = userRepository;
+        this.draftRepository = draftRepository;
         this.activityEventRepository = activityEventRepository;
     }
 
@@ -82,10 +81,9 @@ public class RecordMatchResultCommandHandler implements CommandHandler<RecordMat
      * - If the loser has 0 Pokémon → forfeit confirmed, no action needed
      */
     private void checkForfeit(String leagueId, String winner, String loser) {
-        UserEntity winnerUser = userRepository.findByUsername(winner);
-        boolean winnerHasPokemons = winnerUser != null
-                && winnerUser.getPokemons() != null
-                && winnerUser.getPokemons().stream().anyMatch(p -> leagueId.equals(p.getLeagueId()));
+        boolean winnerHasPokemons = draftRepository.findLatestByLeagueId(leagueId)
+                .map(draft -> draft.teamSize(winner) > 0)
+                .orElse(false);
 
         if (!winnerHasPokemons) {
             throw new IllegalArgumentException(

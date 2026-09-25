@@ -4,7 +4,6 @@ import com.villu.pokefantasy.commands.schedule.JornadaWindowService;
 import com.villu.pokefantasy.dto.ActivityEventType;
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueSettings;
-import com.villu.pokefantasy.dto.Pokemons;
 import com.villu.pokefantasy.dto.Tier;
 import com.villu.pokefantasy.league.LeagueMemberService;
 import com.villu.pokefantasy.league.TierPricingService;
@@ -29,8 +28,6 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.List;
 
 @Service
 @Slf4j
@@ -132,36 +129,6 @@ public class StealPokemonCommandHandler implements CommandHandler<StealPokemonCo
         victimMember.setCoinBalance(victimMember.getCoinBalance() + stealPrice * 2);
         leagueRepository.save(league);
 
-        // Transfer pokemon in user documents
-        UserEntity victimUser = userRepository.findByUsername(victim);
-        if (victimUser != null && victimUser.getPokemons() != null) {
-            List<Pokemons> vPokemons = new ArrayList<>(victimUser.getPokemons());
-            vPokemons.removeIf(p -> leagueId.equals(p.getLeagueId()) && targetName.equalsIgnoreCase(p.getName()));
-            victimUser.setPokemons(vPokemons);
-            userRepository.updateUserWithPokemons(victimUser);
-        }
-
-        UserEntity stealerUser = userRepository.findByUsername(stealer);
-        if (stealerUser != null) {
-            List<Pokemons> sPokemons = stealerUser.getPokemons() != null
-                    ? new ArrayList<>(stealerUser.getPokemons()) : new ArrayList<>();
-            // Build pokemon entry from closedList or existing pick data
-            ClosedListEntity entry = closedListRepository
-                    .findByPokemonNameIgnoreCaseAndLeagueId(targetName, leagueId)
-                    .orElse(null);
-            Pokemons stolen = new Pokemons();
-            stolen.setId(targetPick.getPokemonId());
-            stolen.setName(targetPick.getPokemonName());
-            stolen.setLeagueId(leagueId);
-            if (entry != null) {
-                stolen.setStats(entry.getStats());
-                stolen.setTypes(entry.getTypes());
-            }
-            sPokemons.add(stolen);
-            stealerUser.setPokemons(sPokemons);
-            userRepository.updateUserWithPokemons(stealerUser);
-        }
-
         // Transfer pick in draft: update username + set lock + preserve customStealPrice
         targetPick.setUsername(stealer);
         targetPick.setLockedUntil(Instant.now().plus(7, ChronoUnit.DAYS));
@@ -180,6 +147,7 @@ public class StealPokemonCommandHandler implements CommandHandler<StealPokemonCo
                 .createdAt(Instant.now())
                 .build());
 
+        UserEntity victimUser = userRepository.findByUsername(victim);
         if (victimUser != null && !victimUser.getFcmTokens().isEmpty()) {
             pushNotificationPort.send(
                     victimUser.getFcmTokens(),
