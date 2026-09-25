@@ -1,11 +1,13 @@
 package com.villu.pokefantasy;
 
 import com.villu.pokefantasy.exception.ForbiddenOperationException;
+import com.villu.pokefantasy.exception.TooManyAttemptsException;
 import org.apache.catalina.connector.ClientAbortException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -21,6 +23,13 @@ public class ApiExceptionHandler {
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<String> handleBadCredentials() {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid username or password");
+    }
+
+    @ExceptionHandler(TooManyAttemptsException.class)
+    public ResponseEntity<String> handleTooManyAttempts(TooManyAttemptsException exception) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(HttpHeaders.RETRY_AFTER, String.valueOf(exception.getRetryAfter().toSeconds()))
+                .body(exception.getMessage());
     }
 
     @ExceptionHandler(ForbiddenOperationException.class)

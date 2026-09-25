@@ -11,8 +11,8 @@ Lista surgida de la revisión del backend (septiembre 2026). Se tacha cada punto
 
 ## 🟠 Seguridad
 
-5. **Sin rate limiting en el login.** `POST /v1/user/login` permite fuerza bruta. Bucket4j o un contador en Redis por IP/usuario.
-6. **Sin validación al registrarse.** No hay longitud mínima de contraseña ni restricción de caracteres en el username, y no hay ningún `@Valid` en el proyecto. Añadir `spring-boot-starter-validation`.
+5. ~~**Sin rate limiting en el login.** `POST /v1/user/login` permite fuerza bruta.~~ ✅ PR #106 (contador en Redis: 5 fallos/usuario o 30/IP en 15 min → 429).
+6. ~~**Sin validación al registrarse.** No hay longitud mínima de contraseña ni restricción de caracteres en el username.~~ ✅ PR #106 (username 3-20 `[A-Za-z0-9_-]`, contraseña 8 caracteres a 72 bytes; validado en el handler).
 7. **Enumeración de usuarios.** `GET /v1/users/search` permite a cualquier usuario autenticado sacar todos los usernames por prefijo. Exigir un prefijo mínimo y ser admin de la liga.
 8. **Auto-pick sin control de membresía.** `AutoPickDraftCommandHandler` deja que cualquier usuario autenticado dispare el auto-pick de una liga ajena.
 9. **SSE del draft público.** `GET /draft/events` no requiere autenticación → posible DoS con conexiones abiertas. Autenticar por cookie, como `/users/events`.

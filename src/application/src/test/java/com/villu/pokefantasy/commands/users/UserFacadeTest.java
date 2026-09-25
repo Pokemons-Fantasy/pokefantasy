@@ -41,11 +41,12 @@ class UserFacadeTest {
     void login_sendsLoginUserCommandAndReturnsToken() throws Exception {
         when(mediator.send(any(LoginUserCommand.class))).thenReturn("jwt-token");
 
-        String token = facade.login("ash", "password");
+        String token = facade.login("ash", "password", "1.2.3.4");
 
         assertThat(token).isEqualTo("jwt-token");
         ArgumentCaptor<LoginUserCommand> captor = ArgumentCaptor.forClass(LoginUserCommand.class);
         verify(mediator).send(captor.capture());
         assertThat(captor.getValue().username()).isEqualTo("ash");
+        assertThat(captor.getValue().clientIp()).isEqualTo("1.2.3.4");
     }
 }
