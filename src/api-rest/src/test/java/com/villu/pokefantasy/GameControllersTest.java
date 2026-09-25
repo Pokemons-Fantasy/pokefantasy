@@ -118,7 +118,9 @@ class GameControllersTest extends ControllerTestSupport {
     @Test
     void trades_listRespondCancelAndMine() throws Exception {
         mvc.perform(get("/v1/leagues/l1/trades")).andExpect(status().isOk());
-        verify(tradeFacade).getTrades("l1", ME);
+        verify(tradeFacade).getTrades("l1", ME, 50);
+        mvc.perform(get("/v1/leagues/l1/trades").param("history", "5")).andExpect(status().isOk());
+        verify(tradeFacade).getTrades("l1", ME, 5);
 
         mvc.perform(json(post("/v1/leagues/l1/trades/t1/respond"), "{\"accept\":true}")).andExpect(status().isOk());
         verify(tradeFacade).respond("l1", "t1", ME, true);

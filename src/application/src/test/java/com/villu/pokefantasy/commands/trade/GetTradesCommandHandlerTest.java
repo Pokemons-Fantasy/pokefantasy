@@ -36,10 +36,10 @@ class GetTradesCommandHandlerTest {
                 .responderPokemonName("onix").responderPokemonId(95)
                 .coinsOffered(100).status(TradeStatus.PENDING)
                 .createdAt(Instant.parse("2026-05-22T10:00:00Z")).build();
-        when(tradeRepository.findByLeagueIdAndParticipant("l1", "ash"))
+        when(tradeRepository.findByLeagueIdAndParticipant("l1", "ash", 50))
                 .thenReturn(List.of(trade));
 
-        List<TradeResponse> result = handler.handle(new GetTradesCommand("l1", "ash"));
+        List<TradeResponse> result = handler.handle(new GetTradesCommand("l1", "ash", 50));
 
         assertThat(result).hasSize(1);
         TradeResponse r = result.get(0);
@@ -58,10 +58,10 @@ class GetTradesCommandHandlerTest {
 
     @Test
     void handle_noTrades_returnsEmptyList() {
-        when(tradeRepository.findByLeagueIdAndParticipant("l1", "ash"))
+        when(tradeRepository.findByLeagueIdAndParticipant("l1", "ash", 50))
                 .thenReturn(List.of());
 
-        List<TradeResponse> result = handler.handle(new GetTradesCommand("l1", "ash"));
+        List<TradeResponse> result = handler.handle(new GetTradesCommand("l1", "ash", 50));
 
         assertThat(result).isEmpty();
     }
@@ -75,15 +75,25 @@ class GetTradesCommandHandlerTest {
                 .coinsOffered(0).status(TradeStatus.ACCEPTED)
                 .createdAt(Instant.parse("2026-05-22T10:00:00Z"))
                 .resolvedAt(Instant.parse("2026-05-22T12:00:00Z")).build();
-        when(tradeRepository.findByLeagueIdAndParticipant("l1", "ash"))
+        when(tradeRepository.findByLeagueIdAndParticipant("l1", "ash", 50))
                 .thenReturn(List.of(trade));
 
-        List<TradeResponse> result = handler.handle(new GetTradesCommand("l1", "ash"));
+        List<TradeResponse> result = handler.handle(new GetTradesCommand("l1", "ash", 50));
 
         assertThat(result).hasSize(1);
         TradeResponse r = result.get(0);
         assertThat(r.getResolvedAt()).isEqualTo("2026-05-22T12:00:00Z");
         assertThat(r.getStatus()).isEqualTo("ACCEPTED");
+    }
+
+    @Test
+    void handle_historyLimitIsClamped() {
+        when(tradeRepository.findByLeagueIdAndParticipant("l1", "ash", GetTradesCommandHandler.MAX_HISTORY))
+                .thenReturn(List.of());
+        when(tradeRepository.findByLeagueIdAndParticipant("l1", "ash", 0)).thenReturn(List.of());
+
+        assertThat(handler.handle(new GetTradesCommand("l1", "ash", 10_000))).isEmpty();
+        assertThat(handler.handle(new GetTradesCommand("l1", "ash", -5))).isEmpty();
     }
 
     @Test

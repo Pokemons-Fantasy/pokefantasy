@@ -12,13 +12,16 @@ public class GetTradesCommandHandler implements CommandHandler<GetTradesCommand,
 
     private final TradeRepository tradeRepository;
 
+    static final int MAX_HISTORY = 200;
+
     public GetTradesCommandHandler(TradeRepository tradeRepository) {
         this.tradeRepository = tradeRepository;
     }
 
     @Override
     public List<TradeResponse> handle(GetTradesCommand command) {
-        return tradeRepository.findByLeagueIdAndParticipant(command.leagueId(), command.username())
+        int limit = Math.clamp(command.historyLimit(), 0, MAX_HISTORY);
+        return tradeRepository.findByLeagueIdAndParticipant(command.leagueId(), command.username(), limit)
                 .stream()
                 .map(TradeResponseMapper::toResponse)
                 .toList();

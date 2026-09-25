@@ -3,11 +3,13 @@ package com.villu.pokefantasy.repository;
 import com.villu.pokefantasy.dto.TradeStatus;
 import com.villu.pokefantasy.repository.entity.TradeEntity;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -37,12 +39,23 @@ public class TradeRepositoryImpl implements TradeRepository {
     }
 
     @Override
-    public List<TradeEntity> findByLeagueIdAndParticipant(String leagueId, String username) {
-        Query query = new Query(Criteria.where("leagueId").is(leagueId)
-                .orOperator(
-                        Criteria.where("proposer").is(username),
-                        Criteria.where("responder").is(username)));
-        return mongoTemplate.find(query, TradeEntity.class);
+    public List<TradeEntity> findByLeagueIdAndParticipant(String leagueId, String username, int resolvedLimit) {
+        // Pendientes: todos (están acotados). Resueltos: solo los más recientes, porque el historial
+        // de una temporada no deja de crecer.
+        List<TradeEntity> trades = new ArrayList<>(mongoTemplate.find(
+                new Query(participant(leagueId, username).and("status").is(TradeStatus.PENDING)),
+                TradeEntity.class));
+        trades.addAll(mongoTemplate.find(
+                new Query(participant(leagueId, username).and("status").ne(TradeStatus.PENDING))
+                        .with(Sort.by(Sort.Direction.DESC, "resolvedAt"))
+                        .limit(resolvedLimit),
+                TradeEntity.class));
+        return trades;
+    }
+
+    private static Criteria participant(String leagueId, String username) {
+        return Criteria.where("leagueId").is(leagueId)
+                .orOperator(Criteria.where("proposer").is(username), Criteria.where("responder").is(username));
     }
 
     @Override

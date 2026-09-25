@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Version;
+import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.util.List;
@@ -19,6 +20,7 @@ public class ScheduleEntity {
     @Version
     private Long version;
 
+    @Indexed
     private String leagueId;
 
     private List<Jornada> jornadas;
