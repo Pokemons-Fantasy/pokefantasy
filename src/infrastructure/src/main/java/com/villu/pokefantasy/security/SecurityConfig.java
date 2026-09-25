@@ -36,7 +36,8 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        RequestMatcher publicPaths = request -> PUBLIC_PATHS.contains(request.getServletPath());
+        RequestMatcher publicPaths = request -> PUBLIC_PATHS.contains(request.getServletPath())
+                || isApiDocs(request.getServletPath());
 
         return http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
@@ -49,6 +50,11 @@ public class SecurityConfig {
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
+    }
+
+    /** Especificación OpenAPI y Swagger UI: públicas (la API la ve igualmente cualquiera con el frontend). */
+    static boolean isApiDocs(String path) {
+        return path.startsWith("/v3/api-docs") || path.startsWith("/swagger-ui");
     }
 
     @Bean
