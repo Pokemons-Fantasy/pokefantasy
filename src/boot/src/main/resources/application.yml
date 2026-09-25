@@ -8,6 +8,12 @@ spring:
       password: ${REDIS_PASSWORD:}
       ssl:
         enabled: ${REDIS_SSL:false}
+  task:
+    scheduling:
+      pool:
+        # Heartbeats SSE, caché de PokeAPI y turnos vencidos del draft: que una llamada lenta
+        # a PokeAPI no retrase los demás.
+        size: 3
   mongodb:
     uri: ${MONGODB_URI:mongodb://root:password@localhost:27017/pokefantasy?authSource=admin}
     auto-index-creation: true

@@ -43,9 +43,8 @@ class AutoPickDraftCommandHandlerTest {
 
     @BeforeEach
     void setUp() {
-        handler = new AutoPickDraftCommandHandler(
-                draftRepository, closedListRepository, new LeagueMembershipGuard(leagueRepository),
-                draftPickCommandHandler);
+        handler = new AutoPickDraftCommandHandler(new LeagueMembershipGuard(leagueRepository),
+                new DraftTurnTimeoutService(draftRepository, closedListRepository, draftPickCommandHandler));
     }
 
     private DraftEntity inProgressDraft(Instant turnStartedAt) {
@@ -61,6 +60,7 @@ class AutoPickDraftCommandHandlerTest {
 
     private LeagueEntity leagueWithTimer(int timerSeconds) {
         LeagueEntity league = new LeagueEntity();
+        league.setId(LEAGUE_ID);
         LeagueSettings settings = LeagueSettings.builder()
                 .coinsPerWin(100)
                 .coinsPerLoss(50)

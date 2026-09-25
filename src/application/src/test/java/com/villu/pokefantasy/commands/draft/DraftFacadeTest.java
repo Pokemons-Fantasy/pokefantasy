@@ -88,4 +88,18 @@ class DraftFacadeTest {
         verify(mediator).send(captor.capture());
         assertThat(captor.getValue()).isEqualTo(new WatchDraftCommand("l1", "ash"));
     }
+
+    @Test
+    void expiredTurnLeagueIds_sendsListCommand() throws Exception {
+        when(mediator.send(any(ListExpiredDraftTurnsCommand.class))).thenReturn(List.of("l1"));
+
+        assertThat(facade.expiredTurnLeagueIds()).containsExactly("l1");
+    }
+
+    @Test
+    void expireTurn_sendsExpireCommand() throws Exception {
+        facade.expireTurn("l1");
+
+        verify(mediator).send(new ExpireDraftTurnCommand("l1"));
+    }
 }
