@@ -13,10 +13,10 @@ Lista surgida de la revisión del backend (septiembre 2026). Se tacha cada punto
 
 5. ~~**Sin rate limiting en el login.** `POST /v1/user/login` permite fuerza bruta.~~ ✅ PR #106 (contador en Redis: 5 fallos/usuario o 30/IP en 15 min → 429).
 6. ~~**Sin validación al registrarse.** No hay longitud mínima de contraseña ni restricción de caracteres en el username.~~ ✅ PR #106 (username 3-20 `[A-Za-z0-9_-]`, contraseña 8 caracteres a 72 bytes; validado en el handler).
-7. **Enumeración de usuarios.** `GET /v1/users/search` permite a cualquier usuario autenticado sacar todos los usernames por prefijo. Exigir un prefijo mínimo y ser admin de la liga.
-8. **Auto-pick sin control de membresía.** `AutoPickDraftCommandHandler` deja que cualquier usuario autenticado dispare el auto-pick de una liga ajena.
-9. **SSE del draft público.** `GET /draft/events` no requiere autenticación → posible DoS con conexiones abiertas. Autenticar por cookie, como `/users/events`.
-10. **Sesión fija de 24 h.** Sin refresh token ni forma de revocar tokens (el logout solo borra la cookie). Añadir un refresh token en Redis.
+7. ~~**Enumeración de usuarios.** `GET /v1/users/search` permite a cualquier usuario autenticado sacar todos los usernames por prefijo. Exigir un prefijo mínimo y ser admin de la liga.~~ ✅ PR #107 (`leagueId` obligatorio y solo admins de esa liga).
+8. ~~**Auto-pick sin control de membresía.** `AutoPickDraftCommandHandler` deja que cualquier usuario autenticado dispare el auto-pick de una liga ajena.~~ ✅ PR #107 (solo miembros de la liga).
+9. ~~**SSE del draft público.** `GET /draft/events` no requiere autenticación → posible DoS con conexiones abiertas. Autenticar por cookie, como `/users/events`.~~ ✅ PR #107 (requiere sesión y ser miembro; máx. 3 conexiones por usuario y liga).
+10. ~~**Sesión fija de 24 h.** Sin refresh token ni forma de revocar tokens (el logout solo borra la cookie). Añadir un refresh token en Redis.~~ ✅ PR #107 (JWT de 15 min + refresh token revocable en Redis, 30 días sin actividad; renovación transparente en `JwtAuthFilter`).
 
 ## 🟡 Robustez e infraestructura
 

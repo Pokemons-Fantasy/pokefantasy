@@ -6,6 +6,7 @@ import com.villu.pokefantasy.exception.TooManyAttemptsException;
 import com.villu.pokefantasy.mediator.CommandHandler;
 import com.villu.pokefantasy.ports.LoginAttemptPort;
 import com.villu.pokefantasy.ports.PasswordHashPort;
+import com.villu.pokefantasy.ports.RefreshTokenPort;
 import com.villu.pokefantasy.ports.TokenPort;
 import com.villu.pokefantasy.repository.UserRepository;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -15,13 +16,14 @@ import java.util.Locale;
 import org.springframework.stereotype.Service;
 
 @Service
-public class LoginUserCommandHandler implements CommandHandler<LoginUserCommand, String> {
+public class LoginUserCommandHandler implements CommandHandler<LoginUserCommand, LoginResult> {
 
     private final UserRepository userRepository;
     private final UserMapper userMapper;
     private final PasswordHashPort passwordHashPort;
     private final TokenPort tokenPort;
     private final LoginAttemptPort loginAttemptPort;
+    private final RefreshTokenPort refreshTokenPort;
 
     /** Fallos por usuario antes de bloquearlo: frena la fuerza bruta contra una cuenta. */
     static final int MAX_FAILURES_PER_USER = 5;
@@ -31,16 +33,17 @@ public class LoginUserCommandHandler implements CommandHandler<LoginUserCommand,
 
     public LoginUserCommandHandler(UserRepository userRepository, UserMapper userMapper,
                                    PasswordHashPort passwordHashPort, TokenPort tokenPort,
-                                   LoginAttemptPort loginAttemptPort) {
+                                   LoginAttemptPort loginAttemptPort, RefreshTokenPort refreshTokenPort) {
         this.userRepository = userRepository;
         this.userMapper = userMapper;
         this.passwordHashPort = passwordHashPort;
         this.tokenPort = tokenPort;
         this.loginAttemptPort = loginAttemptPort;
+        this.refreshTokenPort = refreshTokenPort;
     }
 
     @Override
-    public String handle(LoginUserCommand command) {
+    public LoginResult handle(LoginUserCommand command) {
         if (command == null || command.username() == null || command.password() == null
                 || command.username().isEmpty() || command.password().isEmpty()) {
             throw new IllegalArgumentException("LoginUserCommand cannot be null or have values empty");
@@ -68,7 +71,8 @@ public class LoginUserCommandHandler implements CommandHandler<LoginUserCommand,
         }
 
         loginAttemptPort.clearFailures(userKey);
-        return tokenPort.generateToken(command.username());
+        return new LoginResult(tokenPort.generateToken(command.username()), tokenPort.accessTokenTtl(),
+                refreshTokenPort.issue(command.username()), refreshTokenPort.ttl());
     }
 
     @Override

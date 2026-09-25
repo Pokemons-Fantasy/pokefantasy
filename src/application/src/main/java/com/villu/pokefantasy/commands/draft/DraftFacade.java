@@ -31,7 +31,12 @@ public class DraftFacade {
         mediator.send(new CancelDraftCommand(leagueId, requestingUsername));
     }
 
-    public void autoPick(String leagueId) throws Exception {
-        mediator.send(new AutoPickDraftCommand(leagueId));
+    public void autoPick(String leagueId, String requestingUsername) throws Exception {
+        mediator.send(new AutoPickDraftCommand(leagueId, requestingUsername));
+    }
+
+    /** Lanza {@code ForbiddenOperationException} si el usuario no puede seguir el draft de la liga. */
+    public void requireDraftWatcher(String leagueId, String requestingUsername) throws Exception {
+        mediator.send(new WatchDraftCommand(leagueId, requestingUsername));
     }
 }

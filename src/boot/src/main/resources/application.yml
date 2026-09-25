@@ -29,4 +29,7 @@ management:
 jwt:
   # Must be provided externally as a Base64-encoded 256-bit key
   secret: ${JWT_SECRET}
-  expiration-ms: 86400000
+  # JWT de acceso: corto (15 min). La sesión la mantiene el refresh token (cookie `refresh`, revocable
+  # en Redis), que caduca tras estos días sin actividad.
+  expiration-ms: 900000
+  refresh-expiration-days: 30

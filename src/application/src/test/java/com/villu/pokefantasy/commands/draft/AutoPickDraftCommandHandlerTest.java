@@ -1,7 +1,10 @@
 package com.villu.pokefantasy.commands.draft;
 
 import com.villu.pokefantasy.dto.DraftStatus;
+import com.villu.pokefantasy.dto.LeagueRole;
 import com.villu.pokefantasy.dto.LeagueSettings;
+import com.villu.pokefantasy.exception.ForbiddenOperationException;
+import com.villu.pokefantasy.league.LeagueMembershipGuard;
 import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
@@ -9,6 +12,7 @@ import com.villu.pokefantasy.repository.entity.ClosedListEntity;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
 import com.villu.pokefantasy.repository.entity.DraftPick;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
+import com.villu.pokefantasy.repository.entity.LeagueMember;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -40,7 +44,8 @@ class AutoPickDraftCommandHandlerTest {
     @BeforeEach
     void setUp() {
         handler = new AutoPickDraftCommandHandler(
-                draftRepository, closedListRepository, leagueRepository, draftPickCommandHandler);
+                draftRepository, closedListRepository, new LeagueMembershipGuard(leagueRepository),
+                draftPickCommandHandler);
     }
 
     private DraftEntity inProgressDraft(Instant turnStartedAt) {
@@ -64,6 +69,9 @@ class AutoPickDraftCommandHandlerTest {
                 .turnTimerSeconds(timerSeconds)
                 .build();
         league.setSettings(settings);
+        league.setMembers(new ArrayList<>(List.of(
+                new LeagueMember("ash", LeagueRole.ADMIN, 0),
+                new LeagueMember("brock", LeagueRole.USER, 0))));
         return league;
     }
 
@@ -74,12 +82,21 @@ class AutoPickDraftCommandHandlerTest {
     }
 
     @Test
+    void handle_requesterNotInLeague_forbiddenBeforeTouchingDraft() {
+        when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(leagueWithTimer(5)));
+
+        assertThatThrownBy(() -> handler.handle(new AutoPickDraftCommand(LEAGUE_ID, "gary")))
+                .isInstanceOf(ForbiddenOperationException.class);
+        verifyNoInteractions(draftRepository, draftPickCommandHandler);
+    }
+
+    @Test
     void handle_timerDisabled_throwsIllegalState() {
         DraftEntity draft = inProgressDraft(Instant.now().minusSeconds(120));
         when(draftRepository.findActiveByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
         when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(leagueWithTimer(0)));
 
-        assertThatThrownBy(() -> handler.handle(new AutoPickDraftCommand(LEAGUE_ID)))
+        assertThatThrownBy(() -> handler.handle(new AutoPickDraftCommand(LEAGUE_ID, "brock")))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("not enabled");
     }
@@ -91,7 +108,7 @@ class AutoPickDraftCommandHandlerTest {
         when(draftRepository.findActiveByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
         when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(leagueWithTimer(60)));
 
-        assertThatThrownBy(() -> handler.handle(new AutoPickDraftCommand(LEAGUE_ID)))
+        assertThatThrownBy(() -> handler.handle(new AutoPickDraftCommand(LEAGUE_ID, "brock")))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("not expired");
     }
@@ -111,7 +128,7 @@ class AutoPickDraftCommandHandlerTest {
                 closedListEntry("bulbasaur") // already picked → filtered out
         ));
 
-        handler.handle(new AutoPickDraftCommand(LEAGUE_ID));
+        handler.handle(new AutoPickDraftCommand(LEAGUE_ID, "brock"));
 
         ArgumentCaptor<DraftPickCommand> captor = ArgumentCaptor.forClass(DraftPickCommand.class);
         verify(draftPickCommandHandler).handle(captor.capture());

@@ -5,6 +5,7 @@ import com.villu.pokefantasy.exception.TooManyAttemptsException;
 import com.villu.pokefantasy.mapper.UserMapper;
 import com.villu.pokefantasy.ports.LoginAttemptPort;
 import com.villu.pokefantasy.ports.PasswordHashPort;
+import com.villu.pokefantasy.ports.RefreshTokenPort;
 import com.villu.pokefantasy.ports.TokenPort;
 import com.villu.pokefantasy.repository.UserRepository;
 import com.villu.pokefantasy.repository.entity.UserEntity;
@@ -30,6 +31,7 @@ class LoginUserCommandHandlerTest {
     @Mock private UserMapper userMapper;
     @Mock private PasswordHashPort passwordHashPort;
     @Mock private TokenPort tokenPort;
+    @Mock private RefreshTokenPort refreshTokenPort;
 
     private static final String IP = "1.2.3.4";
 
@@ -39,7 +41,8 @@ class LoginUserCommandHandlerTest {
     @BeforeEach
     void setUp() {
         attempts = new InMemoryLoginAttempts();
-        handler = new LoginUserCommandHandler(userRepository, userMapper, passwordHashPort, tokenPort, attempts);
+        handler = new LoginUserCommandHandler(userRepository, userMapper, passwordHashPort, tokenPort, attempts,
+                refreshTokenPort);
     }
 
     @Test
@@ -87,7 +90,7 @@ class LoginUserCommandHandlerTest {
     }
 
     @Test
-    void handle_validCredentials_returnsToken() {
+    void handle_validCredentials_returnsAccessAndRefreshTokens() {
         UserEntity entity = new UserEntity();
         entity.setName("ash");
         entity.setPassword("hashed");
@@ -97,11 +100,14 @@ class LoginUserCommandHandlerTest {
         when(userMapper.entityToDto(entity)).thenReturn(user);
         when(passwordHashPort.matches("secret", "hashed")).thenReturn(true);
         when(tokenPort.generateToken("ash")).thenReturn("jwt.token.here");
+        when(tokenPort.accessTokenTtl()).thenReturn(Duration.ofMinutes(15));
+        when(refreshTokenPort.issue("ash")).thenReturn("refresh-token");
+        when(refreshTokenPort.ttl()).thenReturn(Duration.ofDays(30));
 
-        String result = handler.handle(new LoginUserCommand("ash", "secret", IP));
+        LoginResult result = handler.handle(new LoginUserCommand("ash", "secret", IP));
 
-        assertThat(result).isEqualTo("jwt.token.here");
-        verify(tokenPort).generateToken("ash");
+        assertThat(result).isEqualTo(new LoginResult("jwt.token.here", Duration.ofMinutes(15),
+                "refresh-token", Duration.ofDays(30)));
     }
 
     // ── Límite de intentos ────────────────────────────────────────────────────
@@ -166,7 +172,7 @@ class LoginUserCommandHandlerTest {
         when(passwordHashPort.matches("secret", "hashed")).thenReturn(true);
         when(tokenPort.generateToken("ash")).thenReturn("jwt");
 
-        assertThat(handler.handle(new LoginUserCommand("ash", "secret", IP))).isEqualTo("jwt");
+        assertThat(handler.handle(new LoginUserCommand("ash", "secret", IP)).accessToken()).isEqualTo("jwt");
     }
 
     @Test
@@ -201,7 +207,7 @@ class LoginUserCommandHandlerTest {
         when(passwordHashPort.matches("secret", "hashed")).thenReturn(true);
         when(tokenPort.generateToken("ash")).thenReturn("jwt");
 
-        assertThat(handler.handle(new LoginUserCommand("ash", "secret", " "))).isEqualTo("jwt");
+        assertThat(handler.handle(new LoginUserCommand("ash", "secret", " ")).accessToken()).isEqualTo("jwt");
     }
 
     private void stubUser(String name, String hashedPassword) {

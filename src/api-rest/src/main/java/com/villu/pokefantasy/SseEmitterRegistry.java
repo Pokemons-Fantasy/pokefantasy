@@ -11,21 +11,37 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Supplier;
 
 @Component
 public class SseEmitterRegistry {
 
-    // leagueId → emitters activos
-    private final Map<String, List<SseEmitter>> emitters = new ConcurrentHashMap<>();
+    /**
+     * Conexiones abiertas por usuario y liga (varias pestañas o dispositivos). Al superar el límite se
+     * cierra la más antigua: así un cliente que reconecta en bucle no acumula conexiones sin fin.
+     */
+    static final int MAX_EMITTERS_PER_USER = 3;
 
-    public SseEmitter register(String leagueId) {
+    private record Subscription(String username, SseEmitter emitter) {}
+
+    // leagueId → suscripciones activas
+    private final Map<String, List<Subscription>> emitters = new ConcurrentHashMap<>();
+
+    public SseEmitter register(String leagueId, String username) {
         SseEmitter emitter = new SseEmitter(0L); // sin timeout — heartbeat lo mantiene vivo
-        emitters.computeIfAbsent(leagueId, k -> new CopyOnWriteArrayList<>()).add(emitter);
+        Subscription subscription = new Subscription(username, emitter);
+        List<Subscription> list = emitters.computeIfAbsent(leagueId, k -> new CopyOnWriteArrayList<>());
 
-        Runnable cleanup = () -> {
-            List<SseEmitter> list = emitters.get(leagueId);
-            if (list != null) list.remove(emitter);
-        };
+        synchronized (list) {
+            List<Subscription> own = list.stream().filter(s -> s.username().equals(username)).toList();
+            for (int i = 0; i <= own.size() - MAX_EMITTERS_PER_USER; i++) {
+                list.remove(own.get(i));
+                own.get(i).emitter().complete();
+            }
+            list.add(subscription);
+        }
+
+        Runnable cleanup = () -> list.remove(subscription);
         emitter.onCompletion(cleanup);
         emitter.onTimeout(cleanup);
         emitter.onError(e -> cleanup.run());
@@ -33,32 +49,31 @@ public class SseEmitterRegistry {
         return emitter;
     }
 
+    int connectionCount(String leagueId) {
+        return emitters.getOrDefault(leagueId, Collections.emptyList()).size();
+    }
+
     public void broadcastUpdate(String leagueId) {
-        List<SseEmitter> list = emitters.getOrDefault(leagueId, Collections.emptyList());
-        List<SseEmitter> dead = new ArrayList<>();
-        for (SseEmitter emitter : list) {
-            try {
-                emitter.send(SseEmitter.event().name("draft-updated").data("{}"));
-            } catch (IOException | IllegalStateException e) {
-                dead.add(emitter);
-            }
-        }
-        list.removeAll(dead);
+        send(emitters.getOrDefault(leagueId, Collections.emptyList()),
+                () -> SseEmitter.event().name("draft-updated").data("{}"));
     }
 
     /** Heartbeat cada 30 s para evitar que el proxy de Render cierre conexiones idle */
     @Scheduled(fixedRate = 30_000)
     public void heartbeat() {
-        emitters.forEach((leagueId, list) -> {
-            List<SseEmitter> dead = new ArrayList<>();
-            for (SseEmitter emitter : list) {
-                try {
-                    emitter.send(SseEmitter.event().comment("ping"));
-                } catch (IOException | IllegalStateException e) {
-                    dead.add(emitter);
-                }
+        emitters.values().forEach(list -> send(list, () -> SseEmitter.event().comment("ping")));
+    }
+
+    // Un builder por envío: SseEventBuilder.build() muta su estado y no se puede reutilizar.
+    private static void send(List<Subscription> list, Supplier<SseEmitter.SseEventBuilder> event) {
+        List<Subscription> dead = new ArrayList<>();
+        for (Subscription subscription : list) {
+            try {
+                subscription.emitter().send(event.get());
+            } catch (IOException | IllegalStateException e) {
+                dead.add(subscription);
             }
-            list.removeAll(dead);
-        });
+        }
+        list.removeAll(dead);
     }
 }
