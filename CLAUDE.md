@@ -110,6 +110,10 @@ Folder: `application/src/main/java/com/villu/pokefantasy/commands/{feature}/`
 - Para rechazar una operación **persistiendo** una limpieza previa (p. ej. cancelar un trade obsoleto) lanza `StaleOperationException`: la transacción se confirma y luego se devuelve 409.
 - Requiere replica set (Atlas lo es). En local `docker-compose` levanta un replica set de un nodo. Contra un Mongo standalone los comandos corren sin transacción (WARN en el log al primer comando).
 
+### Zona horaria
+
+Los deadlines de robo/swap (`stealWindowCloseDay/Time`, `swapWindowCloseDay/Time`) son hora de pared española: `JornadaWindowService` los evalúa en `JornadaWindowService.LEAGUE_ZONE` (`Europe/Madrid`, con horario de verano), no en la zona del servidor (Render corre en UTC).
+
 ## Exception → HTTP mapping (`ApiExceptionHandler`)
 
 | Exception | HTTP |
