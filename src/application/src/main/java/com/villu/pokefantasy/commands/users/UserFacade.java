@@ -27,8 +27,8 @@ public class UserFacade {
         mediator.send(new CreateUserCommand(username, password));
     }
 
-    public String login(String username, String password) throws Exception {
-        return mediator.send(new LoginUserCommand(username, password));
+    public String login(String username, String password, String clientIp) throws Exception {
+        return mediator.send(new LoginUserCommand(username, password, clientIp));
     }
 
     public List<String> searchUsers(String prefix, String leagueId) throws Exception {

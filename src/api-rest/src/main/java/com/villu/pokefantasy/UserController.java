@@ -3,6 +3,7 @@ package com.villu.pokefantasy;
 import com.villu.pokefantasy.commands.users.UserFacade;
 import com.villu.pokefantasy.request.user.RegisterPushTokenRequest;
 import com.villu.pokefantasy.request.user.UserRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
@@ -40,8 +41,9 @@ public class UserController {
 
     @PostMapping("/user/login")
     public ResponseEntity<LoginResponse> loginUser(@RequestBody UserRequest user,
+                                                   HttpServletRequest request,
                                                    HttpServletResponse response) throws Exception {
-        String token = userFacade.login(user.getUsername(), user.getPassword());
+        String token = userFacade.login(user.getUsername(), user.getPassword(), clientIp(request));
         ResponseCookie cookie = ResponseCookie.from("jwt", token)
                 .httpOnly(true)
                 .secure(true)
@@ -51,6 +53,18 @@ public class UserController {
                 .build();
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
         return ResponseEntity.ok(new LoginResponse(user.getUsername()));
+    }
+
+    /**
+     * IP real del cliente. En Render el tráfico llega por Cloudflare y su balanceador, que ponen la IP
+     * del cliente como primera entrada de {@code X-Forwarded-For}; sin cabecera (local) se usa la del socket.
+     */
+    static String clientIp(HttpServletRequest request) {
+        String forwarded = request.getHeader("X-Forwarded-For");
+        if (forwarded != null && !forwarded.isBlank()) {
+            return forwarded.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
     }
 
     @PostMapping("/user/logout")

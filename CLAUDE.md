@@ -121,13 +121,17 @@ Los deadlines de robo/swap (`stealWindowCloseDay/Time`, `swapWindowCloseDay/Time
 | `IllegalArgumentException` | 400 |
 | `IllegalStateException` | 409 |
 | `ForbiddenOperationException` | 403 |
+| `TooManyAttemptsException` | 429 (+ `Retry-After`) |
 | `OptimisticLockingFailureException` | 409 |
 | `StaleOperationException` (commits, then) | 409 |
 | `Exception` | 500 |
 
 ## Security
 
-Stateless JWT. Public endpoints (no token required): `POST /v1/user`, `POST /v1/user/login`, `GET /actuator/health`. Everything else requires `Authorization: Bearer <token>`. `LeagueAdminGuard.requireLeagueAdmin()` guards admin-only operations — checks `LeagueRole.ADMIN` in the league's member list.
+Stateless JWT. Public endpoints (no token required): `POST /v1/user`, `POST /v1/user/login`, `GET /actuator/health`.
+
+- **Registro** (`CreateUserCommandHandler`): username `^[A-Za-z0-9_-]{3,20}$`; contraseña ≥ 8 caracteres y ≤ 72 bytes (límite de bcrypt). Solo se valida al registrarse: los usuarios existentes siguen entrando.
+- **Límite de intentos de login** (`LoginUserCommandHandler` + `LoginAttemptPort` → `LoginAttemptRedisAdapter`, claves `login-fail:*` en Redis): 5 fallos por usuario o 30 por IP en 15 min → 429 durante la ventana, aunque la contraseña sea correcta. Un login correcto limpia el contador del usuario. IP = primera entrada de `X-Forwarded-For` (la pone Render). Si Redis falla, no bloquea (fail-open). Everything else requires `Authorization: Bearer <token>`. `LeagueAdminGuard.requireLeagueAdmin()` guards admin-only operations — checks `LeagueRole.ADMIN` in the league's member list.
 
 CORS is restricted to `https://*.netlify.app` and `localhost` — no wildcard origin (`SecurityConfig.java`). If you add a custom domain, update `corsConfigurationSource()`.
 
