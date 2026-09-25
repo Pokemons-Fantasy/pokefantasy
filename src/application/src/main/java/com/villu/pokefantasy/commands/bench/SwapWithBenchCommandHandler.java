@@ -1,31 +1,26 @@
 package com.villu.pokefantasy.commands.bench;
 
-import com.villu.pokefantasy.commands.schedule.JornadaWindowService;
 import com.villu.pokefantasy.dto.ActivityEventType;
-import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueSettings;
 import com.villu.pokefantasy.dto.Tier;
-import com.villu.pokefantasy.exception.ForbiddenOperationException;
-import com.villu.pokefantasy.league.LeagueMemberService;
 import com.villu.pokefantasy.league.TierPricingService;
 import com.villu.pokefantasy.mediator.CommandHandler;
+import com.villu.pokefantasy.team.TeamOperation;
+import com.villu.pokefantasy.team.TeamTransferService;
 import com.villu.pokefantasy.repository.ActivityEventRepository;
 import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
-import com.villu.pokefantasy.repository.ScheduleRepository;
 import com.villu.pokefantasy.repository.entity.ActivityEventEntity;
 import com.villu.pokefantasy.repository.entity.ClosedListEntity;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
 import com.villu.pokefantasy.repository.entity.DraftPick;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import com.villu.pokefantasy.repository.entity.LeagueMember;
-import com.villu.pokefantasy.repository.entity.ScheduleEntity;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 
-import java.util.List;
 
 @Service
 public class SwapWithBenchCommandHandler implements CommandHandler<SwapWithBenchCommand, Void> {
@@ -33,27 +28,21 @@ public class SwapWithBenchCommandHandler implements CommandHandler<SwapWithBench
     private final DraftRepository draftRepository;
     private final ClosedListRepository closedListRepository;
     private final LeagueRepository leagueRepository;
-    private final ScheduleRepository scheduleRepository;
-    private final JornadaWindowService jornadaWindowService;
+    private final TeamTransferService teamTransferService;
     private final ActivityEventRepository activityEventRepository;
-    private final LeagueMemberService leagueMemberService;
     private final TierPricingService tierPricingService;
 
     public SwapWithBenchCommandHandler(DraftRepository draftRepository,
                                        ClosedListRepository closedListRepository,
                                        LeagueRepository leagueRepository,
-                                       ScheduleRepository scheduleRepository,
-                                       JornadaWindowService jornadaWindowService,
+                                       TeamTransferService teamTransferService,
                                        ActivityEventRepository activityEventRepository,
-                                       LeagueMemberService leagueMemberService,
                                        TierPricingService tierPricingService) {
         this.draftRepository = draftRepository;
         this.closedListRepository = closedListRepository;
         this.leagueRepository = leagueRepository;
-        this.scheduleRepository = scheduleRepository;
-        this.jornadaWindowService = jornadaWindowService;
+        this.teamTransferService = teamTransferService;
         this.activityEventRepository = activityEventRepository;
-        this.leagueMemberService = leagueMemberService;
         this.tierPricingService = tierPricingService;
     }
 
@@ -64,47 +53,21 @@ public class SwapWithBenchCommandHandler implements CommandHandler<SwapWithBench
         String pokemonToGive = command.pokemonToGive().trim();
         String pokemonToTake = command.pokemonToTake().trim();
 
-        DraftEntity draft = draftRepository.findLatestByLeagueId(leagueId)
-                .filter(d -> d.getStatus() == DraftStatus.COMPLETED)
-                .orElseThrow(() -> new IllegalStateException("Swaps are only allowed after the draft is completed"));
+        TeamTransferService.Market market = teamTransferService.openMarket(leagueId, TeamOperation.SWAP);
+        DraftEntity draft = market.draft();
+        LeagueEntity league = market.league();
+        LeagueMember member = teamTransferService.requireMember(league, username);
 
-        // Check swap window — mismo manejo del schedule que el robo y los trades.
-        ScheduleEntity schedule = scheduleRepository.findByLeagueId(leagueId)
-                .orElseThrow(() -> new IllegalStateException("No schedule found for this league"));
-        LeagueEntity league = leagueRepository.findById(leagueId)
-                .orElseThrow(() -> new IllegalArgumentException("League not found: " + leagueId));
-
-        if (!jornadaWindowService.isSwapWindowOpen(schedule, league.getSettings())) {
-            throw new IllegalStateException(
-                    "El intercambio con la banca no está permitido en este momento. " +
-                    "El plazo cerró o los resultados de la jornada anterior aún no están completos.");
-        }
-
-        boolean isMember = league.getMembers().stream()
-                .anyMatch(m -> username.equals(m.getUsername()));
-        if (!isMember) {
-            throw new ForbiddenOperationException("User '" + username + "' is not a member of league: " + leagueId);
-        }
-
-        List<DraftPick> picks = draft.getPicks();
-        int givenPickIndex = -1;
-        for (int i = 0; i < picks.size(); i++) {
-            DraftPick pick = picks.get(i);
-            if (username.equals(pick.getUsername()) && pokemonToGive.equalsIgnoreCase(pick.getPokemonName())) {
-                givenPickIndex = i;
-                break;
-            }
-        }
-        if (givenPickIndex < 0) {
-            throw new IllegalArgumentException("'" + pokemonToGive + "' is not in your team for this league");
-        }
+        DraftPick givenPick = draft.getPicks().stream()
+                .filter(p -> username.equals(p.getUsername()) && pokemonToGive.equalsIgnoreCase(p.getPokemonName()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "'" + pokemonToGive + "' is not in your team for this league"));
 
         ClosedListEntity benchEntry = closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(pokemonToTake, leagueId)
                 .orElseThrow(() -> new IllegalArgumentException("'" + pokemonToTake + "' is not in the pool for this league"));
 
-        if (draft.ownedPokemonNames().contains(pokemonToTake.toLowerCase())) {
-            throw new IllegalStateException("'" + pokemonToTake + "' is not available on the bench");
-        }
+        teamTransferService.requireOnBench(draft, pokemonToTake);
 
         // Tier parity check + net coin change
         ClosedListEntity giveEntry = closedListRepository
@@ -124,22 +87,16 @@ public class SwapWithBenchCommandHandler implements CommandHandler<SwapWithBench
         int priceTake = tierPricingService.priceForTier(settings, benchEntry.getTier());
         int net = priceGive - priceTake; // positive = player receives coins; negative = player pays
 
-        LeagueMember member = leagueMemberService.requireMember(league, username);
-        if (net < 0 && member.getCoinBalance() < -net) {
-            throw new IllegalStateException(
-                    "No tienes suficientes monedas. Necesitas " + (-net) +
-                    " pero tienes " + member.getCoinBalance() + ".");
+        if (net < 0) {
+            teamTransferService.charge(member, -net);
+        } else {
+            member.setCoinBalance(member.getCoinBalance() + net);
         }
         if (net != 0) {
-            member.setCoinBalance(member.getCoinBalance() + net);
             leagueRepository.save(league);
         }
 
-        // Replace the pick in the draft (single source of truth for teams)
-        DraftPick givenPick = picks.get(givenPickIndex);
-        picks.set(givenPickIndex, new DraftPick(username, benchEntry.getPokemonName(),
-                benchEntry.getPokemonId(), givenPick.getRound(), givenPick.getPickedAt(), null, null));
-
+        teamTransferService.replaceWithBench(draft, givenPick, benchEntry);
         draftRepository.save(draft);
 
         activityEventRepository.save(ActivityEventEntity.builder()

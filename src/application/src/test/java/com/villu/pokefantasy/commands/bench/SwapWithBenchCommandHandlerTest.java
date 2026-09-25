@@ -62,8 +62,8 @@ class SwapWithBenchCommandHandlerTest {
     void setUp() {
         handler = new SwapWithBenchCommandHandler(
                 draftRepository, closedListRepository, leagueRepository,
-                scheduleRepository, jornadaWindowService, activityEventRepository,
-                new LeagueMemberService(), new TierPricingService());
+                new com.villu.pokefantasy.team.TeamTransferService(draftRepository, scheduleRepository, leagueRepository, jornadaWindowService), activityEventRepository,
+                new TierPricingService());
         // Default: schedule present con la ventana de swap abierta → la comprobación de
         // tiempo pasa y cada test se centra en sus validaciones de negocio.
         lenient().when(scheduleRepository.findByLeagueId(LEAGUE_ID))

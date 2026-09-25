@@ -62,8 +62,8 @@ class BuyFromBenchCommandHandlerTest {
     void setUp() {
         handler = new BuyFromBenchCommandHandler(
                 draftRepository, closedListRepository, leagueRepository,
-                scheduleRepository, jornadaWindowService, activityEventRepository,
-                new LeagueMemberService(), new TierPricingService());
+                new com.villu.pokefantasy.team.TeamTransferService(draftRepository, scheduleRepository, leagueRepository, jornadaWindowService), activityEventRepository,
+                new TierPricingService());
 
         lenient().when(scheduleRepository.findByLeagueId(LEAGUE_ID))
                 .thenReturn(Optional.of(scheduleWithPendingJornada()));

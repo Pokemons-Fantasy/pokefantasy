@@ -60,8 +60,8 @@ class RespondToTradeCommandHandlerTest {
     @BeforeEach
     void setUp() {
         handler = new RespondToTradeCommandHandler(
-                tradeRepository, draftRepository, scheduleRepository,
-                leagueRepository, jornadaWindowService,
+                tradeRepository, draftRepository, leagueRepository,
+                new com.villu.pokefantasy.team.TeamTransferService(draftRepository, scheduleRepository, leagueRepository, jornadaWindowService),
                 activityEventRepository);
     }
 

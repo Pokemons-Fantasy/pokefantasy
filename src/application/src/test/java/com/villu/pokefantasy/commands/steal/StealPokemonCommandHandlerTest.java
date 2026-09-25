@@ -68,7 +68,7 @@ class StealPokemonCommandHandlerTest {
     void setUp() {
         handler = new StealPokemonCommandHandler(
                 draftRepository, closedListRepository, leagueRepository,
-                userRepository, scheduleRepository, jornadaWindowService,
+                userRepository, new com.villu.pokefantasy.team.TeamTransferService(draftRepository, scheduleRepository, leagueRepository, jornadaWindowService),
                 activityEventRepository, pushNotificationPort,
                 new LeagueMemberService(), new TierPricingService());
 

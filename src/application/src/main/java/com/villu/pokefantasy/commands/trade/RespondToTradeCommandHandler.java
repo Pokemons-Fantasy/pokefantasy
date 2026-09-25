@@ -1,50 +1,44 @@
 package com.villu.pokefantasy.commands.trade;
 
-import com.villu.pokefantasy.commands.schedule.JornadaWindowService;
 import com.villu.pokefantasy.dto.ActivityEventType;
-import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.TradeStatus;
 import com.villu.pokefantasy.exception.ForbiddenOperationException;
 import com.villu.pokefantasy.exception.StaleOperationException;
 import com.villu.pokefantasy.mediator.CommandHandler;
+import com.villu.pokefantasy.team.TeamOperation;
+import com.villu.pokefantasy.team.TeamTransferService;
 import com.villu.pokefantasy.repository.ActivityEventRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
-import com.villu.pokefantasy.repository.ScheduleRepository;
 import com.villu.pokefantasy.repository.TradeRepository;
 import com.villu.pokefantasy.repository.entity.ActivityEventEntity;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
 import com.villu.pokefantasy.repository.entity.DraftPick;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import com.villu.pokefantasy.repository.entity.LeagueMember;
-import com.villu.pokefantasy.repository.entity.ScheduleEntity;
 import com.villu.pokefantasy.repository.entity.TradeEntity;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 
 @Service
 public class RespondToTradeCommandHandler implements CommandHandler<RespondToTradeCommand, Void> {
 
     private final TradeRepository tradeRepository;
     private final DraftRepository draftRepository;
-    private final ScheduleRepository scheduleRepository;
     private final LeagueRepository leagueRepository;
-    private final JornadaWindowService jornadaWindowService;
+    private final TeamTransferService teamTransferService;
     private final ActivityEventRepository activityEventRepository;
 
     public RespondToTradeCommandHandler(TradeRepository tradeRepository,
                                         DraftRepository draftRepository,
-                                        ScheduleRepository scheduleRepository,
                                         LeagueRepository leagueRepository,
-                                        JornadaWindowService jornadaWindowService,
+                                        TeamTransferService teamTransferService,
                                         ActivityEventRepository activityEventRepository) {
         this.tradeRepository = tradeRepository;
         this.draftRepository = draftRepository;
-        this.scheduleRepository = scheduleRepository;
         this.leagueRepository = leagueRepository;
-        this.jornadaWindowService = jornadaWindowService;
+        this.teamTransferService = teamTransferService;
         this.activityEventRepository = activityEventRepository;
     }
 
@@ -74,29 +68,17 @@ public class RespondToTradeCommandHandler implements CommandHandler<RespondToTra
     private void executeTrade(TradeEntity trade) {
         String leagueId = trade.getLeagueId();
 
-        DraftEntity draft = draftRepository.findLatestByLeagueId(leagueId)
-                .filter(d -> d.getStatus() == DraftStatus.COMPLETED)
-                .orElseThrow(() -> new IllegalStateException(
-                        "Trades are only allowed after the draft is completed"));
-
-        ScheduleEntity schedule = scheduleRepository.findByLeagueId(leagueId)
-                .orElseThrow(() -> new IllegalStateException("No schedule found for this league"));
-
-        LeagueEntity league = leagueRepository.findById(leagueId)
-                .orElseThrow(() -> new IllegalArgumentException("League not found: " + leagueId));
-
-        if (!jornadaWindowService.isSwapWindowOpen(schedule, league.getSettings())) {
-            throw new IllegalStateException(
-                    "La ventana de intercambios no está abierta. El plazo cerró el viernes a las 16:00.");
-        }
+        TeamTransferService.Market market = teamTransferService.openMarket(leagueId, TeamOperation.TRADE);
+        DraftEntity draft = market.draft();
+        LeagueEntity league = market.league();
 
         DraftPick proposerPick = findPickOrInvalidate(draft, trade,
                 trade.getProposer(), trade.getProposerPokemonName());
         DraftPick responderPick = findPickOrInvalidate(draft, trade,
                 trade.getResponder(), trade.getResponderPokemonName());
 
-        assertNotLocked(proposerPick, trade.getProposerPokemonName());
-        assertNotLocked(responderPick, trade.getResponderPokemonName());
+        teamTransferService.requireUnlocked(proposerPick);
+        teamTransferService.requireUnlocked(responderPick);
 
         LeagueMember proposerMember = getMember(league, trade.getProposer());
         LeagueMember responderMember = getMember(league, trade.getResponder());
@@ -110,15 +92,10 @@ public class RespondToTradeCommandHandler implements CommandHandler<RespondToTra
         responderMember.setCoinBalance(responderMember.getCoinBalance() + trade.getCoinsOffered());
         leagueRepository.save(league);
 
-        // 2. DraftPicks: intercambio de username + bloqueo
+        // 2. DraftPicks: intercambio de dueño + bloqueo
         Instant now = Instant.now();
-        Instant lockUntil = now.plus(7, ChronoUnit.DAYS);
-        proposerPick.setUsername(trade.getResponder());
-        proposerPick.setLockedUntil(lockUntil);
-        proposerPick.setPickedAt(now);
-        responderPick.setUsername(trade.getProposer());
-        responderPick.setLockedUntil(lockUntil);
-        responderPick.setPickedAt(now);
+        teamTransferService.transfer(proposerPick, trade.getResponder(), now);
+        teamTransferService.transfer(responderPick, trade.getProposer(), now);
 
         draftRepository.save(draft);
 
@@ -176,13 +153,6 @@ public class RespondToTradeCommandHandler implements CommandHandler<RespondToTra
 
     private boolean matches(String name, String a, String b) {
         return name.equalsIgnoreCase(a) || name.equalsIgnoreCase(b);
-    }
-
-    private void assertNotLocked(DraftPick pick, String pokemonName) {
-        if (pick.getLockedUntil() != null && Instant.now().isBefore(pick.getLockedUntil())) {
-            throw new IllegalStateException(
-                    "'" + pokemonName + "' está bloqueado hasta " + pick.getLockedUntil() + ".");
-        }
     }
 
     private LeagueMember getMember(LeagueEntity league, String username) {
