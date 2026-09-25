@@ -1,9 +1,11 @@
 package com.villu.pokefantasy.mediator;
 
+import com.villu.pokefantasy.ports.TransactionPort;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -12,6 +14,15 @@ class SpringMediatorTest {
 
     record TestCommand(String value) implements Command {}
     record UnknownCommand() implements Command {}
+
+    private final AtomicInteger transactions = new AtomicInteger();
+    private final TransactionPort transactionPort = new TransactionPort() {
+        @Override
+        public <T> T execute(TransactionalWork<T> work) throws Exception {
+            transactions.incrementAndGet();
+            return work.run();
+        }
+    };
 
     private SpringMediator mediator;
 
@@ -27,7 +38,7 @@ class SpringMediatorTest {
                 return TestCommand.class;
             }
         };
-        mediator = new SpringMediator(List.of(handler));
+        mediator = new SpringMediator(List.of(handler), transactionPort);
     }
 
     @Test
@@ -51,6 +62,19 @@ class SpringMediatorTest {
     }
 
     @Test
+    void send_knownCommand_runsHandlerInsideTransaction() throws Exception {
+        mediator.send(new TestCommand("hello"));
+        assertThat(transactions).hasValue(1);
+    }
+
+    @Test
+    void send_invalidCommand_doesNotOpenTransaction() {
+        assertThatThrownBy(() -> mediator.send(new UnknownCommand()))
+                .isInstanceOf(IllegalStateException.class);
+        assertThat(transactions).hasValue(0);
+    }
+
+    @Test
     void constructor_duplicateHandlers_throwsIllegalState() {
         CommandHandler<TestCommand, String> h1 = new CommandHandler<>() {
             @Override public String handle(TestCommand cmd) { return "a"; }
@@ -60,7 +84,7 @@ class SpringMediatorTest {
             @Override public String handle(TestCommand cmd) { return "b"; }
             @Override public Class<TestCommand> commandType() { return TestCommand.class; }
         };
-        assertThatThrownBy(() -> new SpringMediator(List.of(h1, h2)))
+        assertThatThrownBy(() -> new SpringMediator(List.of(h1, h2), transactionPort))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Duplicate handler");
     }

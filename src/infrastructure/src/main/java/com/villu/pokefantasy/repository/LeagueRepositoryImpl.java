@@ -46,14 +46,16 @@ public class LeagueRepositoryImpl implements LeagueRepository {
     @Override
     public void addMember(String leagueId, LeagueMember member) {
         Query query = new Query(Criteria.where("_id").is(leagueId));
-        Update update = new Update().push("members", member);
+        // Incrementa version para que un save() posterior con la liga desactualizada falle en vez de pisar el cambio.
+        Update update = new Update().push("members", member).inc("version", 1);
         mongoTemplate.updateFirst(query, update, LeagueEntity.class);
     }
 
     @Override
     public void removeMember(String leagueId, String username) {
         Query query = new Query(Criteria.where("_id").is(leagueId));
-        Update update = new Update().pull("members", new Query(Criteria.where("username").is(username)));
+        Update update = new Update().pull("members", new Query(Criteria.where("username").is(username)))
+                .inc("version", 1);
         mongoTemplate.updateFirst(query, update, LeagueEntity.class);
     }
 }

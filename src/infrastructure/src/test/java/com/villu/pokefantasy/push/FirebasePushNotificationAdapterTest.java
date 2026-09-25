@@ -15,9 +15,12 @@ import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -87,6 +90,47 @@ class FirebasePushNotificationAdapterTest {
             adapter.send(List.of("token1"), "title", "body");
 
             verify(userRepository, never()).removeFcmToken(Mockito.anyString());
+        }
+    }
+
+    @Test
+    void send_insideTransaction_defersUntilAfterCommit() throws Exception {
+        ReflectionTestUtils.setField(adapter, "initialized", true);
+        SendResponse ok = mock(SendResponse.class);
+        when(ok.isSuccessful()).thenReturn(true);
+        BatchResponse response = mock(BatchResponse.class);
+        when(response.getResponses()).thenReturn(List.of(ok));
+
+        TransactionSynchronizationManager.initSynchronization();
+        try (MockedStatic<FirebaseMessaging> messaging = mockStatic(FirebaseMessaging.class)) {
+            messaging.when(FirebaseMessaging::getInstance).thenReturn(firebaseMessaging);
+            when(firebaseMessaging.sendEachForMulticast(any(MulticastMessage.class))).thenReturn(response);
+
+            adapter.send(List.of("token1"), "title", "body");
+            verify(firebaseMessaging, never()).sendEachForMulticast(any(MulticastMessage.class));
+
+            List<TransactionSynchronization> synchronizations = TransactionSynchronizationManager.getSynchronizations();
+            assertThat(synchronizations).hasSize(1);
+            synchronizations.forEach(TransactionSynchronization::afterCommit);
+
+            verify(firebaseMessaging).sendEachForMulticast(any(MulticastMessage.class));
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
+
+    @Test
+    void send_unexpectedRuntimeException_isLoggedNotPropagated() throws Exception {
+        ReflectionTestUtils.setField(adapter, "initialized", true);
+
+        try (MockedStatic<FirebaseMessaging> messaging = mockStatic(FirebaseMessaging.class)) {
+            messaging.when(FirebaseMessaging::getInstance).thenReturn(firebaseMessaging);
+            when(firebaseMessaging.sendEachForMulticast(any(MulticastMessage.class)))
+                    .thenThrow(new IllegalStateException("network down"));
+
+            adapter.send(List.of("token1"), "title", "body");
+
+            verifyNoInteractions(userRepository);
         }
     }
 

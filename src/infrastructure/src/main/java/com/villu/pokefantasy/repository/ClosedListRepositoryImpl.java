@@ -42,7 +42,7 @@ public class ClosedListRepositoryImpl implements ClosedListRepository {
     @Override
     public void updateTier(String id, Tier tier) {
         Query query = new Query(Criteria.where("_id").is(id));
-        Update update = new Update().set("tier", tier);
+        Update update = new Update().set("tier", tier).inc("version", 1);
         mongoTemplate.updateFirst(query, update, ClosedListEntity.class);
     }
 

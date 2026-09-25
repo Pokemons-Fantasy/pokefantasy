@@ -12,10 +12,12 @@ import java.util.List;
 public interface UserMapper {
 
     @Mapping(target = "fcmTokens", ignore = true)
+    @Mapping(target = "version", ignore = true)
     UserEntity dtoToEntity(User user);
 
     User entityToDto(UserEntity userEntity);
 
     @Mapping(target = "fcmTokens", ignore = true)
+    @Mapping(target = "version", ignore = true)
     UserEntity updateUserWithPokemons(User user, List<Pokemons> pokemons);
 }

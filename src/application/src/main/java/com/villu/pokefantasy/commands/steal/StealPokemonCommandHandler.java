@@ -25,7 +25,6 @@ import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import com.villu.pokefantasy.repository.entity.LeagueMember;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity;
 import com.villu.pokefantasy.repository.entity.UserEntity;
-import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -135,19 +134,14 @@ public class StealPokemonCommandHandler implements CommandHandler<StealPokemonCo
 
         // Transfer pokemon in user documents
         UserEntity victimUser = userRepository.findByUsername(victim);
-        Pokemons removedFromVictim = null;
         if (victimUser != null && victimUser.getPokemons() != null) {
             List<Pokemons> vPokemons = new ArrayList<>(victimUser.getPokemons());
-            removedFromVictim = vPokemons.stream()
-                    .filter(p -> leagueId.equals(p.getLeagueId()) && targetName.equalsIgnoreCase(p.getName()))
-                    .findFirst().orElse(null);
             vPokemons.removeIf(p -> leagueId.equals(p.getLeagueId()) && targetName.equalsIgnoreCase(p.getName()));
             victimUser.setPokemons(vPokemons);
             userRepository.updateUserWithPokemons(victimUser);
         }
 
         UserEntity stealerUser = userRepository.findByUsername(stealer);
-        Pokemons stolen = null;
         if (stealerUser != null) {
             List<Pokemons> sPokemons = stealerUser.getPokemons() != null
                     ? new ArrayList<>(stealerUser.getPokemons()) : new ArrayList<>();
@@ -155,7 +149,7 @@ public class StealPokemonCommandHandler implements CommandHandler<StealPokemonCo
             ClosedListEntity entry = closedListRepository
                     .findByPokemonNameIgnoreCaseAndLeagueId(targetName, leagueId)
                     .orElse(null);
-            stolen = new Pokemons();
+            Pokemons stolen = new Pokemons();
             stolen.setId(targetPick.getPokemonId());
             stolen.setName(targetPick.getPokemonName());
             stolen.setLeagueId(leagueId);
@@ -174,17 +168,7 @@ public class StealPokemonCommandHandler implements CommandHandler<StealPokemonCo
         targetPick.setPickedAt(Instant.now());
         // customStealPrice is intentionally preserved (inherited by new owner)
 
-        try {
-            draftRepository.save(draft);
-        } catch (OptimisticLockingFailureException exception) {
-            compensateSteal(league, stealerMember, victimMember, stealPrice,
-                    victimUser, removedFromVictim, stealerUser, stolen, leagueId);
-            throw new IllegalStateException("Otro jugador modificó el draft al mismo tiempo. Inténtalo de nuevo.", exception);
-        } catch (RuntimeException exception) {
-            compensateSteal(league, stealerMember, victimMember, stealPrice,
-                    victimUser, removedFromVictim, stealerUser, stolen, leagueId);
-            throw exception;
-        }
+        draftRepository.save(draft);
 
         activityEventRepository.save(ActivityEventEntity.builder()
                 .leagueId(leagueId)
@@ -204,33 +188,6 @@ public class StealPokemonCommandHandler implements CommandHandler<StealPokemonCo
         }
 
         return victim;
-    }
-
-    /**
-     * Revierte monedas y pokémon si draftRepository.save(draft) falla — evita dejar
-     * user.pokemons/coinBalance mutados sin el DraftPick correspondiente actualizado.
-     */
-    private void compensateSteal(LeagueEntity league, LeagueMember stealerMember, LeagueMember victimMember,
-                                 int stealPrice, UserEntity victimUser, Pokemons removedFromVictim,
-                                 UserEntity stealerUser, Pokemons stolen, String leagueId) {
-        stealerMember.setCoinBalance(stealerMember.getCoinBalance() + stealPrice);
-        victimMember.setCoinBalance(victimMember.getCoinBalance() - stealPrice * 2);
-        leagueRepository.save(league);
-
-        // removedFromVictim/stolen solo son no-null si victimUser/stealerUser ya lo eran
-        // en el flujo principal (misma referencia, misma invocación del handler).
-        if (removedFromVictim != null) {
-            List<Pokemons> vPokemons = new ArrayList<>(victimUser.getPokemons());
-            vPokemons.add(removedFromVictim);
-            victimUser.setPokemons(vPokemons);
-            userRepository.updateUserWithPokemons(victimUser);
-        }
-        if (stolen != null) {
-            List<Pokemons> sPokemons = new ArrayList<>(stealerUser.getPokemons());
-            sPokemons.removeIf(p -> leagueId.equals(p.getLeagueId()) && stolen.getName().equalsIgnoreCase(p.getName()));
-            stealerUser.setPokemons(sPokemons);
-            userRepository.updateUserWithPokemons(stealerUser);
-        }
     }
 
     @Override

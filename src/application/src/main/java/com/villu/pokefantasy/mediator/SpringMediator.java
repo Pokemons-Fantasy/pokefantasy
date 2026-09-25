@@ -1,5 +1,6 @@
 package com.villu.pokefantasy.mediator;
 
+import com.villu.pokefantasy.ports.TransactionPort;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -11,8 +12,9 @@ import java.util.stream.Collectors;
 public class SpringMediator implements Mediator {
 
     private final Map<Class<?>, CommandHandler<?, ?>> handlers;
+    private final TransactionPort transactionPort;
 
-    public SpringMediator(List<CommandHandler<?, ?>> handlers) {
+    public SpringMediator(List<CommandHandler<?, ?>> handlers, TransactionPort transactionPort) {
         this.handlers = handlers.stream()
                 .collect(Collectors.toUnmodifiableMap(
                         CommandHandler::commandType,
@@ -21,6 +23,7 @@ public class SpringMediator implements Mediator {
                             throw new IllegalStateException("Duplicate handler for command type: " + a.commandType());
                         }
                 ));
+        this.transactionPort = transactionPort;
     }
 
     @SuppressWarnings("unchecked")
@@ -33,7 +36,7 @@ public class SpringMediator implements Mediator {
         if (handler == null) {
             throw new IllegalStateException("No handler registered for command type: " + command.getClass().getName());
         }
-        return handler.handle(command);
+        // Cada comando es una unidad atómica: si falla cualquier escritura, no se persiste ninguna.
+        return transactionPort.execute(() -> handler.handle(command));
     }
 }
-

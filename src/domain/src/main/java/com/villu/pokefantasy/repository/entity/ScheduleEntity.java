@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Version;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.util.List;
@@ -15,6 +16,8 @@ public class ScheduleEntity {
 
     @Id
     private String id;
+    @Version
+    private Long version;
 
     private String leagueId;
 

@@ -15,6 +15,8 @@ import com.villu.pokefantasy.repository.UserRepository;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
@@ -60,6 +62,22 @@ public class FirebasePushNotificationAdapter implements PushNotificationPort {
     @Override
     public void send(List<String> fcmTokens, String title, String body) {
         if (!initialized || fcmTokens == null || fcmTokens.isEmpty()) return;
+        List<String> tokens = List.copyOf(fcmTokens);
+        // Dentro de un comando transaccional se envía tras el commit: si la transacción
+        // se aborta o se reintenta, no llega una notificación de algo que no ha ocurrido.
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    doSend(tokens, title, body);
+                }
+            });
+        } else {
+            doSend(tokens, title, body);
+        }
+    }
+
+    private void doSend(List<String> fcmTokens, String title, String body) {
         try {
             MulticastMessage message = MulticastMessage.builder()
                     .setNotification(Notification.builder()
@@ -71,7 +89,7 @@ public class FirebasePushNotificationAdapter implements PushNotificationPort {
             BatchResponse response = FirebaseMessaging.getInstance().sendEachForMulticast(message);
             log.info("Push sent: {}/{} successful for title='{}'", response.getSuccessCount(), fcmTokens.size(), title);
             cleanupStaleTokens(fcmTokens, response);
-        } catch (FirebaseMessagingException e) {
+        } catch (FirebaseMessagingException | RuntimeException e) {
             log.error("Failed to send push notification: {}", e.getMessage(), e);
         }
     }
