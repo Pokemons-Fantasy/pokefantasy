@@ -5,7 +5,6 @@ import com.villu.pokefantasy.dto.ActivityEventType;
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueRole;
 import com.villu.pokefantasy.dto.LeagueSettings;
-import com.villu.pokefantasy.dto.Pokemons;
 import com.villu.pokefantasy.dto.Tier;
 import com.villu.pokefantasy.league.LeagueMemberService;
 import com.villu.pokefantasy.league.TierPricingService;
@@ -99,9 +98,7 @@ class StealPokemonCommandHandlerTest {
         when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TARGET, LEAGUE_ID))
                 .thenReturn(Optional.of(entry));
 
-        UserEntity stealerUser = userWithPokemon(STEALER, "pikachu");
-        UserEntity victimUser  = userWithPokemon(VICTIM, TARGET);
-        when(userRepository.findByUsername(STEALER)).thenReturn(stealerUser);
+        UserEntity victimUser  = user(VICTIM);
         when(userRepository.findByUsername(VICTIM)).thenReturn(victimUser);
 
         String result = handler.handle(new StealPokemonCommand(LEAGUE_ID, STEALER, TARGET));
@@ -111,10 +108,6 @@ class StealPokemonCommandHandlerTest {
         LeagueMember victimMember  = getMember(league, VICTIM);
         assertThat(stealerMember.getCoinBalance()).isEqualTo(700);  // 1000-300
         assertThat(victimMember.getCoinBalance()).isEqualTo(1100);  // 500+600
-
-        // Pokemon moved: stealer now has TARGET, victim lost it
-        assertThat(stealerUser.getPokemons()).anyMatch(p -> TARGET.equals(p.getName()));
-        assertThat(victimUser.getPokemons()).noneMatch(p -> TARGET.equals(p.getName()));
 
         // Draft pick ownership transferred
         ArgumentCaptor<DraftEntity> draftCaptor = ArgumentCaptor.forClass(DraftEntity.class);
@@ -127,7 +120,6 @@ class StealPokemonCommandHandlerTest {
         assertThat(pick.getLockedUntil()).isAfter(Instant.now().plus(6, ChronoUnit.DAYS));
 
         verify(leagueRepository).save(league);
-        verify(userRepository, times(2)).updateUserWithPokemons(any());
 
         assertThat(result).isEqualTo(VICTIM);
     }
@@ -151,11 +143,6 @@ class StealPokemonCommandHandlerTest {
         when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TARGET, LEAGUE_ID))
                 .thenReturn(Optional.of(entry));
 
-        UserEntity stealerUser = userWithPokemon(STEALER, "pikachu");
-        UserEntity victimUser  = userWithPokemon(VICTIM, TARGET);
-        when(userRepository.findByUsername(STEALER)).thenReturn(stealerUser);
-        when(userRepository.findByUsername(VICTIM)).thenReturn(victimUser);
-
         doThrow(new OptimisticLockingFailureException("stale draft")).when(draftRepository).save(draft);
 
         assertThatThrownBy(() -> handler.handle(new StealPokemonCommand(LEAGUE_ID, STEALER, TARGET)))
@@ -164,7 +151,7 @@ class StealPokemonCommandHandlerTest {
         // Sin compensaciones manuales: el conflicto se propaga intacto para que la transacción
         // del mediator deshaga todas las escrituras y reintente el comando.
         verify(leagueRepository, times(1)).save(any());
-        verify(userRepository, times(2)).updateUserWithPokemons(any());
+        verifyNoInteractions(pushNotificationPort);
     }
 
     // ── Steal window closed ───────────────────────────────────────────────────
@@ -261,18 +248,12 @@ class StealPokemonCommandHandlerTest {
         LeagueEntity league = leagueWithTwoMembers(1000, 0);
         league.setSettings(LeagueSettings.builder().priceTierS(300).build()); // default 300 but custom=800
 
-        ClosedListEntity entry = closedListEntry(TARGET, 6, Tier.S);
-
         when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
         when(scheduleRepository.findByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(schedule));
         when(jornadaWindowService.isStealWindowOpen(any(), any())).thenReturn(true);
         when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
-        when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TARGET, LEAGUE_ID))
-                .thenReturn(Optional.of(entry));
 
-        UserEntity stealerUser = userWithPokemon(STEALER, "pikachu");
-        UserEntity victimUser  = userWithPokemon(VICTIM, TARGET);
-        when(userRepository.findByUsername(STEALER)).thenReturn(stealerUser);
+        UserEntity victimUser  = user(VICTIM);
         when(userRepository.findByUsername(VICTIM)).thenReturn(victimUser);
 
         String result = handler.handle(new StealPokemonCommand(LEAGUE_ID, STEALER, TARGET));
@@ -317,12 +298,10 @@ class StealPokemonCommandHandlerTest {
                 .hasMessageContaining("suficientes monedas");
     }
 
-    // ── Tier B — stealer has null pokemons (ternary branch) ───────────────────
+    // ── Tier B price used ─────────────────────────────────────────────────────
 
     @Test
-    void handle_stealerNullPokemons_createsNewList() {
-        // Stealer exists but getPokemons()==null → handler must create a new ArrayList
-        // Also covers case B in priceForTier switch
+    void handle_tierBPokemon_chargesTierBPrice() {
         DraftEntity draft = completedDraftWithPick(VICTIM, TARGET, 6);
         ScheduleEntity schedule = scheduleWithActiveJornada(1);
         LeagueEntity league = leagueWithTwoMembers(1000, 500);
@@ -335,19 +314,12 @@ class StealPokemonCommandHandlerTest {
         when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
         when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TARGET, LEAGUE_ID))
                 .thenReturn(Optional.of(entry));
-
-        UserEntity stealerUser = new UserEntity();
-        stealerUser.setName(STEALER);
-        stealerUser.setPokemons(null); // ← null pokemons: forces the else-branch
-
-        UserEntity victimUser = userWithPokemon(VICTIM, TARGET);
-        when(userRepository.findByUsername(STEALER)).thenReturn(stealerUser);
-        when(userRepository.findByUsername(VICTIM)).thenReturn(victimUser);
+        when(userRepository.findByUsername(VICTIM)).thenReturn(user(VICTIM));
 
         String result = handler.handle(new StealPokemonCommand(LEAGUE_ID, STEALER, TARGET));
 
-        // Pokemon was added to the newly-created empty list
-        assertThat(stealerUser.getPokemons()).anyMatch(p -> TARGET.equals(p.getName()));
+        assertThat(getMember(league, STEALER).getCoinBalance()).isEqualTo(900);  // 1000-100
+        assertThat(getMember(league, VICTIM).getCoinBalance()).isEqualTo(700);   // 500+200
         assertThat(result).isEqualTo(VICTIM);
     }
 
@@ -418,8 +390,7 @@ class StealPokemonCommandHandlerTest {
         when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
         when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TARGET, LEAGUE_ID))
                 .thenReturn(Optional.of(entry));
-        when(userRepository.findByUsername(STEALER)).thenReturn(userWithPokemon(STEALER, "pikachu"));
-        when(userRepository.findByUsername(VICTIM)).thenReturn(userWithPokemon(VICTIM, TARGET));
+        when(userRepository.findByUsername(VICTIM)).thenReturn(user(VICTIM));
 
         String result = handler.handle(new StealPokemonCommand(LEAGUE_ID, STEALER, TARGET));
 
@@ -474,8 +445,7 @@ class StealPokemonCommandHandlerTest {
         when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
         when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TARGET, LEAGUE_ID))
                 .thenReturn(Optional.of(entry));
-        when(userRepository.findByUsername(STEALER)).thenReturn(userWithPokemon(STEALER, "pikachu"));
-        when(userRepository.findByUsername(VICTIM)).thenReturn(userWithPokemon(VICTIM, TARGET));
+        when(userRepository.findByUsername(VICTIM)).thenReturn(user(VICTIM));
 
         // Should not throw
         String result = handler.handle(new StealPokemonCommand(LEAGUE_ID, STEALER, TARGET));
@@ -510,14 +480,8 @@ class StealPokemonCommandHandlerTest {
         UserEntity victimUser = new UserEntity();
         victimUser.setName(VICTIM);
         victimUser.setFcmTokens(new ArrayList<>(List.of("token-brock")));
-        victimUser.setPokemons(new ArrayList<>());
-
-        UserEntity stealerUser = new UserEntity();
-        stealerUser.setName(STEALER);
-        stealerUser.setPokemons(new ArrayList<>());
 
         when(userRepository.findByUsername(VICTIM)).thenReturn(victimUser);
-        when(userRepository.findByUsername(STEALER)).thenReturn(stealerUser);
 
         handler.handle(new StealPokemonCommand(LEAGUE_ID, STEALER, TARGET));
 
@@ -565,13 +529,9 @@ class StealPokemonCommandHandlerTest {
         return league;
     }
 
-    private UserEntity userWithPokemon(String username, String pokemonName) {
-        Pokemons p = new Pokemons();
-        p.setName(pokemonName);
-        p.setLeagueId(LEAGUE_ID);
+    private UserEntity user(String username) {
         UserEntity user = new UserEntity();
         user.setName(username);
-        user.setPokemons(new ArrayList<>(List.of(p)));
         return user;
     }
 

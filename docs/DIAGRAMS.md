@@ -18,13 +18,6 @@ erDiagram
         String password "bcrypt"
         List~String~ roles
     }
-    Pokemons_embedded {
-        int    id
-        String name
-        String leagueId FK
-        Object stats
-        List~String~ types
-    }
     LeagueEntity {
         String id PK
         String name
@@ -111,13 +104,12 @@ erDiagram
         String status "PENDING | COMPLETED"
     }
 
-    UserEntity          ||--o{  Pokemons_embedded      : "pokemons (por liga)"
     LeagueEntity        ||--o{  LeagueMember_embedded  : "members"
     LeagueEntity        ||--o|  LeagueSettings_embedded: "settings"
     LeagueMember_embedded}o--|| UserEntity             : "referencia username"
     LeagueEntity        ||--o{  ClosedListEntity        : "pool"
     LeagueEntity        ||--o|  DraftEntity             : "draft (1 activo)"
-    DraftEntity         ||--o{  DraftPick_embedded      : "picks"
+    DraftEntity         ||--o{  DraftPick_embedded      : "picks (única fuente de los equipos)"
     LeagueEntity        ||--o{  TradeEntity             : "trades"
     LeagueEntity        ||--o|  ScheduleEntity          : "schedule"
     ScheduleEntity      ||--o{  Jornada_embedded        : "jornadas"

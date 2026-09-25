@@ -1,18 +1,19 @@
 package com.villu.pokefantasy.commands.bench;
 
+import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueRole;
 import com.villu.pokefantasy.dto.LeagueSettings;
-import com.villu.pokefantasy.dto.Pokemons;
 import com.villu.pokefantasy.dto.Tier;
 import com.villu.pokefantasy.league.LeagueMembershipGuard;
 import com.villu.pokefantasy.league.TierPricingService;
 import com.villu.pokefantasy.repository.ClosedListRepository;
+import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
-import com.villu.pokefantasy.repository.UserRepository;
 import com.villu.pokefantasy.repository.entity.ClosedListEntity;
+import com.villu.pokefantasy.repository.entity.DraftEntity;
+import com.villu.pokefantasy.repository.entity.DraftPick;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import com.villu.pokefantasy.repository.entity.LeagueMember;
-import com.villu.pokefantasy.repository.entity.UserEntity;
 import com.villu.pokefantasy.response.BenchEntryResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -20,6 +21,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -32,14 +35,14 @@ class GetBenchCommandHandlerTest {
 
     @Mock private ClosedListRepository closedListRepository;
     @Mock private LeagueRepository leagueRepository;
-    @Mock private UserRepository userRepository;
+    @Mock private DraftRepository draftRepository;
     @Mock private LeagueMembershipGuard leagueMembershipGuard;
 
     private GetBenchCommandHandler handler;
 
     @BeforeEach
     void setUp() {
-        handler = new GetBenchCommandHandler(closedListRepository, leagueRepository, userRepository, leagueMembershipGuard, new TierPricingService());
+        handler = new GetBenchCommandHandler(closedListRepository, leagueRepository, draftRepository, leagueMembershipGuard, new TierPricingService());
     }
 
     @Test
@@ -58,9 +61,7 @@ class GetBenchCommandHandlerTest {
         league.setMembers(List.of(new LeagueMember("ash", LeagueRole.ADMIN, 0)));
         when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
 
-        UserEntity user = new UserEntity();
-        user.setPokemons(List.of());
-        when(userRepository.findByUsername("ash")).thenReturn(user);
+        when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.of(draftWithPicks(DraftStatus.COMPLETED)));
 
         ClosedListEntity entry = new ClosedListEntity();
         entry.setPokemonId(25);
@@ -81,10 +82,9 @@ class GetBenchCommandHandlerTest {
         league.setMembers(List.of(new LeagueMember("ash", LeagueRole.ADMIN, 0)));
         when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
 
-        Pokemons ownedPokemon = new Pokemons(25, "pikachu", null, null, null, null, null, "l1");
-        UserEntity user = new UserEntity();
-        user.setPokemons(List.of(ownedPokemon));
-        when(userRepository.findByUsername("ash")).thenReturn(user);
+        // El nombre del pick se compara sin distinguir mayúsculas.
+        when(draftRepository.findLatestByLeagueId("l1"))
+                .thenReturn(Optional.of(draftWithPicks(DraftStatus.COMPLETED, pick("ash", "Pikachu"))));
 
         ClosedListEntity pikachu = new ClosedListEntity();
         pikachu.setPokemonId(25);
@@ -101,24 +101,35 @@ class GetBenchCommandHandlerTest {
     }
 
     @Test
-    void handle_userIsNull_treatedAsNoPokemons() {
+    void handle_latestDraftCancelled_picksDoNotBlockBench() {
+        // Un draft cancelado no deja a nadie con Pokémon: todo vuelve a la banca.
         LeagueEntity league = new LeagueEntity();
         league.setId("l1");
         league.setMembers(List.of(new LeagueMember("ash", LeagueRole.ADMIN, 0)));
         when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
-
-        when(userRepository.findByUsername("ash")).thenReturn(null);
+        when(draftRepository.findLatestByLeagueId("l1"))
+                .thenReturn(Optional.of(draftWithPicks(DraftStatus.CANCELLED, pick("ash", "pikachu"))));
 
         ClosedListEntity entry = new ClosedListEntity();
         entry.setPokemonId(25);
         entry.setPokemonName("pikachu");
-        entry.setSprite("sprite");
         when(closedListRepository.findAllByLeagueId("l1")).thenReturn(List.of(entry));
 
         List<BenchEntryResponse> bench = handler.handle(new GetBenchCommand("l1", "ash"));
 
-        // null user contributes no owned pokemons, so all bench entries returned
-        assertThat(bench).hasSize(1);
+        assertThat(bench).extracting(BenchEntryResponse::getPokemonName).containsExactly("pikachu");
+    }
+
+    @Test
+    void handle_noDraftYet_returnsFullClosedList() {
+        LeagueEntity league = new LeagueEntity();
+        league.setId("l1");
+        league.setMembers(List.of(new LeagueMember("ash", LeagueRole.ADMIN, 0)));
+        when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
+        when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.empty());
+        when(closedListRepository.findAllByLeagueId("l1")).thenReturn(List.of(benchEntry("pikachu", 25, Tier.A)));
+
+        assertThat(handler.handle(new GetBenchCommand("l1", "ash"))).hasSize(1);
     }
 
     @Test
@@ -187,6 +198,17 @@ class GetBenchCommandHandlerTest {
     }
 
     // --- helper ---
+
+    private DraftEntity draftWithPicks(DraftStatus status, DraftPick... picks) {
+        DraftEntity draft = new DraftEntity();
+        draft.setStatus(status);
+        draft.setPicks(new ArrayList<>(List.of(picks)));
+        return draft;
+    }
+
+    private DraftPick pick(String username, String pokemonName) {
+        return new DraftPick(username, pokemonName, 0, 1, Instant.now(), null, null);
+    }
 
     private ClosedListEntity benchEntry(String name, int id, Tier tier) {
         ClosedListEntity e = new ClosedListEntity();

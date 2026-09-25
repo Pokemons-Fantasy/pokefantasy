@@ -4,7 +4,6 @@ import com.villu.pokefantasy.commands.schedule.JornadaWindowService;
 import com.villu.pokefantasy.dto.ActivityEventType;
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueSettings;
-import com.villu.pokefantasy.dto.Pokemons;
 import com.villu.pokefantasy.exception.ForbiddenOperationException;
 import com.villu.pokefantasy.league.LeagueMemberService;
 import com.villu.pokefantasy.league.TierPricingService;
@@ -14,7 +13,6 @@ import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.ScheduleRepository;
-import com.villu.pokefantasy.repository.UserRepository;
 import com.villu.pokefantasy.repository.entity.ActivityEventEntity;
 import com.villu.pokefantasy.repository.entity.ClosedListEntity;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
@@ -22,14 +20,9 @@ import com.villu.pokefantasy.repository.entity.DraftPick;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import com.villu.pokefantasy.repository.entity.LeagueMember;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity;
-import com.villu.pokefantasy.repository.entity.UserEntity;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 @Service
 public class BuyFromBenchCommandHandler implements CommandHandler<BuyFromBenchCommand, Void> {
@@ -37,7 +30,6 @@ public class BuyFromBenchCommandHandler implements CommandHandler<BuyFromBenchCo
     private final DraftRepository draftRepository;
     private final ClosedListRepository closedListRepository;
     private final LeagueRepository leagueRepository;
-    private final UserRepository userRepository;
     private final ScheduleRepository scheduleRepository;
     private final JornadaWindowService jornadaWindowService;
     private final ActivityEventRepository activityEventRepository;
@@ -47,7 +39,6 @@ public class BuyFromBenchCommandHandler implements CommandHandler<BuyFromBenchCo
     public BuyFromBenchCommandHandler(DraftRepository draftRepository,
                                       ClosedListRepository closedListRepository,
                                       LeagueRepository leagueRepository,
-                                      UserRepository userRepository,
                                       ScheduleRepository scheduleRepository,
                                       JornadaWindowService jornadaWindowService,
                                       ActivityEventRepository activityEventRepository,
@@ -56,7 +47,6 @@ public class BuyFromBenchCommandHandler implements CommandHandler<BuyFromBenchCo
         this.draftRepository = draftRepository;
         this.closedListRepository = closedListRepository;
         this.leagueRepository = leagueRepository;
-        this.userRepository = userRepository;
         this.scheduleRepository = scheduleRepository;
         this.jornadaWindowService = jornadaWindowService;
         this.activityEventRepository = activityEventRepository;
@@ -100,29 +90,15 @@ public class BuyFromBenchCommandHandler implements CommandHandler<BuyFromBenchCo
                 .orElseThrow(() -> new IllegalArgumentException("'" + pokemonName + "' is not in the pool for this league"));
 
         // 5. Pokemon must actually be on the bench (not already owned by anyone)
-        Set<String> ownedNames = league.getMembers().stream()
-                .map(member -> userRepository.findByUsername(member.getUsername()))
-                .filter(u -> u != null && u.getPokemons() != null)
-                .flatMap(u -> u.getPokemons().stream())
-                .filter(p -> leagueId.equals(p.getLeagueId()))
-                .map(p -> p.getName().toLowerCase())
-                .collect(Collectors.toSet());
-
-        if (ownedNames.contains(pokemonName.toLowerCase())) {
+        if (draft.ownedPokemonNames().contains(pokemonName.toLowerCase())) {
             throw new IllegalStateException("'" + pokemonName + "' is not available on the bench");
         }
 
         // 6. Buyer's team must not exceed maxTeamSize
-        UserEntity buyer = userRepository.findByUsername(username);
-        if (buyer == null) {
-            throw new IllegalArgumentException("User not found: " + username);
-        }
-
         LeagueSettings settings = league.getSettings();
         int maxTeamSize = (settings != null && settings.getMaxTeamSize() != null) ? settings.getMaxTeamSize() : 20;
 
-        long currentTeamSize = buyer.getPokemons() == null ? 0 :
-                buyer.getPokemons().stream().filter(p -> leagueId.equals(p.getLeagueId())).count();
+        long currentTeamSize = draft.teamSize(username);
 
         if (currentTeamSize >= maxTeamSize) {
             throw new IllegalStateException(
@@ -146,22 +122,7 @@ public class BuyFromBenchCommandHandler implements CommandHandler<BuyFromBenchCo
         buyerMember.setCoinBalance(buyerMember.getCoinBalance() - price);
         leagueRepository.save(league);
 
-        // Add pokemon to buyer's team
-        List<Pokemons> currentPokemons = buyer.getPokemons() != null ?
-                new ArrayList<>(buyer.getPokemons()) : new ArrayList<>();
-
-        Pokemons newPokemon = new Pokemons();
-        newPokemon.setId(benchEntry.getPokemonId());
-        newPokemon.setName(benchEntry.getPokemonName());
-        newPokemon.setStats(benchEntry.getStats());
-        newPokemon.setTypes(benchEntry.getTypes());
-        newPokemon.setLeagueId(leagueId);
-
-        currentPokemons.add(newPokemon);
-        buyer.setPokemons(currentPokemons);
-        userRepository.updateUserWithPokemons(buyer);
-
-        // Add DraftPick so TeamsPage reflects the purchase. round=0 is the sentinel
+        // Add pokemon to buyer's team (DraftPick). round=0 is the sentinel
         // for "bought from bench" (draft rounds start at 1).
         DraftPick newPick = new DraftPick(
                 username,

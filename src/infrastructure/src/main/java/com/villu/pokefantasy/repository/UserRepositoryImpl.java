@@ -47,11 +47,6 @@ public class UserRepositoryImpl implements UserRepository {
     }
 
     @Override
-    public void updateUserWithPokemons(UserEntity userEntity) {
-        mongoTemplate.save(userEntity);
-    }
-
-    @Override
     public List<UserEntity> findByUsernamePrefix(String prefix) {
         Query query = new Query(
             Criteria.where("name").regex("^" + java.util.regex.Pattern.quote(prefix), "i")

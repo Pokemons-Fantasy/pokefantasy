@@ -6,7 +6,6 @@ import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueRole;
 import com.villu.pokefantasy.dto.LeagueSettings;
 import com.villu.pokefantasy.dto.MatchStatus;
-import com.villu.pokefantasy.dto.Pokemons;
 import com.villu.pokefantasy.dto.Tier;
 import com.villu.pokefantasy.exception.ForbiddenOperationException;
 import com.villu.pokefantasy.league.LeagueMemberService;
@@ -16,7 +15,6 @@ import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.ScheduleRepository;
-import com.villu.pokefantasy.repository.UserRepository;
 import com.villu.pokefantasy.repository.entity.ActivityEventEntity;
 import com.villu.pokefantasy.repository.entity.ClosedListEntity;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
@@ -26,7 +24,6 @@ import com.villu.pokefantasy.repository.entity.LeagueMember;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity.Jornada;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity.Match;
-import com.villu.pokefantasy.repository.entity.UserEntity;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -50,7 +47,6 @@ class BuyFromBenchCommandHandlerTest {
     @Mock private DraftRepository draftRepository;
     @Mock private ClosedListRepository closedListRepository;
     @Mock private LeagueRepository leagueRepository;
-    @Mock private UserRepository userRepository;
     @Mock private ScheduleRepository scheduleRepository;
     @Mock private JornadaWindowService jornadaWindowService;
     @Mock private ActivityEventRepository activityEventRepository;
@@ -65,7 +61,7 @@ class BuyFromBenchCommandHandlerTest {
     @BeforeEach
     void setUp() {
         handler = new BuyFromBenchCommandHandler(
-                draftRepository, closedListRepository, leagueRepository, userRepository,
+                draftRepository, closedListRepository, leagueRepository,
                 scheduleRepository, jornadaWindowService, activityEventRepository,
                 new LeagueMemberService(), new TierPricingService());
 
@@ -165,15 +161,13 @@ class BuyFromBenchCommandHandlerTest {
         LeagueMember brockMember = new LeagueMember("brock", LeagueRole.USER, 0);
         LeagueEntity league = leagueWithMembers(ashMember, brockMember);
 
-        UserEntity ash   = userWithPokemons(0);
-        UserEntity brock = userWithPokemon(POKEMON);
+        // El nombre del pick se compara sin distinguir mayúsculas.
+        DraftEntity draft = completedDraftWith(pick("brock", POKEMON.toUpperCase()));
 
-        when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(completedDraft()));
+        when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
         when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
         when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(POKEMON, LEAGUE_ID))
                 .thenReturn(Optional.of(benchEntry()));
-        when(userRepository.findByUsername(USERNAME)).thenReturn(ash);
-        when(userRepository.findByUsername("brock")).thenReturn(brock);
 
         assertThatThrownBy(() -> handler.handle(cmd()))
                 .isInstanceOf(IllegalStateException.class)
@@ -187,13 +181,13 @@ class BuyFromBenchCommandHandlerTest {
         LeagueEntity league = leagueWithBuyer(999);
         league.setSettings(LeagueSettings.builder().maxTeamSize(2).build());
 
-        UserEntity buyer = userWithPokemons(2); // already has 2 => at maxTeamSize
+        // El comprador ya tiene 2 picks => maxTeamSize alcanzado
+        DraftEntity draft = completedDraftWith(pick(USERNAME, "pokemon-0"), pick(USERNAME, "pokemon-1"));
 
-        when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(completedDraft()));
+        when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
         when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
         when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(POKEMON, LEAGUE_ID))
                 .thenReturn(Optional.of(benchEntry()));
-        when(userRepository.findByUsername(USERNAME)).thenReturn(buyer);
 
         assertThatThrownBy(() -> handler.handle(cmd()))
                 .isInstanceOf(IllegalStateException.class)
@@ -214,7 +208,6 @@ class BuyFromBenchCommandHandlerTest {
         when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
         when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(POKEMON, LEAGUE_ID))
                 .thenReturn(Optional.of(entry));
-        when(userRepository.findByUsername(USERNAME)).thenReturn(userWithPokemons(0));
 
         assertThatThrownBy(() -> handler.handle(cmd()))
                 .isInstanceOf(IllegalStateException.class)
@@ -234,13 +227,11 @@ class BuyFromBenchCommandHandlerTest {
         entry.setTier(Tier.A);
 
         DraftEntity draft = completedDraft();
-        UserEntity buyer = userWithPokemons(0);
 
         when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
         when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
         when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(POKEMON, LEAGUE_ID))
                 .thenReturn(Optional.of(entry));
-        when(userRepository.findByUsername(USERNAME)).thenReturn(buyer);
 
         handler.handle(cmd());
 
@@ -249,12 +240,6 @@ class BuyFromBenchCommandHandlerTest {
                 .filter(m -> USERNAME.equals(m.getUsername())).findFirst().orElseThrow();
         assertThat(member.getCoinBalance()).isEqualTo(300); // 500 - 200
         verify(leagueRepository).save(league);
-
-        // Pokemon added to user
-        ArgumentCaptor<UserEntity> userCaptor = ArgumentCaptor.forClass(UserEntity.class);
-        verify(userRepository).updateUserWithPokemons(userCaptor.capture());
-        assertThat(userCaptor.getValue().getPokemons())
-                .anyMatch(p -> POKEMON.equals(p.getName()) && LEAGUE_ID.equals(p.getLeagueId()));
 
         // DraftPick added with round=0
         ArgumentCaptor<DraftEntity> draftCaptor = ArgumentCaptor.forClass(DraftEntity.class);
@@ -271,19 +256,16 @@ class BuyFromBenchCommandHandlerTest {
         LeagueEntity league = leagueWithBuyer(0);
 
         DraftEntity draft = completedDraft();
-        UserEntity buyer = userWithPokemons(0);
 
         when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
         when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
         when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(POKEMON, LEAGUE_ID))
                 .thenReturn(Optional.of(benchEntry()));
-        when(userRepository.findByUsername(USERNAME)).thenReturn(buyer);
 
         handler.handle(cmd()); // must not throw
 
         // Coin save still happens (0 - 0 = 0 is still saved to keep code consistent)
         verify(leagueRepository).save(league);
-        verify(userRepository).updateUserWithPokemons(any());
         verify(draftRepository).save(any());
     }
 
@@ -299,7 +281,6 @@ class BuyFromBenchCommandHandlerTest {
         when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
         when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(POKEMON, LEAGUE_ID))
                 .thenReturn(Optional.of(entry));
-        when(userRepository.findByUsername(USERNAME)).thenReturn(userWithPokemons(0));
 
         handler.handle(cmd());
 
@@ -323,13 +304,11 @@ class BuyFromBenchCommandHandlerTest {
         ClosedListEntity entry = benchEntry();
         entry.setTier(Tier.A);
         DraftEntity draft = completedDraft();
-        UserEntity buyer = userWithPokemons(0);
 
         when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
         when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
         when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(POKEMON, LEAGUE_ID))
                 .thenReturn(Optional.of(entry));
-        when(userRepository.findByUsername(USERNAME)).thenReturn(buyer);
         doThrow(new OptimisticLockingFailureException("stale draft")).when(draftRepository).save(draft);
 
         assertThatThrownBy(() -> handler.handle(cmd()))
@@ -338,7 +317,6 @@ class BuyFromBenchCommandHandlerTest {
         // Sin compensaciones manuales: el conflicto se propaga intacto para que la transacción
         // del mediator deshaga todas las escrituras y reintente el comando.
         verify(leagueRepository, times(1)).save(any());
-        verify(userRepository, times(1)).updateUserWithPokemons(any());
     }
 
     @Test
@@ -378,30 +356,14 @@ class BuyFromBenchCommandHandlerTest {
         return leagueWithMembers(new LeagueMember(USERNAME, LeagueRole.USER, coins));
     }
 
-    /** UserEntity with N dummy pokemons in this league (for maxTeamSize tests). */
-    private UserEntity userWithPokemons(int count) {
-        UserEntity user = new UserEntity();
-        user.setName(USERNAME);
-        List<Pokemons> pokemons = new ArrayList<>();
-        for (int i = 0; i < count; i++) {
-            Pokemons p = new Pokemons();
-            p.setName("pokemon-" + i);
-            p.setLeagueId(LEAGUE_ID);
-            pokemons.add(p);
-        }
-        user.setPokemons(pokemons);
-        return user;
+    private DraftEntity completedDraftWith(DraftPick... picks) {
+        DraftEntity draft = completedDraft();
+        draft.getPicks().addAll(List.of(picks));
+        return draft;
     }
 
-    /** UserEntity with one named pokemon in this league (for owned-check tests). */
-    private UserEntity userWithPokemon(String name) {
-        UserEntity user = new UserEntity();
-        user.setName("other-user");
-        Pokemons p = new Pokemons();
-        p.setName(name);
-        p.setLeagueId(LEAGUE_ID);
-        user.setPokemons(new ArrayList<>(List.of(p)));
-        return user;
+    private DraftPick pick(String username, String pokemonName) {
+        return new DraftPick(username, pokemonName, 0, 1, Instant.now(), null, null);
     }
 
     private ClosedListEntity benchEntry() {

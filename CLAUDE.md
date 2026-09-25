@@ -133,7 +133,7 @@ CORS is restricted to `https://*.netlify.app` and `localhost` — no wildcard or
 
 ## Key entities
 
-**`UserEntity`** (collection `users`): `id`, `name` (username), `password` (bcrypt), `roles`, `pokemons` (`List<Pokemons>` with `leagueId` field to separate by league).
+**`UserEntity`** (collection `users`): `id`, `name` (username), `password` (bcrypt), `role`, `fcmTokens`. **No guarda equipos** (el antiguo `pokemons` se eliminó; `DropUserPokemonsMigration` lo borra de Mongo al arrancar).
 
 **`LeagueEntity`** (collection `leagues`): `id`, `name`, `createdBy`, `status`, `members` (`List<LeagueMember{username, leagueRole}>`). `leagueRole` is per-league (ADMIN / USER), not global.
 
@@ -141,11 +141,11 @@ CORS is restricted to `https://*.netlify.app` and `localhost` — no wildcard or
 
 **`DraftEntity`** (collection `draft`): `id`, `leagueId`, `status` (PENDING/IN_PROGRESS/COMPLETED/CANCELLED), `turnOrder`, `currentTurnIndex` (0-based), `currentRound` (starts at 1), `picks` (`List<DraftPick{username, pokemonName, pokemonId, round, pickedAt}>`), `@Version` (optimistic locking).
 
-**Critical**: `TeamsPage` in the frontend derives teams from `draft.picks`, NOT from `user.getPokemons()`. Any operation that changes a player's team (swap, etc.) must update **both**: `user.getPokemons()` AND the corresponding `DraftPick` in `DraftEntity`.
+**Critical**: `DraftEntity.picks` (del último draft de la liga) es la **única fuente de verdad de los equipos**. Cualquier operación que cambie un equipo (steal, trade, swap, buy, release) solo modifica los `DraftPick`. Para "qué está en la banca" usa `draft.ownedPokemonNames()` y para el tamaño de un equipo `draft.teamSize(username)`; un draft `CANCELLED` no deja a nadie con Pokémon.
 
 ## Repository methods
 
-- `UserRepository`: `findByUsername`, `saveUser`, `updateUserWithPokemons`
+- `UserRepository`: `findByUsername`, `saveUser`, `addFcmToken`, `removeFcmToken`
 - `LeagueRepository`: `findById`, `findByMemberUsername`, `addMember`, `removeMember`
 - `ClosedListRepository`: `findAllByLeagueId`, `findByPokemonNameIgnoreCaseAndLeagueId`
 - `DraftRepository`: `findActiveByLeagueId` (PENDING/IN_PROGRESS only), `findLatestByLeagueId` (any status), `save`

@@ -1,6 +1,5 @@
 package com.villu.pokefantasy.repository.entity;
 
-import com.villu.pokefantasy.dto.Pokemons;
 import com.villu.pokefantasy.dto.Role;
 import lombok.Data;
 import org.springframework.data.annotation.Version;
@@ -20,6 +19,5 @@ public class UserEntity {
     private String name;
     private String password;
     private Role role;
-    private List<Pokemons> pokemons;
     private List<String> fcmTokens = new ArrayList<>();
 }

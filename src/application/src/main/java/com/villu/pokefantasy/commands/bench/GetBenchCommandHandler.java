@@ -1,37 +1,38 @@
 package com.villu.pokefantasy.commands.bench;
 
+import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueSettings;
 import com.villu.pokefantasy.league.LeagueMembershipGuard;
 import com.villu.pokefantasy.league.TierPricingService;
 import com.villu.pokefantasy.mediator.CommandHandler;
 import com.villu.pokefantasy.repository.ClosedListRepository;
+import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
-import com.villu.pokefantasy.repository.UserRepository;
+import com.villu.pokefantasy.repository.entity.DraftEntity;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import com.villu.pokefantasy.response.BenchEntryResponse;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 @Service
 public class GetBenchCommandHandler implements CommandHandler<GetBenchCommand, List<BenchEntryResponse>> {
 
     private final ClosedListRepository closedListRepository;
     private final LeagueRepository leagueRepository;
-    private final UserRepository userRepository;
+    private final DraftRepository draftRepository;
     private final LeagueMembershipGuard leagueMembershipGuard;
     private final TierPricingService tierPricingService;
 
     public GetBenchCommandHandler(ClosedListRepository closedListRepository,
                                   LeagueRepository leagueRepository,
-                                  UserRepository userRepository,
+                                  DraftRepository draftRepository,
                                   LeagueMembershipGuard leagueMembershipGuard,
                                   TierPricingService tierPricingService) {
         this.closedListRepository = closedListRepository;
         this.leagueRepository = leagueRepository;
-        this.userRepository = userRepository;
+        this.draftRepository = draftRepository;
         this.leagueMembershipGuard = leagueMembershipGuard;
         this.tierPricingService = tierPricingService;
     }
@@ -44,13 +45,12 @@ public class GetBenchCommandHandler implements CommandHandler<GetBenchCommand, L
         LeagueEntity league = leagueRepository.findById(leagueId)
                 .orElseThrow(() -> new IllegalArgumentException("League not found: " + leagueId));
 
-        Set<String> ownedPokemonNames = league.getMembers().stream()
-                .map(member -> userRepository.findByUsername(member.getUsername()))
-                .filter(user -> user != null && user.getPokemons() != null)
-                .flatMap(user -> user.getPokemons().stream())
-                .filter(p -> leagueId.equals(p.getLeagueId()))
-                .map(p -> p.getName().toLowerCase())
-                .collect(Collectors.toSet());
+        // Los picks del último draft son la única fuente de verdad de los equipos;
+        // un draft cancelado no deja a nadie con Pokémon.
+        Set<String> ownedPokemonNames = draftRepository.findLatestByLeagueId(leagueId)
+                .filter(draft -> draft.getStatus() != DraftStatus.CANCELLED)
+                .map(DraftEntity::ownedPokemonNames)
+                .orElse(Set.of());
 
         LeagueSettings settings = league.getSettings();
 

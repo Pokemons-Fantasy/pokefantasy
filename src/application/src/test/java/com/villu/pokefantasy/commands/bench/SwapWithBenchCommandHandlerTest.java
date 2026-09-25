@@ -6,7 +6,6 @@ import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueRole;
 import com.villu.pokefantasy.dto.LeagueSettings;
 import com.villu.pokefantasy.dto.MatchStatus;
-import com.villu.pokefantasy.dto.Pokemons;
 import com.villu.pokefantasy.dto.Tier;
 import com.villu.pokefantasy.exception.ForbiddenOperationException;
 import com.villu.pokefantasy.league.LeagueMemberService;
@@ -16,7 +15,6 @@ import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.ScheduleRepository;
-import com.villu.pokefantasy.repository.UserRepository;
 import com.villu.pokefantasy.repository.entity.ActivityEventEntity;
 import com.villu.pokefantasy.repository.entity.ClosedListEntity;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
@@ -26,7 +24,6 @@ import com.villu.pokefantasy.repository.entity.LeagueMember;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity.Jornada;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity.Match;
-import com.villu.pokefantasy.repository.entity.UserEntity;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -50,7 +47,6 @@ class SwapWithBenchCommandHandlerTest {
     @Mock private DraftRepository draftRepository;
     @Mock private ClosedListRepository closedListRepository;
     @Mock private LeagueRepository leagueRepository;
-    @Mock private UserRepository userRepository;
     @Mock private ScheduleRepository scheduleRepository;
     @Mock private JornadaWindowService jornadaWindowService;
     @Mock private ActivityEventRepository activityEventRepository;
@@ -65,7 +61,7 @@ class SwapWithBenchCommandHandlerTest {
     @BeforeEach
     void setUp() {
         handler = new SwapWithBenchCommandHandler(
-                draftRepository, closedListRepository, leagueRepository, userRepository,
+                draftRepository, closedListRepository, leagueRepository,
                 scheduleRepository, jornadaWindowService, activityEventRepository,
                 new LeagueMemberService(), new TierPricingService());
         // Default: schedule present con la ventana de swap abierta → la comprobación de
@@ -119,29 +115,12 @@ class SwapWithBenchCommandHandlerTest {
     }
 
     @Test
-    void handle_userEntityNotFound_throwsIllegalArgument() {
-        DraftEntity draft = draftWithStatus(DraftStatus.COMPLETED);
-        LeagueEntity league = leagueWithMembers(new LeagueMember(USERNAME, LeagueRole.USER, 0));
-        when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
-        when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
-        when(userRepository.findByUsername(USERNAME)).thenReturn(null);
-
-        assertThatThrownBy(() -> handler.handle(new SwapWithBenchCommand(LEAGUE_ID, USERNAME, GIVE, TAKE)))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("User not found");
-    }
-
-    @Test
     void handle_pokemonNotInTeam_throwsIllegalArgument() {
-        DraftEntity draft = draftWithStatus(DraftStatus.COMPLETED);
+        DraftEntity draft = completedDraftWithPick(USERNAME, "squirtle", 7);
         LeagueEntity league = leagueWithMembers(new LeagueMember(USERNAME, LeagueRole.USER, 0));
-        UserEntity user = userWithPokemons(new Pokemons());
-        user.getPokemons().get(0).setName("squirtle");
-        user.getPokemons().get(0).setLeagueId(LEAGUE_ID);
 
         when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
         when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
-        when(userRepository.findByUsername(USERNAME)).thenReturn(user);
 
         assertThatThrownBy(() -> handler.handle(new SwapWithBenchCommand(LEAGUE_ID, USERNAME, GIVE, TAKE)))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -152,11 +131,9 @@ class SwapWithBenchCommandHandlerTest {
     void handle_pokemonNotInPool_throwsIllegalArgument() {
         DraftEntity draft = completedDraftWithPick(USERNAME, GIVE, 6);
         LeagueEntity league = leagueWithMembers(new LeagueMember(USERNAME, LeagueRole.USER, 0));
-        UserEntity user = userWithPokemon(GIVE);
 
         when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
         when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
-        when(userRepository.findByUsername(USERNAME)).thenReturn(user);
         when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TAKE, LEAGUE_ID))
                 .thenReturn(Optional.empty());
 
@@ -172,18 +149,15 @@ class SwapWithBenchCommandHandlerTest {
         LeagueMember brockMember = new LeagueMember("brock", LeagueRole.USER, 0);
         LeagueEntity league = leagueWithMembers(ashMember, brockMember);
 
-        UserEntity ash = userWithPokemon(GIVE);
-        UserEntity brock = userWithPokemon(TAKE);
-        brock.getPokemons().get(0).setLeagueId(LEAGUE_ID);
+        // El nombre del pick se compara sin distinguir mayúsculas.
+        draft.getPicks().add(new DraftPick("brock", TAKE.toUpperCase(), 25, 1, Instant.now(), null, null));
 
         ClosedListEntity entry = closedListEntry(TAKE, 25);
 
         when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
         when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
-        when(userRepository.findByUsername(USERNAME)).thenReturn(ash);
         when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TAKE, LEAGUE_ID))
                 .thenReturn(Optional.of(entry));
-        when(userRepository.findByUsername("brock")).thenReturn(brock);
 
         assertThatThrownBy(() -> handler.handle(new SwapWithBenchCommand(LEAGUE_ID, USERNAME, GIVE, TAKE)))
                 .isInstanceOf(IllegalStateException.class)
@@ -194,29 +168,23 @@ class SwapWithBenchCommandHandlerTest {
     void handle_happyPath_swapsUserPokemonAndUpdatesDraftPick() {
         DraftEntity draft = completedDraftWithPick(USERNAME, GIVE, 6);
         LeagueEntity league = leagueWithMembers(new LeagueMember(USERNAME, LeagueRole.USER, 0));
-        UserEntity user = userWithPokemon(GIVE);
         ClosedListEntity entry = closedListEntry(TAKE, 25);
 
         when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
         when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
-        when(userRepository.findByUsername(USERNAME)).thenReturn(user);
         when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TAKE, LEAGUE_ID))
                 .thenReturn(Optional.of(entry));
 
         handler.handle(new SwapWithBenchCommand(LEAGUE_ID, USERNAME, GIVE, TAKE));
 
-        // User now has pikachu instead of charizard
-        ArgumentCaptor<UserEntity> userCaptor = ArgumentCaptor.forClass(UserEntity.class);
-        verify(userRepository).updateUserWithPokemons(userCaptor.capture());
-        List<Pokemons> pokemons = userCaptor.getValue().getPokemons();
-        assertThat(pokemons).anyMatch(p -> TAKE.equals(p.getName()));
-        assertThat(pokemons).noneMatch(p -> GIVE.equals(p.getName()));
-
-        // Draft pick updated from charizard → pikachu
+        // Draft pick updated from charizard → pikachu (única fuente de verdad del equipo)
         ArgumentCaptor<DraftEntity> draftCaptor = ArgumentCaptor.forClass(DraftEntity.class);
         verify(draftRepository).save(draftCaptor.capture());
         assertThat(draftCaptor.getValue().getPicks())
-                .anyMatch(p -> USERNAME.equals(p.getUsername()) && TAKE.equals(p.getPokemonName()));
+                .hasSize(1)
+                .anyMatch(p -> USERNAME.equals(p.getUsername()) && TAKE.equals(p.getPokemonName())
+                        && p.getRound() == 1)
+                .noneMatch(p -> GIVE.equals(p.getPokemonName()));
     }
 
     @Test
@@ -253,7 +221,6 @@ class SwapWithBenchCommandHandlerTest {
         // D → S is blocked: can't trade up tier
         DraftEntity draft = completedDraftWithPick(USERNAME, GIVE, 6);
         LeagueEntity league = leagueWithMembers(new LeagueMember(USERNAME, LeagueRole.USER, 9999));
-        UserEntity user = userWithPokemon(GIVE);
         ClosedListEntity giveEntry = closedListEntry(GIVE, 6);
         giveEntry.setTier(Tier.D);
         ClosedListEntity takeEntry = closedListEntry(TAKE, 25);
@@ -261,7 +228,6 @@ class SwapWithBenchCommandHandlerTest {
 
         when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
         when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
-        when(userRepository.findByUsername(USERNAME)).thenReturn(user);
         when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TAKE, LEAGUE_ID))
                 .thenReturn(Optional.of(takeEntry));
         when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(GIVE, LEAGUE_ID))
@@ -278,7 +244,6 @@ class SwapWithBenchCommandHandlerTest {
         DraftEntity draft = completedDraftWithPick(USERNAME, GIVE, 6);
         LeagueEntity league = leagueWithMembers(new LeagueMember(USERNAME, LeagueRole.USER, 100));
         league.setSettings(settingsWithTierAPrice(200));
-        UserEntity user = userWithPokemon(GIVE);
         ClosedListEntity giveEntry = closedListEntry(GIVE, 6);
         giveEntry.setTier(Tier.A);
         ClosedListEntity takeEntry = closedListEntry(TAKE, 25);
@@ -286,7 +251,6 @@ class SwapWithBenchCommandHandlerTest {
 
         when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
         when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
-        when(userRepository.findByUsername(USERNAME)).thenReturn(user);
         when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TAKE, LEAGUE_ID))
                 .thenReturn(Optional.of(takeEntry));
         when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(GIVE, LEAGUE_ID))
@@ -306,7 +270,6 @@ class SwapWithBenchCommandHandlerTest {
         DraftEntity draft = completedDraftWithPick(USERNAME, GIVE, 6);
         LeagueEntity league = leagueWithMembers(new LeagueMember(USERNAME, LeagueRole.USER, 100));
         league.setSettings(LeagueSettings.builder().priceTierS(500).priceTierD(0).build());
-        UserEntity user = userWithPokemon(GIVE);
         ClosedListEntity giveEntry = closedListEntry(GIVE, 6);
         giveEntry.setTier(Tier.S);
         ClosedListEntity takeEntry = closedListEntry(TAKE, 25);
@@ -314,7 +277,6 @@ class SwapWithBenchCommandHandlerTest {
 
         when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
         when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
-        when(userRepository.findByUsername(USERNAME)).thenReturn(user);
         when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TAKE, LEAGUE_ID))
                 .thenReturn(Optional.of(takeEntry));
         when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(GIVE, LEAGUE_ID))
@@ -326,7 +288,7 @@ class SwapWithBenchCommandHandlerTest {
                 .filter(m -> USERNAME.equals(m.getUsername())).findFirst().orElseThrow();
         assertThat(member.getCoinBalance()).isEqualTo(600); // 100 + 500 refund
         verify(leagueRepository).save(league);
-        verify(userRepository).updateUserWithPokemons(any());
+        verify(draftRepository).save(draft);
     }
 
     @Test
@@ -335,7 +297,6 @@ class SwapWithBenchCommandHandlerTest {
         DraftEntity draft = completedDraftWithPick(USERNAME, GIVE, 6);
         LeagueEntity league = leagueWithMembers(new LeagueMember(USERNAME, LeagueRole.USER, 50));
         league.setSettings(settingsWithTierAPrice(200)); // priceTierS=0, priceTierA=200
-        UserEntity user = userWithPokemon(GIVE);
         ClosedListEntity giveEntry = closedListEntry(GIVE, 6);
         giveEntry.setTier(Tier.S); // S is better tier than A → allowed by parity
         ClosedListEntity takeEntry = closedListEntry(TAKE, 25);
@@ -343,7 +304,6 @@ class SwapWithBenchCommandHandlerTest {
 
         when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
         when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
-        when(userRepository.findByUsername(USERNAME)).thenReturn(user);
         when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TAKE, LEAGUE_ID))
                 .thenReturn(Optional.of(takeEntry));
         when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(GIVE, LEAGUE_ID))
@@ -362,7 +322,6 @@ class SwapWithBenchCommandHandlerTest {
         DraftEntity draft = completedDraftWithPick(USERNAME, GIVE, 6);
         LeagueEntity league = leagueWithMembers(new LeagueMember(USERNAME, LeagueRole.USER, 300));
         league.setSettings(settingsWithTierAPrice(200));
-        UserEntity user = userWithPokemon(GIVE);
         ClosedListEntity giveEntry = closedListEntry(GIVE, 6);
         giveEntry.setTier(Tier.S);
         ClosedListEntity takeEntry = closedListEntry(TAKE, 25);
@@ -370,7 +329,6 @@ class SwapWithBenchCommandHandlerTest {
 
         when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
         when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
-        when(userRepository.findByUsername(USERNAME)).thenReturn(user);
         when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TAKE, LEAGUE_ID))
                 .thenReturn(Optional.of(takeEntry));
         when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(GIVE, LEAGUE_ID))
@@ -382,7 +340,7 @@ class SwapWithBenchCommandHandlerTest {
                 .filter(m -> USERNAME.equals(m.getUsername())).findFirst().orElseThrow();
         assertThat(member.getCoinBalance()).isEqualTo(100);
         verify(leagueRepository).save(league);
-        verify(userRepository).updateUserWithPokemons(any());
+        verify(draftRepository).save(draft);
     }
 
     @Test
@@ -391,7 +349,6 @@ class SwapWithBenchCommandHandlerTest {
         DraftEntity draft = completedDraftWithPick(USERNAME, GIVE, 6);
         LeagueEntity league = leagueWithMembers(new LeagueMember(USERNAME, LeagueRole.USER, 300));
         league.setSettings(LeagueSettings.builder().priceTierB(150).build());
-        UserEntity user = userWithPokemon(GIVE);
         ClosedListEntity giveEntry = closedListEntry(GIVE, 6);
         giveEntry.setTier(Tier.A);
         ClosedListEntity takeEntry = closedListEntry(TAKE, 25);
@@ -399,7 +356,6 @@ class SwapWithBenchCommandHandlerTest {
 
         when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
         when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
-        when(userRepository.findByUsername(USERNAME)).thenReturn(user);
         when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TAKE, LEAGUE_ID))
                 .thenReturn(Optional.of(takeEntry));
         when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(GIVE, LEAGUE_ID))
@@ -418,7 +374,6 @@ class SwapWithBenchCommandHandlerTest {
         DraftEntity draft = completedDraftWithPick(USERNAME, GIVE, 6);
         LeagueEntity league = leagueWithMembers(new LeagueMember(USERNAME, LeagueRole.USER, 200));
         league.setSettings(LeagueSettings.builder().priceTierC(75).build());
-        UserEntity user = userWithPokemon(GIVE);
         ClosedListEntity giveEntry = closedListEntry(GIVE, 6);
         giveEntry.setTier(Tier.A);
         ClosedListEntity takeEntry = closedListEntry(TAKE, 25);
@@ -426,7 +381,6 @@ class SwapWithBenchCommandHandlerTest {
 
         when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
         when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
-        when(userRepository.findByUsername(USERNAME)).thenReturn(user);
         when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TAKE, LEAGUE_ID))
                 .thenReturn(Optional.of(takeEntry));
         when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(GIVE, LEAGUE_ID))
@@ -444,7 +398,6 @@ class SwapWithBenchCommandHandlerTest {
         // No settings → all prices = 0, A→A, net=0
         DraftEntity draft = completedDraftWithPick(USERNAME, GIVE, 6);
         LeagueEntity league = leagueWithMembers(new LeagueMember(USERNAME, LeagueRole.USER, 0));
-        UserEntity user = userWithPokemon(GIVE);
         ClosedListEntity giveEntry = closedListEntry(GIVE, 6);
         giveEntry.setTier(Tier.A);
         ClosedListEntity takeEntry = closedListEntry(TAKE, 25);
@@ -452,7 +405,6 @@ class SwapWithBenchCommandHandlerTest {
 
         when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
         when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
-        when(userRepository.findByUsername(USERNAME)).thenReturn(user);
         when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TAKE, LEAGUE_ID))
                 .thenReturn(Optional.of(takeEntry));
         when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(GIVE, LEAGUE_ID))
@@ -461,7 +413,7 @@ class SwapWithBenchCommandHandlerTest {
         handler.handle(new SwapWithBenchCommand(LEAGUE_ID, USERNAME, GIVE, TAKE));
 
         verify(leagueRepository, never()).save(any());
-        verify(userRepository).updateUserWithPokemons(any());
+        verify(draftRepository).save(draft);
     }
 
     @Test
@@ -470,7 +422,6 @@ class SwapWithBenchCommandHandlerTest {
         DraftEntity draft = completedDraftWithPick(USERNAME, GIVE, 6);
         LeagueEntity league = leagueWithMembers(new LeagueMember(USERNAME, LeagueRole.USER, 0));
         league.setSettings(LeagueSettings.builder().build());
-        UserEntity user = userWithPokemon(GIVE);
         ClosedListEntity giveEntry = closedListEntry(GIVE, 6);
         giveEntry.setTier(Tier.A);
         ClosedListEntity takeEntry = closedListEntry(TAKE, 25);
@@ -478,7 +429,6 @@ class SwapWithBenchCommandHandlerTest {
 
         when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
         when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
-        when(userRepository.findByUsername(USERNAME)).thenReturn(user);
         when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TAKE, LEAGUE_ID))
                 .thenReturn(Optional.of(takeEntry));
         when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(GIVE, LEAGUE_ID))
@@ -487,7 +437,7 @@ class SwapWithBenchCommandHandlerTest {
         handler.handle(new SwapWithBenchCommand(LEAGUE_ID, USERNAME, GIVE, TAKE));
 
         verify(leagueRepository, never()).save(any());
-        verify(userRepository).updateUserWithPokemons(any());
+        verify(draftRepository).save(draft);
     }
 
     @Test
@@ -497,33 +447,29 @@ class SwapWithBenchCommandHandlerTest {
         LeagueEntity league = leagueWithMembers(new LeagueMember(USERNAME, LeagueRole.USER, 0));
         LeagueSettings settings = LeagueSettings.builder().priceTierD(0).build();
         league.setSettings(settings);
-        UserEntity user = userWithPokemon(GIVE);
         ClosedListEntity takeEntry = closedListEntry(TAKE, 25);
         takeEntry.setTier(Tier.D);
         // GIVE has no stub → Optional.empty() → null tier → rank D = same as take tier D
 
         when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
         when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
-        when(userRepository.findByUsername(USERNAME)).thenReturn(user);
         when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TAKE, LEAGUE_ID))
                 .thenReturn(Optional.of(takeEntry));
 
         handler.handle(new SwapWithBenchCommand(LEAGUE_ID, USERNAME, GIVE, TAKE));
 
         verify(leagueRepository, never()).save(any());
-        verify(userRepository).updateUserWithPokemons(any());
+        verify(draftRepository).save(draft);
     }
 
     @Test
     void handle_happyPath_savesActivityEvent() {
         DraftEntity draft = completedDraftWithPick(USERNAME, GIVE, 6);
         LeagueEntity league = leagueWithMembers(new LeagueMember(USERNAME, LeagueRole.USER, 0));
-        UserEntity user = userWithPokemon(GIVE);
         ClosedListEntity entry = closedListEntry(TAKE, 25);
 
         when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
         when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
-        when(userRepository.findByUsername(USERNAME)).thenReturn(user);
         when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TAKE, LEAGUE_ID))
                 .thenReturn(Optional.of(entry));
 
@@ -548,7 +494,6 @@ class SwapWithBenchCommandHandlerTest {
         DraftEntity draft = completedDraftWithPick(USERNAME, GIVE, 6);
         LeagueEntity league = leagueWithMembers(new LeagueMember(USERNAME, LeagueRole.USER, 100));
         league.setSettings(LeagueSettings.builder().priceTierS(500).priceTierD(0).build());
-        UserEntity user = userWithPokemon(GIVE);
         ClosedListEntity giveEntry = closedListEntry(GIVE, 6);
         giveEntry.setTier(Tier.S);
         ClosedListEntity takeEntry = closedListEntry(TAKE, 25);
@@ -556,7 +501,6 @@ class SwapWithBenchCommandHandlerTest {
 
         when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
         when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
-        when(userRepository.findByUsername(USERNAME)).thenReturn(user);
         when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TAKE, LEAGUE_ID))
                 .thenReturn(Optional.of(takeEntry));
         when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(GIVE, LEAGUE_ID))
@@ -569,7 +513,6 @@ class SwapWithBenchCommandHandlerTest {
         // Sin compensaciones manuales: el conflicto se propaga intacto para que la transacción
         // del mediator deshaga todas las escrituras y reintente el comando.
         verify(leagueRepository, times(1)).save(any());
-        verify(userRepository, times(1)).updateUserWithPokemons(any());
     }
 
     @Test
@@ -600,20 +543,6 @@ class SwapWithBenchCommandHandlerTest {
         league.setId(LEAGUE_ID);
         league.setMembers(new ArrayList<>(List.of(members)));
         return league;
-    }
-
-    private UserEntity userWithPokemons(Pokemons... pokemons) {
-        UserEntity user = new UserEntity();
-        user.setName(USERNAME);
-        user.setPokemons(new ArrayList<>(List.of(pokemons)));
-        return user;
-    }
-
-    private UserEntity userWithPokemon(String name) {
-        Pokemons p = new Pokemons();
-        p.setName(name);
-        p.setLeagueId(LEAGUE_ID);
-        return userWithPokemons(p);
     }
 
     private ClosedListEntity closedListEntry(String name, int id) {

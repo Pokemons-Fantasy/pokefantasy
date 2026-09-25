@@ -4,7 +4,6 @@ import com.villu.pokefantasy.commands.schedule.JornadaWindowService;
 import com.villu.pokefantasy.dto.ActivityEventType;
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueSettings;
-import com.villu.pokefantasy.dto.Pokemons;
 import com.villu.pokefantasy.dto.Tier;
 import com.villu.pokefantasy.exception.ForbiddenOperationException;
 import com.villu.pokefantasy.league.LeagueMemberService;
@@ -15,7 +14,6 @@ import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.ScheduleRepository;
-import com.villu.pokefantasy.repository.UserRepository;
 import com.villu.pokefantasy.repository.entity.ActivityEventEntity;
 import com.villu.pokefantasy.repository.entity.ClosedListEntity;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
@@ -23,15 +21,11 @@ import com.villu.pokefantasy.repository.entity.DraftPick;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import com.villu.pokefantasy.repository.entity.LeagueMember;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity;
-import com.villu.pokefantasy.repository.entity.UserEntity;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 @Service
 public class SwapWithBenchCommandHandler implements CommandHandler<SwapWithBenchCommand, Void> {
@@ -39,7 +33,6 @@ public class SwapWithBenchCommandHandler implements CommandHandler<SwapWithBench
     private final DraftRepository draftRepository;
     private final ClosedListRepository closedListRepository;
     private final LeagueRepository leagueRepository;
-    private final UserRepository userRepository;
     private final ScheduleRepository scheduleRepository;
     private final JornadaWindowService jornadaWindowService;
     private final ActivityEventRepository activityEventRepository;
@@ -49,7 +42,6 @@ public class SwapWithBenchCommandHandler implements CommandHandler<SwapWithBench
     public SwapWithBenchCommandHandler(DraftRepository draftRepository,
                                        ClosedListRepository closedListRepository,
                                        LeagueRepository leagueRepository,
-                                       UserRepository userRepository,
                                        ScheduleRepository scheduleRepository,
                                        JornadaWindowService jornadaWindowService,
                                        ActivityEventRepository activityEventRepository,
@@ -58,7 +50,6 @@ public class SwapWithBenchCommandHandler implements CommandHandler<SwapWithBench
         this.draftRepository = draftRepository;
         this.closedListRepository = closedListRepository;
         this.leagueRepository = leagueRepository;
-        this.userRepository = userRepository;
         this.scheduleRepository = scheduleRepository;
         this.jornadaWindowService = jornadaWindowService;
         this.activityEventRepository = activityEventRepository;
@@ -95,30 +86,23 @@ public class SwapWithBenchCommandHandler implements CommandHandler<SwapWithBench
             throw new ForbiddenOperationException("User '" + username + "' is not a member of league: " + leagueId);
         }
 
-        UserEntity user = userRepository.findByUsername(username);
-        if (user == null) {
-            throw new IllegalArgumentException("User not found: " + username);
+        List<DraftPick> picks = draft.getPicks();
+        int givenPickIndex = -1;
+        for (int i = 0; i < picks.size(); i++) {
+            DraftPick pick = picks.get(i);
+            if (username.equals(pick.getUsername()) && pokemonToGive.equalsIgnoreCase(pick.getPokemonName())) {
+                givenPickIndex = i;
+                break;
+            }
         }
-
-        List<Pokemons> currentPokemons = user.getPokemons() != null ? new ArrayList<>(user.getPokemons()) : new ArrayList<>();
-
-        Pokemons toGive = currentPokemons.stream()
-                .filter(p -> leagueId.equals(p.getLeagueId()) && pokemonToGive.equalsIgnoreCase(p.getName()))
-                .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("'" + pokemonToGive + "' is not in your team for this league"));
+        if (givenPickIndex < 0) {
+            throw new IllegalArgumentException("'" + pokemonToGive + "' is not in your team for this league");
+        }
 
         ClosedListEntity benchEntry = closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(pokemonToTake, leagueId)
                 .orElseThrow(() -> new IllegalArgumentException("'" + pokemonToTake + "' is not in the pool for this league"));
 
-        Set<String> ownedNames = league.getMembers().stream()
-                .map(member -> userRepository.findByUsername(member.getUsername()))
-                .filter(u -> u != null && u.getPokemons() != null)
-                .flatMap(u -> u.getPokemons().stream())
-                .filter(p -> leagueId.equals(p.getLeagueId()))
-                .map(p -> p.getName().toLowerCase())
-                .collect(Collectors.toSet());
-
-        if (ownedNames.contains(pokemonToTake.toLowerCase())) {
+        if (draft.ownedPokemonNames().contains(pokemonToTake.toLowerCase())) {
             throw new IllegalStateException("'" + pokemonToTake + "' is not available on the bench");
         }
 
@@ -151,30 +135,10 @@ public class SwapWithBenchCommandHandler implements CommandHandler<SwapWithBench
             leagueRepository.save(league);
         }
 
-        currentPokemons.remove(toGive);
-
-        Pokemons newPokemon = new Pokemons();
-        newPokemon.setId(benchEntry.getPokemonId());
-        newPokemon.setName(benchEntry.getPokemonName());
-        newPokemon.setStats(benchEntry.getStats());
-        newPokemon.setTypes(benchEntry.getTypes());
-        newPokemon.setLeagueId(leagueId);
-
-        currentPokemons.add(newPokemon);
-        user.setPokemons(currentPokemons);
-        userRepository.updateUserWithPokemons(user);
-
-        // Replace the pick in the draft so TeamsPage reflects the swap
-        List<DraftPick> picks = draft.getPicks();
-        for (int i = 0; i < picks.size(); i++) {
-            DraftPick pick = picks.get(i);
-            if (username.equals(pick.getUsername()) && pokemonToGive.equalsIgnoreCase(pick.getPokemonName())) {
-                DraftPick newPick = new DraftPick(username, benchEntry.getPokemonName(),
-                        benchEntry.getPokemonId(), pick.getRound(), pick.getPickedAt(), null, null);
-                picks.set(i, newPick);
-                break;
-            }
-        }
+        // Replace the pick in the draft (single source of truth for teams)
+        DraftPick givenPick = picks.get(givenPickIndex);
+        picks.set(givenPickIndex, new DraftPick(username, benchEntry.getPokemonName(),
+                benchEntry.getPokemonId(), givenPick.getRound(), givenPick.getPickedAt(), null, null));
 
         draftRepository.save(draft);
 
