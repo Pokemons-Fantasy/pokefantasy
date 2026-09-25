@@ -54,9 +54,8 @@ class RecordMatchResultCommandHandlerTest {
 
     @BeforeEach
     void setUp() {
-        handler = new RecordMatchResultCommandHandler(
-                scheduleRepository, leagueAdminGuard, leagueRepository, draftRepository,
-                activityEventRepository);
+        handler = new RecordMatchResultCommandHandler(scheduleRepository, leagueAdminGuard,
+                new MatchResultService(leagueRepository, draftRepository, activityEventRepository));
         // Default: both players have pokémon in the league (forfeit check passes)
         lenient().when(draftRepository.findLatestByLeagueId(LEAGUE_ID))
                 .thenReturn(Optional.of(draftWithPicks(pick(PLAYER1, "pikachu"), pick(PLAYER2, "bulbasaur"))));

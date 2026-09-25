@@ -33,7 +33,6 @@ public class ScheduleEntity {
     }
 
     @Data
-    @AllArgsConstructor
     @NoArgsConstructor
     public static class Match {
         private String id;
@@ -41,5 +40,20 @@ public class ScheduleEntity {
         private String player2;
         private String winnerUsername;
         private MatchStatus status;
+        /**
+         * Monedas que se dieron al registrar el resultado, para poder devolver exactamente esas al
+         * corregirlo o deshacerlo aunque los ajustes de la liga hayan cambiado. {@code null} en
+         * resultados registrados antes de existir el campo.
+         */
+        private Integer winnerCoins;
+        private Integer loserCoins;
+
+        public Match(String id, String player1, String player2, String winnerUsername, MatchStatus status) {
+            this.id = id;
+            this.player1 = player1;
+            this.player2 = player2;
+            this.winnerUsername = winnerUsername;
+            this.status = status;
+        }
     }
 }

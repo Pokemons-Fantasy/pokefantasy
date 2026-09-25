@@ -120,15 +120,19 @@ Los deadlines de robo/swap (`stealWindowCloseDay/Time`, `swapWindowCloseDay/Time
 
 ## Exception → HTTP mapping (`ApiExceptionHandler`)
 
-| Exception | HTTP |
-|-----------|------|
-| `IllegalArgumentException` | 400 |
-| `IllegalStateException` | 409 |
-| `ForbiddenOperationException` | 403 |
-| `TooManyAttemptsException` | 429 (+ `Retry-After`) |
-| `OptimisticLockingFailureException` | 409 |
-| `StaleOperationException` (commits, then) | 409 |
-| `Exception` | 500 |
+Todos los errores salen como `ProblemDetail` (`application/problem+json`): `status`, `title`, `detail` + `code` (estable, para que el cliente distinga casos) + `message` (= `detail`; es lo que lee `extractErrorMessage` en el frontend). Extiende `ResponseEntityExceptionHandler`, así que los errores de Spring MVC salen con su código real (405, 400, 404, 415…; `code` = nombre del estado) en vez de 500.
+
+| Exception | HTTP | `code` |
+|-----------|------|--------|
+| `IllegalArgumentException` | 400 | `BAD_REQUEST` |
+| `BadCredentialsException` | 401 | `INVALID_CREDENTIALS` |
+| `ForbiddenOperationException` | 403 | `FORBIDDEN` |
+| `IllegalStateException` / `StaleOperationException` (commits, then) | 409 | `CONFLICT` |
+| `OptimisticLockingFailureException` | 409 | `CONCURRENT_MODIFICATION` |
+| `DuplicateKeyException` | 409 | `DUPLICATE` |
+| `TooManyAttemptsException` | 429 (+ `Retry-After`) | `TOO_MANY_ATTEMPTS` |
+| Errores de Spring MVC | 400/404/405/415… | `METHOD_NOT_ALLOWED`, `BAD_REQUEST`… |
+| `Exception` | 500 | `INTERNAL_ERROR` (sin detalles internos) |
 
 ## Security
 
@@ -154,6 +158,8 @@ CORS is restricted to `https://*.netlify.app` and `localhost` — no wildcard or
 **`DraftEntity`** (collection `draft`): `id`, `leagueId`, `status` (PENDING/IN_PROGRESS/COMPLETED/CANCELLED), `turnOrder`, `currentTurnIndex` (0-based), `currentRound` (starts at 1), `picks` (`List<DraftPick{username, pokemonName, pokemonId, round, pickedAt}>`), `@Version` (optimistic locking).
 
 **Critical**: `DraftEntity.picks` (del último draft de la liga) es la **única fuente de verdad de los equipos**. Cualquier operación que cambie un equipo (steal, trade, swap, buy, release) solo modifica los `DraftPick`. Para "qué está en la banca" usa `draft.ownedPokemonNames()` y para el tamaño de un equipo `draft.teamSize(username)`; un draft `CANCELLED` no deja a nadie con Pokémon.
+
+**Resultados de partidos** (`MatchResultService`, compartido por `RecordMatchResultCommandHandler` y `CorrectMatchResultCommandHandler`): al registrar se guardan en el `Match` las monedas dadas (`winnerCoins`/`loserCoins`); corregir o deshacer devuelve **esas** (en resultados antiguos sin ellas, las de los ajustes actuales) y el saldo puede quedar negativo si ya se gastaron. Deja un evento `MATCH_RESULT_REVERTED`; clasificación y estadísticas se recalculan solas desde el calendario.
 
 ## Repository methods
 
@@ -186,6 +192,9 @@ POST   /v1/leagues/{id}/bench/buy                  buy bench pokémon with coins
 POST   /v1/leagues/{id}/steal                      steal rival's pokémon
 PUT    /v1/leagues/{id}/steal-price                raise own pokémon steal price
 GET    /v1/leagues/{id}/my-coins                   own coin balance
+POST   /v1/leagues/{id}/schedule/matches/{matchId}/result   record result (admin)
+PUT    /v1/leagues/{id}/schedule/matches/{matchId}/result   correct winner of a recorded match (admin)
+DELETE /v1/leagues/{id}/schedule/matches/{matchId}/result   undo result → PENDING, coins returned (admin)
 GET    /actuator/health                            health check (public)
 ```
 

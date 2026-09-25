@@ -26,6 +26,17 @@ public class ScheduleFacade {
         mediator.send(new RecordMatchResultCommand(leagueId, matchId, winnerUsername, requestingUsername));
     }
 
+    /** Cambia el ganador de un partido ya registrado. */
+    public void correctResult(String leagueId, String matchId, String newWinnerUsername,
+                              String requestingUsername) throws Exception {
+        mediator.send(new CorrectMatchResultCommand(leagueId, matchId, newWinnerUsername, requestingUsername));
+    }
+
+    /** Deshace el resultado de un partido: vuelve a pendiente y se devuelven las monedas. */
+    public void revertResult(String leagueId, String matchId, String requestingUsername) throws Exception {
+        mediator.send(new CorrectMatchResultCommand(leagueId, matchId, null, requestingUsername));
+    }
+
     public StandingsResponse getStandings(String leagueId, String requestingUsername) throws Exception {
         return mediator.send(new GetStandingsCommand(leagueId, requestingUsername));
     }
