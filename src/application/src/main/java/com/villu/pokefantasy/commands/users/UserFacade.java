@@ -1,7 +1,9 @@
 package com.villu.pokefantasy.commands.users;
 
 import com.villu.pokefantasy.commands.users.create.CreateUserCommand;
+import com.villu.pokefantasy.commands.users.login.LoginResult;
 import com.villu.pokefantasy.commands.users.login.LoginUserCommand;
+import com.villu.pokefantasy.commands.users.logout.LogoutUserCommand;
 import com.villu.pokefantasy.commands.users.pushtoken.RegisterPushTokenCommand;
 import com.villu.pokefantasy.commands.users.search.SearchUsersCommand;
 import com.villu.pokefantasy.mediator.Mediator;
@@ -27,12 +29,16 @@ public class UserFacade {
         mediator.send(new CreateUserCommand(username, password));
     }
 
-    public String login(String username, String password, String clientIp) throws Exception {
+    public LoginResult login(String username, String password, String clientIp) throws Exception {
         return mediator.send(new LoginUserCommand(username, password, clientIp));
     }
 
-    public List<String> searchUsers(String prefix, String leagueId) throws Exception {
-        return mediator.send(new SearchUsersCommand(prefix, leagueId));
+    public void logout(String refreshToken) throws Exception {
+        mediator.send(new LogoutUserCommand(refreshToken));
+    }
+
+    public List<String> searchUsers(String prefix, String leagueId, String requestingUsername) throws Exception {
+        return mediator.send(new SearchUsersCommand(prefix, leagueId, requestingUsername));
     }
 
     public void registerPushToken(String username, String token) throws Exception {

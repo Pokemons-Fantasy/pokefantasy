@@ -70,4 +70,22 @@ class DraftFacadeTest {
         assertThat(captor.getValue().leagueId()).isEqualTo("l1");
         assertThat(captor.getValue().requestingUsername()).isEqualTo("ash");
     }
+
+    @Test
+    void autoPick_sendsAutoPickCommandWithRequester() throws Exception {
+        facade.autoPick("l1", "ash");
+
+        ArgumentCaptor<AutoPickDraftCommand> captor = ArgumentCaptor.forClass(AutoPickDraftCommand.class);
+        verify(mediator).send(captor.capture());
+        assertThat(captor.getValue()).isEqualTo(new AutoPickDraftCommand("l1", "ash"));
+    }
+
+    @Test
+    void requireDraftWatcher_sendsWatchDraftCommand() throws Exception {
+        facade.requireDraftWatcher("l1", "ash");
+
+        ArgumentCaptor<WatchDraftCommand> captor = ArgumentCaptor.forClass(WatchDraftCommand.class);
+        verify(mediator).send(captor.capture());
+        assertThat(captor.getValue()).isEqualTo(new WatchDraftCommand("l1", "ash"));
+    }
 }

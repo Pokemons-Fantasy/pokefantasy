@@ -2,13 +2,14 @@ package com.villu.pokefantasy.commands.draft;
 
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueSettings;
+import com.villu.pokefantasy.league.LeagueMembershipGuard;
 import com.villu.pokefantasy.mediator.CommandHandler;
 import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
-import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.entity.ClosedListEntity;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
 import com.villu.pokefantasy.repository.entity.DraftPick;
+import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -22,21 +23,25 @@ public class AutoPickDraftCommandHandler implements CommandHandler<AutoPickDraft
 
     private final DraftRepository draftRepository;
     private final ClosedListRepository closedListRepository;
-    private final LeagueRepository leagueRepository;
+    private final LeagueMembershipGuard leagueMembershipGuard;
     private final DraftPickCommandHandler draftPickCommandHandler;
 
     public AutoPickDraftCommandHandler(DraftRepository draftRepository,
                                        ClosedListRepository closedListRepository,
-                                       LeagueRepository leagueRepository,
+                                       LeagueMembershipGuard leagueMembershipGuard,
                                        DraftPickCommandHandler draftPickCommandHandler) {
         this.draftRepository = draftRepository;
         this.closedListRepository = closedListRepository;
-        this.leagueRepository = leagueRepository;
+        this.leagueMembershipGuard = leagueMembershipGuard;
         this.draftPickCommandHandler = draftPickCommandHandler;
     }
 
     @Override
     public Void handle(AutoPickDraftCommand command) throws Exception {
+        // Cualquier miembro puede disparar el auto-pick (el cliente de quien esté mirando el draft
+        // lo lanza al vencer el turno), pero nadie de fuera de la liga.
+        LeagueEntity league = leagueMembershipGuard.requireMember(command.leagueId(), command.requestingUsername());
+
         DraftEntity draft = draftRepository.findActiveByLeagueId(command.leagueId())
                 .orElseThrow(() -> new IllegalStateException("No active draft found for league: " + command.leagueId()));
 
@@ -44,9 +49,7 @@ public class AutoPickDraftCommandHandler implements CommandHandler<AutoPickDraft
             throw new IllegalStateException("Draft is not in progress");
         }
 
-        LeagueSettings settings = leagueRepository.findById(command.leagueId())
-                .map(l -> l.getSettings() != null ? l.getSettings() : LeagueSettings.defaults())
-                .orElse(LeagueSettings.defaults());
+        LeagueSettings settings = league.getSettings() != null ? league.getSettings() : LeagueSettings.defaults();
 
         Integer timer = settings.getTurnTimerSeconds();
         if (timer == null || timer <= 0) {

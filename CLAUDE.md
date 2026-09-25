@@ -128,7 +128,11 @@ Los deadlines de robo/swap (`stealWindowCloseDay/Time`, `swapWindowCloseDay/Time
 
 ## Security
 
-Stateless JWT. Public endpoints (no token required): `POST /v1/user`, `POST /v1/user/login`, `GET /actuator/health`.
+Stateless JWT. Public endpoints (no token required): `POST /v1/user`, `POST /v1/user/login`, `POST /v1/user/logout`, `GET /actuator/health`. Todo lo demás (incluidos los SSE `/draft/events` y `/users/events`) exige sesión.
+
+- **Sesión** (`JwtAuthFilter`): dos cookies httpOnly `SameSite=None; Secure` (`AuthCookies`). `jwt` = JWT de acceso de **15 min** (`jwt.expiration-ms`); `refresh` = token opaco aleatorio guardado en Redis como `refresh:<sha256>` → username (`RefreshTokenPort` → `RefreshTokenRedisAdapter`), caduca tras **30 días sin uso** (`jwt.refresh-expiration-days`). Si el JWT falta o caducó y el refresh es válido, el filtro emite un JWT nuevo en esa misma respuesta: el frontend no hace nada para renovar. `POST /v1/user/logout` revoca el refresh en Redis (el JWT emitido muere solo en ≤ 15 min). Si Redis falla, no hay refresco (fail-closed).
+- **Búsqueda de usuarios** (`GET /v1/users/search?q=&leagueId=`): `leagueId` obligatorio y solo para admins de esa liga (es el autocompletado de "añadir miembro").
+- **Draft**: `POST /draft/auto-pick` y `GET /draft/events` exigen ser miembro de la liga. `SseEmitterRegistry` admite como mucho 3 conexiones por usuario y liga (cierra la más antigua).
 
 - **Registro** (`CreateUserCommandHandler`): username `^[A-Za-z0-9_-]{3,20}$`; contraseña ≥ 8 caracteres y ≤ 72 bytes (límite de bcrypt). Solo se valida al registrarse: los usuarios existentes siguen entrando.
 - **Límite de intentos de login** (`LoginUserCommandHandler` + `LoginAttemptPort` → `LoginAttemptRedisAdapter`, claves `login-fail:*` en Redis): 5 fallos por usuario o 30 por IP en 15 min → 429 durante la ventana, aunque la contraseña sea correcta. Un login correcto limpia el contador del usuario. IP = primera entrada de `X-Forwarded-For` (la pone Render). Si Redis falla, no bloquea (fail-open). Everything else requires `Authorization: Bearer <token>`. `LeagueAdminGuard.requireLeagueAdmin()` guards admin-only operations — checks `LeagueRole.ADMIN` in the league's member list.

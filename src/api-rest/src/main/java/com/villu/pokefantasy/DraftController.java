@@ -55,14 +55,17 @@ public class DraftController {
     }
 
     @PostMapping("/auto-pick")
-    public ResponseEntity<Void> autoPick(@PathVariable String leagueId) throws Exception {
-        draftFacade.autoPick(leagueId);
+    public ResponseEntity<Void> autoPick(@PathVariable String leagueId,
+                                         @AuthenticationPrincipal UserDetails userDetails) throws Exception {
+        draftFacade.autoPick(leagueId, userDetails.getUsername());
         sseRegistry.broadcastUpdate(leagueId);
         return ResponseEntity.ok().build();
     }
 
     @GetMapping("/events")
-    public SseEmitter streamEvents(@PathVariable String leagueId) {
-        return sseRegistry.register(leagueId);
+    public SseEmitter streamEvents(@PathVariable String leagueId,
+                                   @AuthenticationPrincipal UserDetails userDetails) throws Exception {
+        draftFacade.requireDraftWatcher(leagueId, userDetails.getUsername());
+        return sseRegistry.register(leagueId, userDetails.getUsername());
     }
 }
