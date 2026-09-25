@@ -1,20 +1,19 @@
 package com.villu.pokefantasy.commands.steal;
 
-import com.villu.pokefantasy.commands.schedule.JornadaWindowService;
 import com.villu.pokefantasy.dto.ActivityEventType;
-import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueSettings;
 import com.villu.pokefantasy.dto.Tier;
 import com.villu.pokefantasy.league.LeagueMemberService;
 import com.villu.pokefantasy.league.TierPricingService;
 import com.villu.pokefantasy.mediator.CommandHandler;
+import com.villu.pokefantasy.team.TeamOperation;
+import com.villu.pokefantasy.team.TeamTransferService;
 import lombok.extern.slf4j.Slf4j;
 import com.villu.pokefantasy.repository.ActivityEventRepository;
 import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.PushNotificationPort;
-import com.villu.pokefantasy.repository.ScheduleRepository;
 import com.villu.pokefantasy.repository.UserRepository;
 import com.villu.pokefantasy.repository.entity.ActivityEventEntity;
 import com.villu.pokefantasy.repository.entity.ClosedListEntity;
@@ -22,12 +21,10 @@ import com.villu.pokefantasy.repository.entity.DraftEntity;
 import com.villu.pokefantasy.repository.entity.DraftPick;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import com.villu.pokefantasy.repository.entity.LeagueMember;
-import com.villu.pokefantasy.repository.entity.ScheduleEntity;
 import com.villu.pokefantasy.repository.entity.UserEntity;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 
 @Service
 @Slf4j
@@ -37,8 +34,7 @@ public class StealPokemonCommandHandler implements CommandHandler<StealPokemonCo
     private final ClosedListRepository closedListRepository;
     private final LeagueRepository leagueRepository;
     private final UserRepository userRepository;
-    private final ScheduleRepository scheduleRepository;
-    private final JornadaWindowService jornadaWindowService;
+    private final TeamTransferService teamTransferService;
     private final ActivityEventRepository activityEventRepository;
     private final PushNotificationPort pushNotificationPort;
     private final LeagueMemberService leagueMemberService;
@@ -48,8 +44,7 @@ public class StealPokemonCommandHandler implements CommandHandler<StealPokemonCo
                                       ClosedListRepository closedListRepository,
                                       LeagueRepository leagueRepository,
                                       UserRepository userRepository,
-                                      ScheduleRepository scheduleRepository,
-                                      JornadaWindowService jornadaWindowService,
+                                      TeamTransferService teamTransferService,
                                       ActivityEventRepository activityEventRepository,
                                       PushNotificationPort pushNotificationPort,
                                       LeagueMemberService leagueMemberService,
@@ -58,8 +53,7 @@ public class StealPokemonCommandHandler implements CommandHandler<StealPokemonCo
         this.closedListRepository = closedListRepository;
         this.leagueRepository = leagueRepository;
         this.userRepository = userRepository;
-        this.scheduleRepository = scheduleRepository;
-        this.jornadaWindowService = jornadaWindowService;
+        this.teamTransferService = teamTransferService;
         this.activityEventRepository = activityEventRepository;
         this.pushNotificationPort = pushNotificationPort;
         this.leagueMemberService = leagueMemberService;
@@ -72,20 +66,9 @@ public class StealPokemonCommandHandler implements CommandHandler<StealPokemonCo
         String stealer = command.stealer();
         String targetName = command.targetPokemonName().trim();
 
-        DraftEntity draft = draftRepository.findLatestByLeagueId(leagueId)
-                .filter(d -> d.getStatus() == DraftStatus.COMPLETED)
-                .orElseThrow(() -> new IllegalStateException("Steals are only allowed after the draft is completed"));
-
-        ScheduleEntity schedule = scheduleRepository.findByLeagueId(leagueId)
-                .orElseThrow(() -> new IllegalStateException("No schedule found for this league"));
-
-        LeagueEntity league = leagueRepository.findById(leagueId)
-                .orElseThrow(() -> new IllegalArgumentException("League not found: " + leagueId));
-
-        if (!jornadaWindowService.isStealWindowOpen(schedule, league.getSettings())) {
-            throw new IllegalStateException(
-                    "La ventana de robos no está abierta.");
-        }
+        TeamTransferService.Market market = teamTransferService.openMarket(leagueId, TeamOperation.STEAL);
+        DraftEntity draft = market.draft();
+        LeagueEntity league = market.league();
 
         // Find the target pick — must belong to someone other than the stealer
         DraftPick targetPick = draft.getPicks().stream()
@@ -96,11 +79,7 @@ public class StealPokemonCommandHandler implements CommandHandler<StealPokemonCo
 
         String victim = targetPick.getUsername();
 
-        // Lock check: bloqueado 7 días desde el robo/trade
-        if (targetPick.getLockedUntil() != null && Instant.now().isBefore(targetPick.getLockedUntil())) {
-            throw new IllegalStateException(
-                    "'" + targetName + "' está bloqueado hasta " + targetPick.getLockedUntil() + ".");
-        }
+        teamTransferService.requireUnlocked(targetPick);
 
         // Compute steal price
         LeagueSettings settings = league.getSettings();
@@ -115,26 +94,14 @@ public class StealPokemonCommandHandler implements CommandHandler<StealPokemonCo
             stealPrice = tierPricingService.priceForTier(settings, tier);
         }
 
-        // Validate stealer balance
-        LeagueMember stealerMember = leagueMemberService.requireMember(league, stealer);
-        if (stealerMember.getCoinBalance() < stealPrice) {
-            throw new IllegalStateException(
-                    "No tienes suficientes monedas. Necesitas " + stealPrice +
-                    " pero tienes " + stealerMember.getCoinBalance() + ".");
-        }
-
-        // Transfer coins: stealer pays, victim receives 2×
-        stealerMember.setCoinBalance(stealerMember.getCoinBalance() - stealPrice);
+        // Stealer pays, victim receives 2×
+        LeagueMember stealerMember = teamTransferService.requireMember(league, stealer);
+        teamTransferService.charge(stealerMember, stealPrice);
         LeagueMember victimMember = leagueMemberService.requireMember(league, victim);
         victimMember.setCoinBalance(victimMember.getCoinBalance() + stealPrice * 2);
         leagueRepository.save(league);
 
-        // Transfer pick in draft: update username + set lock + preserve customStealPrice
-        targetPick.setUsername(stealer);
-        targetPick.setLockedUntil(Instant.now().plus(7, ChronoUnit.DAYS));
-        targetPick.setPickedAt(Instant.now());
-        // customStealPrice is intentionally preserved (inherited by new owner)
-
+        teamTransferService.transfer(targetPick, stealer, Instant.now());
         draftRepository.save(draft);
 
         activityEventRepository.save(ActivityEventEntity.builder()

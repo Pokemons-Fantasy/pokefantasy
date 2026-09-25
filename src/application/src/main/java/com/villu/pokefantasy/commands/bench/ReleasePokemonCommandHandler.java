@@ -1,25 +1,22 @@
 package com.villu.pokefantasy.commands.bench;
 
-import com.villu.pokefantasy.commands.schedule.JornadaWindowService;
 import com.villu.pokefantasy.dto.ActivityEventType;
-import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueSettings;
 import com.villu.pokefantasy.dto.Tier;
-import com.villu.pokefantasy.league.LeagueMemberService;
 import com.villu.pokefantasy.league.TierPricingService;
 import com.villu.pokefantasy.mediator.CommandHandler;
+import com.villu.pokefantasy.team.TeamOperation;
+import com.villu.pokefantasy.team.TeamTransferService;
 import com.villu.pokefantasy.repository.ActivityEventRepository;
 import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
-import com.villu.pokefantasy.repository.ScheduleRepository;
 import com.villu.pokefantasy.repository.entity.ActivityEventEntity;
 import com.villu.pokefantasy.repository.entity.ClosedListEntity;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
 import com.villu.pokefantasy.repository.entity.DraftPick;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import com.villu.pokefantasy.repository.entity.LeagueMember;
-import com.villu.pokefantasy.repository.entity.ScheduleEntity;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -30,27 +27,21 @@ public class ReleasePokemonCommandHandler implements CommandHandler<ReleasePokem
     private final DraftRepository draftRepository;
     private final ClosedListRepository closedListRepository;
     private final LeagueRepository leagueRepository;
-    private final ScheduleRepository scheduleRepository;
-    private final JornadaWindowService jornadaWindowService;
+    private final TeamTransferService teamTransferService;
     private final ActivityEventRepository activityEventRepository;
-    private final LeagueMemberService leagueMemberService;
     private final TierPricingService tierPricingService;
 
     public ReleasePokemonCommandHandler(DraftRepository draftRepository,
                                         ClosedListRepository closedListRepository,
                                         LeagueRepository leagueRepository,
-                                        ScheduleRepository scheduleRepository,
-                                        JornadaWindowService jornadaWindowService,
+                                        TeamTransferService teamTransferService,
                                         ActivityEventRepository activityEventRepository,
-                                        LeagueMemberService leagueMemberService,
                                         TierPricingService tierPricingService) {
         this.draftRepository = draftRepository;
         this.closedListRepository = closedListRepository;
         this.leagueRepository = leagueRepository;
-        this.scheduleRepository = scheduleRepository;
-        this.jornadaWindowService = jornadaWindowService;
+        this.teamTransferService = teamTransferService;
         this.activityEventRepository = activityEventRepository;
-        this.leagueMemberService = leagueMemberService;
         this.tierPricingService = tierPricingService;
     }
 
@@ -60,37 +51,19 @@ public class ReleasePokemonCommandHandler implements CommandHandler<ReleasePokem
         String username = command.username();
         String pokemonName = command.pokemonName().trim();
 
-        // 1. Draft must be completed
-        DraftEntity draft = draftRepository.findLatestByLeagueId(leagueId)
-                .filter(d -> d.getStatus() == DraftStatus.COMPLETED)
-                .orElseThrow(() -> new IllegalStateException(
-                        "Solo se pueden liberar pokémon una vez completado el draft"));
+        TeamTransferService.Market market = teamTransferService.openMarket(leagueId, TeamOperation.RELEASE);
+        DraftEntity draft = market.draft();
+        LeagueEntity league = market.league();
 
-        // 2. Swap window must be open
-        ScheduleEntity schedule = scheduleRepository.findByLeagueId(leagueId)
-                .orElseThrow(() -> new IllegalStateException("No hay calendario para esta liga"));
-        // 3. Pokemon must belong to this user in this league
         DraftPick pick = draft.getPicks().stream()
                 .filter(p -> username.equals(p.getUsername())
                           && pokemonName.equalsIgnoreCase(p.getPokemonName()))
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException(
                         "No tienes a '" + pokemonName + "' en tu equipo"));
+        teamTransferService.requireUnlocked(pick);
 
-        // 4. Pokemon must not be locked
-        if (pick.getLockedUntil() != null && Instant.now().isBefore(pick.getLockedUntil())) {
-            throw new IllegalStateException(
-                    "'" + pokemonName + "' está bloqueado hasta " + pick.getLockedUntil());
-        }
-
-        // 5. Calculate reward: tier comes from ClosedList (DraftPick has no tier field)
-        LeagueEntity league = leagueRepository.findById(leagueId)
-                .orElseThrow(() -> new IllegalArgumentException("Liga no encontrada: " + leagueId));
-
-        if (!jornadaWindowService.isSwapWindowOpen(schedule, league.getSettings())) {
-            throw new IllegalStateException(
-                    "La ventana de intercambio está cerrada. Solo puedes liberar pokémon en la ventana de swap.");
-        }
+        // Recompensa: la mitad del precio de su tier (la tier está en la closed list, no en el pick)
         LeagueSettings settings = league.getSettings();
 
         ClosedListEntity entry = closedListRepository
@@ -101,12 +74,11 @@ public class ReleasePokemonCommandHandler implements CommandHandler<ReleasePokem
 
         // --- Execute ---
 
-        // Remove DraftPick
-        draft.getPicks().remove(pick);
+        teamTransferService.releaseToBench(draft, pick);
         draftRepository.save(draft);
 
         // Add coins to member (reward = 0 if tier unknown, safe fallback)
-        LeagueMember member = leagueMemberService.requireMember(league, username);
+        LeagueMember member = teamTransferService.requireMember(league, username);
         member.setCoinBalance(member.getCoinBalance() + reward);
         leagueRepository.save(league);
 

@@ -52,7 +52,7 @@ Shell: PowerShell on Windows. Git Bash also available via Bash tool (use paths l
 Use the Maven wrapper `./mvnw` from the **repo root** (`C:\PokeFantasy\pokefantasy`) with `-f src/pom.xml` (el `pom.xml` padre está en `src/`; el wrapper fija Maven 3.9.12). Maven is not on PATH. La CI (`.github/workflows/workflow.yml`, en cada PR y push a `develop`) ejecuta exactamente el primer comando y además construye la imagen Docker:
 
 ```bash
-# Build + tests + coverage gate (80% instruction & branch, JaCoCo; api-rest solo informe)
+# Build + tests (unit, controllers, integration with Testcontainers if Docker is available) + coverage gate (80% JaCoCo)
 ./mvnw -B -ntp -f src/pom.xml clean verify
 
 # Build without tests
@@ -75,7 +75,7 @@ Start infrastructure before running locally:
 cd src && docker-compose up -d   # MongoDB :27017, Redis :6379
 ```
 
-Required env var: `JWT_SECRET` (Base64-encoded 256-bit key). Optional: `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD`, `REDIS_SSL`, `MONGODB_URI`.
+Required env var: `JWT_SECRET` (Base64-encoded 256-bit key). Optional: `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD`, `REDIS_SSL`, `MONGODB_URI`, `SENTRY_DSN` (errores 500 a Sentry), `LOGGING_STRUCTURED_FORMAT_CONSOLE=ecs` (logs JSON).
 
 `PokemonCacheLoader` carga los ~1300 Pokémon de PokeAPI en Redis **en segundo plano** (`@Scheduled`: al arrancar y cada minuto; si la clave `all_pokemons` ya existe no hace nada). Si PokeAPI no responde la app arranca igual y lo reintenta cada minuto; también se recupera sola si Redis se vacía. Mientras la caché esté vacía, nominar devuelve 409 ("aún se está cargando"). Los jobs `@Scheduled` comparten un pool de 3 hilos (`spring.task.scheduling.pool.size`).
 
@@ -109,7 +109,7 @@ Folder: `application/src/main/java/com/villu/pokefantasy/commands/{feature}/`
 ### Transacciones y concurrencia
 
 - `SpringMediator` ejecuta **cada comando dentro de una transacción MongoDB** (`TransactionPort` → `MongoTransactionAdapter`). Si algo falla, se deshacen todas las escrituras del comando: **no escribas compensaciones manuales**.
-- Ante conflictos (`OptimisticLockingFailureException` o `TransientTransactionError`) el comando completo se **reintenta hasta 3 veces** → los handlers deben releer de BD todo lo que validan (ya lo hacen) y no tener efectos externos antes del commit. Push FCM se difiere a `afterCommit` automáticamente.
+- Ante conflictos (`OptimisticLockingFailureException` o `TransientTransactionError`) el comando completo se **reintenta hasta 5 veces** con espera aleatoria creciente (50 ms·2ⁿ) → los handlers deben releer de BD todo lo que validan (ya lo hacen) y no tener efectos externos antes del commit. Push FCM se difiere a `afterCommit` automáticamente.
 - `@Version` en `LeagueEntity`, `UserEntity`, `DraftEntity`, `ScheduleEntity`, `TradeEntity`, `ClosedListEntity`: un `save()` con datos desactualizados falla en vez de pisar cambios ajenos. Los updates atómicos (`$push`, `$addToSet`…) también incrementan `version`. `VersionFieldMigration` inicializa `version: 0` en documentos antiguos al arrancar.
 - Para rechazar una operación **persistiendo** una limpieza previa (p. ej. cancelar un trade obsoleto) lanza `StaleOperationException`: la transacción se confirma y luego se devuelve 409.
 - Requiere replica set (Atlas lo es). En local `docker-compose` levanta un replica set de un nodo. Contra un Mongo standalone los comandos corren sin transacción (WARN en el log al primer comando).
@@ -165,6 +165,8 @@ CORS is restricted to `https://*.netlify.app` and `localhost` — no wildcard or
 
 **Critical**: `DraftEntity.picks` (del último draft de la liga) es la **única fuente de verdad de los equipos**. Cualquier operación que cambie un equipo (steal, trade, swap, buy, release) solo modifica los `DraftPick`. Para "qué está en la banca" usa `draft.ownedPokemonNames()` y para el tamaño de un equipo `draft.teamSize(username)`; un draft `CANCELLED` no deja a nadie con Pokémon.
 
+**Movimientos de equipo** (robo, trade, swap, compra, liberación): usa `TeamTransferService` (abrir mercado = draft completado + calendario + liga + ventana de `TeamOperation`, bloqueo de 7 días `TRANSFER_LOCK`, cobro de monedas, banca). No repitas esas reglas en los handlers.
+
 **Resultados de partidos** (`MatchResultService`, compartido por `RecordMatchResultCommandHandler` y `CorrectMatchResultCommandHandler`): al registrar se guardan en el `Match` las monedas dadas (`winnerCoins`/`loserCoins`); corregir o deshacer devuelve **esas** (en resultados antiguos sin ellas, las de los ajustes actuales) y el saldo puede quedar negativo si ya se gastaron. Deja un evento `MATCH_RESULT_REVERTED`; clasificación y estadísticas se recalculan solas desde el calendario.
 
 ## Repository methods
@@ -198,6 +200,7 @@ POST   /v1/leagues/{id}/bench/buy                  buy bench pokémon with coins
 POST   /v1/leagues/{id}/steal                      steal rival's pokémon
 PUT    /v1/leagues/{id}/steal-price                raise own pokémon steal price
 GET    /v1/leagues/{id}/my-coins                   own coin balance
+GET    /v1/leagues/{id}/trades?history=50           my trades: all pending + latest N resolved (max 200)
 POST   /v1/leagues/{id}/schedule/matches/{matchId}/result   record result (admin)
 PUT    /v1/leagues/{id}/schedule/matches/{matchId}/result   correct winner of a recorded match (admin)
 DELETE /v1/leagues/{id}/schedule/matches/{matchId}/result   undo result → PENDING, coins returned (admin)
@@ -206,13 +209,25 @@ GET    /actuator/health                            health check (public)
 
 ## Tests
 
-The `application` module has a unit test suite (348 tests, pure Mockito, no Spring context). JaCoCo 80% gate runs on `mvn verify` at BUNDLE level across all modules.
+`./mvnw -B -ntp -f src/pom.xml clean verify` ejecuta todo con umbral JaCoCo del 80 % (instrucciones y ramas) en `application`, `infrastructure` y `api-rest` (`lombok.config` excluye el código generado por Lombok).
 
-**What's covered**: `CreateUserCommandHandler`, `LoginUserCommandHandler`, `StartDraftCommandHandler`, `DraftPickCommandHandler`, `GetDraftStatusCommandHandler`, `SwapWithBenchCommandHandler`, `StealPokemonCommandHandler`, `SetStealPriceCommandHandler`, `LeagueAdminGuard`.
+- **Unitarios** (`application`, `infrastructure`): Mockito puro, sin contexto de Spring. Los handlers usan inyección por constructor: se mockean puertos y repositorios.
+- **Controladores** (`api-rest`): MockMvc standalone con las fachadas mockeadas (`ControllerTestSupport`: `ApiExceptionHandler` real + usuario autenticado).
+- **Integración** (`boot/src/test/.../it/*IntegrationTest`): la app completa por HTTP contra **Mongo en replica set y Redis reales con Testcontainers** (base `IntegrationTest`; se saltan si no hay Docker). Cubren sesión/refresh/logout, límite de login, ProblemDetail, rollback de transacciones, concurrencia sin actualizaciones perdidas, SSE vía Redis Pub/Sub, índices y OpenAPI. Ojo: en Testcontainers 2 el replica set es opcional (`withReplicaSet()`); sin él no hay transacciones.
 
-**Pattern**: all handlers use constructor injection — mock the ports and repositories, test business logic directly. No `@SpringBootTest` needed.
+`UserEntity.name` tiene índice único (lo crea `MongoIndexInitializer`, ver abajo): la unicidad la garantiza MongoDB, no la aplicación.
 
-`UserEntity.name` has `@Indexed(unique=true)` — MongoDB enforces uniqueness at DB level, not application level (no TOCTOU race).
+## MongoDB: índices
+
+`MongoIndexInitializer` crea al arrancar los índices de las anotaciones (`@Indexed`, `@CompoundIndex`) de las entidades de `INDEXED_ENTITIES`; si uno falla (p. ej. el único de `users.name` con duplicados) lo registra como ERROR sin tumbar el arranque. **No** se usa `auto-index-creation` (en Boot 4 la clave es `spring.data.mongodb.auto-index-creation`; la antigua `spring.mongodb.…` se ignoraba y no se creaba ningún índice). Si añades una entidad con índices, añádela a `INDEXED_ENTITIES`.
+
+## Observabilidad
+
+- **Request id**: `RequestIdFilter` (`X-Request-Id` entrante o generado) → MDC `requestId`, cabecera de respuesta, cada línea de log y `requestId` en los errores ProblemDetail.
+- **Métricas**: `SpringMediator` mide cada comando → timer `pokefantasy.commands` (`command`, `outcome` = success/rejected/error, `exception`). `/actuator/metrics` solo para el rol global `ADMIN`.
+- **Logs JSON**: `LOGGING_STRUCTURED_FORMAT_CONSOLE=ecs`.
+- **Sentry**: con `SENTRY_DSN`, los logs ERROR (los 500) llegan a Sentry; sin DSN no hace nada.
+- **API docs**: OpenAPI en `/v3/api-docs`, Swagger UI en `/swagger-ui.html` (públicos). La CI publica `openapi.json` como artefacto para generar el cliente TS (`npx openapi-typescript openapi.json -o src/api/schema.d.ts`).
 
 ## Performance constraints (Render free tier)
 

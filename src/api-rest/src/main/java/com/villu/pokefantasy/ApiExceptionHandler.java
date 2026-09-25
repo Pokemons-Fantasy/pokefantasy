@@ -5,6 +5,7 @@ import com.villu.pokefantasy.exception.TooManyAttemptsException;
 import org.apache.catalina.connector.ClientAbortException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpHeaders;
@@ -26,6 +27,7 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
  *       (p. ej. {@code CONCURRENT_MODIFICATION}, {@code TOO_MANY_ATTEMPTS}).</li>
  *   <li>{@code message}: igual que {@code detail}; es lo que lee el frontend
  *       ({@code extractErrorMessage} usa {@code data.message}).</li>
+ *   <li>{@code requestId}: el de {@link RequestIdFilter}, para buscar el error en los logs.</li>
  * </ul>
  * Los errores propios de Spring MVC (método no soportado, JSON mal formado, parámetro ausente, ruta
  * inexistente…) los resuelve {@link ResponseEntityExceptionHandler} con su código HTTP correcto
@@ -44,6 +46,11 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     private static ProblemDetail withCode(ProblemDetail problem, String code) {
         problem.setProperty("code", code);
         problem.setProperty("message", problem.getDetail());
+        String requestId = MDC.get(RequestIdFilter.MDC_KEY);
+        if (requestId != null) {
+            // Para que el usuario pueda dar un id con el que buscar el error en los logs.
+            problem.setProperty("requestId", requestId);
+        }
         return problem;
     }
 

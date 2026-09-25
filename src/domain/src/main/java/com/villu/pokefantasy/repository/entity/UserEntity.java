@@ -17,7 +17,15 @@ public class UserEntity {
     private Long version;
     @Indexed(unique = true)
     private String name;
+    /**
+     * {@code name} en minúsculas, indexado: la búsqueda por prefijo sin distinguir mayúsculas usa el
+     * índice (un regex con la opción "i" no puede). Lo rellena {@code UserRepository.saveUser} y, para
+     * usuarios antiguos, {@code UserNameLowerMigration}.
+     */
+    @Indexed
+    private String nameLower;
     private String password;
     private Role role;
+    @Indexed(sparse = true)
     private List<String> fcmTokens = new ArrayList<>();
 }

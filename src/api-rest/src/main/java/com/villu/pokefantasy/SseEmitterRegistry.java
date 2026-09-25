@@ -47,6 +47,7 @@ public class SseEmitterRegistry implements RealtimeEventPort.Listener {
         emitter.onTimeout(cleanup);
         emitter.onError(e -> cleanup.run());
 
+        sendConnected(emitter);
         return emitter;
     }
 
@@ -79,5 +80,17 @@ public class SseEmitterRegistry implements RealtimeEventPort.Listener {
             }
         }
         list.removeAll(dead);
+    }
+
+    /**
+     * Primer mensaje (un comentario, que EventSource ignora): obliga a enviar ya las cabeceras, así el
+     * cliente ve la conexión abierta al momento y no al primer heartbeat (hasta 30 s después).
+     */
+    static void sendConnected(SseEmitter emitter) {
+        try {
+            emitter.send(SseEmitter.event().comment("connected"));
+        } catch (IOException | IllegalStateException e) {
+            emitter.completeWithError(e);
+        }
     }
 }

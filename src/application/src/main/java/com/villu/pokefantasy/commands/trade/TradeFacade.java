@@ -22,8 +22,8 @@ public class TradeFacade {
                 proposerPokemonName, responderPokemonName, coinsOffered));
     }
 
-    public List<TradeResponse> getTrades(String leagueId, String username) throws Exception {
-        return mediator.send(new GetTradesCommand(leagueId, username));
+    public List<TradeResponse> getTrades(String leagueId, String username, int historyLimit) throws Exception {
+        return mediator.send(new GetTradesCommand(leagueId, username, historyLimit));
     }
 
     public List<TradeResponse> getMyPendingTrades(String username) throws Exception {

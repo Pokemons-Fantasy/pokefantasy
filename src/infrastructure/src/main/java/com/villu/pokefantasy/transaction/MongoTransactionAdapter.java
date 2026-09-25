@@ -14,6 +14,8 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.LongConsumer;
 import java.util.function.Supplier;
 
 /**
@@ -30,7 +32,13 @@ import java.util.function.Supplier;
 @Slf4j
 public class MongoTransactionAdapter implements TransactionPort {
 
-    static final int MAX_ATTEMPTS = 3;
+    static final int MAX_ATTEMPTS = 5;
+    /**
+     * Espera antes de reintentar: aleatoria entre 0 y {@code BASE_BACKOFF_MS · 2^(intento-1)}. Sin ella,
+     * los comandos que chocan reintentan a la vez y vuelven a chocar (visto en el test de integración
+     * de concurrencia: con 8 resultados simultáneos solo entraban 2).
+     */
+    static final long BASE_BACKOFF_MS = 50;
     static final String CONFLICT_MESSAGE =
             "Otro jugador modificó los datos al mismo tiempo. Inténtalo de nuevo.";
 
@@ -38,18 +46,21 @@ public class MongoTransactionAdapter implements TransactionPort {
 
     private final Supplier<Boolean> transactionSupportProbe;
     private final PlatformTransactionManager transactionManager;
+    private final LongConsumer sleeper;
     private volatile Boolean transactionsSupported;
     private volatile TransactionTemplate transactionTemplate;
 
     @Autowired
     public MongoTransactionAdapter(MongoTemplate mongoTemplate) {
         this(new MongoTransactionManager(mongoTemplate.getMongoDatabaseFactory()),
-                () -> isReplicaSetOrSharded(mongoTemplate));
+                () -> isReplicaSetOrSharded(mongoTemplate), MongoTransactionAdapter::sleep);
     }
 
-    MongoTransactionAdapter(PlatformTransactionManager transactionManager, Supplier<Boolean> transactionSupportProbe) {
+    MongoTransactionAdapter(PlatformTransactionManager transactionManager, Supplier<Boolean> transactionSupportProbe,
+                            LongConsumer sleeper) {
         this.transactionManager = transactionManager;
         this.transactionSupportProbe = transactionSupportProbe;
+        this.sleeper = sleeper;
     }
 
     @Override
@@ -70,6 +81,7 @@ public class MongoTransactionAdapter implements TransactionPort {
                     throw new IllegalStateException(CONFLICT_MESSAGE, exception);
                 }
                 log.debug("Transaction conflict on attempt {}, retrying", attempt, exception);
+                sleeper.accept(ThreadLocalRandom.current().nextLong(BASE_BACKOFF_MS << (attempt - 1)));
             }
         }
     }
@@ -124,6 +136,14 @@ public class MongoTransactionAdapter implements TransactionPort {
                 }
             }
             return transactionsSupported;
+        }
+    }
+
+    private static void sleep(long millis) {
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
     }
 

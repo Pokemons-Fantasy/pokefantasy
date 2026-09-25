@@ -21,7 +21,10 @@ import java.time.Instant;
 @CompoundIndexes({
         @CompoundIndex(def = "{'leagueId': 1, 'status': 1}"),
         // Cubre findPendingByResponder, que filtra por responder+status sin acotar por liga.
-        @CompoundIndex(def = "{'responder': 1, 'status': 1}")
+        @CompoundIndex(def = "{'responder': 1, 'status': 1}"),
+        // Trades de un participante en la liga (findByLeagueIdAndParticipant: un índice por rama del $or).
+        @CompoundIndex(def = "{'leagueId': 1, 'proposer': 1, 'resolvedAt': -1}"),
+        @CompoundIndex(def = "{'leagueId': 1, 'responder': 1, 'resolvedAt': -1}")
 })
 public class TradeEntity {
     @Id

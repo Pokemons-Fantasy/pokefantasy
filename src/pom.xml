@@ -24,6 +24,8 @@
 	<properties>
 		<java.version>21</java.version>
 		<org.mapstruct.version>1.6.3</org.mapstruct.version>
+		<!-- springdoc 3.0.x = Spring Boot 4.0.x (3.1 ya apunta a Boot 4.1) -->
+		<springdoc.version>3.0.3</springdoc.version>
 		<sonar.coverage.jacoco.xmlReportPaths>${project.basedir}/target/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
 	</properties>
 	<dependencyManagement>
@@ -31,6 +33,11 @@
 		     spring-boot-starter-parent: para actualizar Spring Boot basta con cambiar su versión arriba.
 		     No fijes aquí versiones de artefactos org.springframework.boot. -->
 		<dependencies>
+			<dependency>
+				<groupId>org.springdoc</groupId>
+				<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+				<version>${springdoc.version}</version>
+			</dependency>
 			<dependency>
 				<groupId>org.projectlombok</groupId>
 				<artifactId>lombok</artifactId>

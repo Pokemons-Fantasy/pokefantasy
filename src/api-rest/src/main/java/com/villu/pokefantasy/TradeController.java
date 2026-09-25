@@ -45,8 +45,10 @@ public class TradeController {
     @GetMapping("/trades")
     public ResponseEntity<List<TradeResponse>> getTrades(
             @PathVariable String leagueId,
+            // Trades ya resueltos a devolver (los más recientes; máx. 200). Los pendientes van siempre.
+            @RequestParam(defaultValue = "50") int history,
             @AuthenticationPrincipal UserDetails userDetails) throws Exception {
-        return ResponseEntity.ok(tradeFacade.getTrades(leagueId, userDetails.getUsername()));
+        return ResponseEntity.ok(tradeFacade.getTrades(leagueId, userDetails.getUsername(), history));
     }
 
     @PostMapping("/trades/{tradeId}/respond")
