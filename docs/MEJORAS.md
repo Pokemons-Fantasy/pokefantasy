@@ -26,8 +26,8 @@ Lista surgida de la revisión del backend (septiembre 2026). Se tacha cada punto
 14. ~~**CI.** `workflow.yml` se lanza con push a `main`/`master`, pero la rama base es `develop`.~~ ✅ PR #109 (push a `develop`, `./mvnw`, cancela ejecuciones obsoletas y construye la imagen Docker).
 15. ~~**Versiones mezcladas.** El `pom.xml` fija `spring-boot-starter-web` a `4.1.0` con parent `4.0.2`.~~ ✅ PR #109 (todas las versiones de Spring Boot las fija solo el parent: 4.0.2).
 16. **SSE en memoria.** `SseEmitterRegistry` no escala a más de una instancia; haría falta Redis Pub/Sub.
-17. **Errores como texto plano.** Migrar `ApiExceptionHandler` a `ProblemDetail` (RFC 7807) con un `code` estable. Ojo: hoy los errores de Spring MVC (método no soportado, JSON mal formado, parámetro ausente…) caen en el `catch (Exception)` y salen como **500** en vez de 405/400.
-18. **Sin corrección de resultados.** `RecordMatchResult` no permite corregir ni deshacer un resultado (revirtiendo también las monedas).
+17. ~~**Errores como texto plano.** Migrar `ApiExceptionHandler` a `ProblemDetail` (RFC 7807) con un `code` estable. Ojo: hoy los errores de Spring MVC (método no soportado, JSON mal formado, parámetro ausente…) caen en el `catch (Exception)` y salen como **500** en vez de 405/400.~~ ✅ PR #110 (`ProblemDetail` con `code` y `message`; errores de Spring MVC con su código real).
+18. ~~**Sin corrección de resultados.** `RecordMatchResult` no permite corregir ni deshacer un resultado (revirtiendo también las monedas).~~ ✅ PR #110 (`PUT`/`DELETE .../result`; devuelve las monedas realmente dadas).
 
 ## 🔵 Calidad de código y tests
 

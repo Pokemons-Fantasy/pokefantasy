@@ -7,6 +7,7 @@ public enum ActivityEventType {
     POKEMON_RELEASED,
     TRADE_COMPLETED,
     MATCH_RESULT,
+    MATCH_RESULT_REVERTED,
     TIER_CHANGE,
     COIN_EARNED
 }

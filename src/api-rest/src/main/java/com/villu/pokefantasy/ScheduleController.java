@@ -40,6 +40,28 @@ public class ScheduleController {
         return ResponseEntity.noContent().build();
     }
 
+    /** Corrige el ganador de un partido ya registrado (admin). */
+    @PutMapping("/{leagueId}/schedule/matches/{matchId}/result")
+    public ResponseEntity<Void> correctResult(@PathVariable String leagueId,
+                                              @PathVariable String matchId,
+                                              @AuthenticationPrincipal UserDetails userDetails,
+                                              @RequestBody RecordMatchResultRequest request) throws Exception {
+        if (request.getWinnerUsername() == null || request.getWinnerUsername().isBlank()) {
+            throw new IllegalArgumentException("winnerUsername is required");
+        }
+        scheduleFacade.correctResult(leagueId, matchId, request.getWinnerUsername(), userDetails.getUsername());
+        return ResponseEntity.noContent().build();
+    }
+
+    /** Deshace el resultado de un partido (admin): vuelve a pendiente y se devuelven las monedas. */
+    @DeleteMapping("/{leagueId}/schedule/matches/{matchId}/result")
+    public ResponseEntity<Void> revertResult(@PathVariable String leagueId,
+                                             @PathVariable String matchId,
+                                             @AuthenticationPrincipal UserDetails userDetails) throws Exception {
+        scheduleFacade.revertResult(leagueId, matchId, userDetails.getUsername());
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/{leagueId}/standings")
     public ResponseEntity<StandingsResponse> getStandings(@PathVariable String leagueId,
                                                            @AuthenticationPrincipal UserDetails userDetails) throws Exception {

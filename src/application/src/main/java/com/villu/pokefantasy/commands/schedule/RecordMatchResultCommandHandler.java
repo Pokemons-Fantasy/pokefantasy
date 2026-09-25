@@ -1,41 +1,26 @@
 package com.villu.pokefantasy.commands.schedule;
 
-import com.villu.pokefantasy.dto.ActivityEventType;
-import com.villu.pokefantasy.dto.LeagueSettings;
 import com.villu.pokefantasy.dto.MatchStatus;
 import com.villu.pokefantasy.league.LeagueAdminGuard;
 import com.villu.pokefantasy.mediator.CommandHandler;
-import com.villu.pokefantasy.repository.ActivityEventRepository;
-import com.villu.pokefantasy.repository.DraftRepository;
-import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.ScheduleRepository;
-import com.villu.pokefantasy.repository.entity.ActivityEventEntity;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
-import com.villu.pokefantasy.repository.entity.LeagueMember;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity;
 import org.springframework.stereotype.Service;
-
-import java.time.Instant;
 
 @Service
 public class RecordMatchResultCommandHandler implements CommandHandler<RecordMatchResultCommand, Void> {
 
     private final ScheduleRepository scheduleRepository;
     private final LeagueAdminGuard leagueAdminGuard;
-    private final LeagueRepository leagueRepository;
-    private final DraftRepository draftRepository;
-    private final ActivityEventRepository activityEventRepository;
+    private final MatchResultService matchResultService;
 
     public RecordMatchResultCommandHandler(ScheduleRepository scheduleRepository,
                                            LeagueAdminGuard leagueAdminGuard,
-                                           LeagueRepository leagueRepository,
-                                           DraftRepository draftRepository,
-                                           ActivityEventRepository activityEventRepository) {
+                                           MatchResultService matchResultService) {
         this.scheduleRepository = scheduleRepository;
         this.leagueAdminGuard = leagueAdminGuard;
-        this.leagueRepository = leagueRepository;
-        this.draftRepository = draftRepository;
-        this.activityEventRepository = activityEventRepository;
+        this.matchResultService = matchResultService;
     }
 
     @Override
@@ -46,122 +31,20 @@ public class RecordMatchResultCommandHandler implements CommandHandler<RecordMat
                 .orElseThrow(() -> new IllegalStateException(
                         "No schedule found for league. Generate the schedule first by completing the draft."));
 
-        ScheduleEntity.Match match = findMatch(schedule, command.matchId());
+        ScheduleEntity.Match match = matchResultService.findMatch(schedule, command.matchId());
 
         if (match.getStatus() == MatchStatus.COMPLETED) {
-            throw new IllegalStateException("El resultado de este partido ya fue registrado");
+            throw new IllegalStateException(
+                    "El resultado de este partido ya fue registrado. Para cambiarlo, corrígelo o deshazlo.");
         }
 
-        if (!command.winnerUsername().equals(match.getPlayer1())
-                && !command.winnerUsername().equals(match.getPlayer2())) {
-            throw new IllegalArgumentException(
-                    "Winner '" + command.winnerUsername() + "' is not a participant of this match");
-        }
+        String loserUsername = matchResultService.requireParticipant(match, command.winnerUsername());
+        matchResultService.requireWinnerHasTeam(command.leagueId(), command.winnerUsername(), loserUsername);
 
-        // Forfeit check: if the declared winner has 0 Pokémon in this league, reject the result
-        String loserUsername = command.winnerUsername().equals(match.getPlayer1())
-                ? match.getPlayer2()
-                : match.getPlayer1();
-        checkForfeit(command.leagueId(), command.winnerUsername(), loserUsername);
-
-        int roundNumber = findRoundNumber(schedule, command.matchId());
-
-        match.setWinnerUsername(command.winnerUsername());
-        match.setStatus(MatchStatus.COMPLETED);
+        int roundNumber = matchResultService.findRoundNumber(schedule, command.matchId());
+        matchResultService.award(league, match, command.winnerUsername(), loserUsername, roundNumber);
         scheduleRepository.save(schedule);
-
-        distributeCoins(league, command.winnerUsername(), loserUsername, roundNumber);
-
         return null;
-    }
-
-    /**
-     * Validates forfeit conditions:
-     * - If the declared winner has 0 Pokémon in this league → reject (probably a mistake; suggest the loser)
-     * - If the loser has 0 Pokémon → forfeit confirmed, no action needed
-     */
-    private void checkForfeit(String leagueId, String winner, String loser) {
-        boolean winnerHasPokemons = draftRepository.findLatestByLeagueId(leagueId)
-                .map(draft -> draft.teamSize(winner) > 0)
-                .orElse(false);
-
-        if (!winnerHasPokemons) {
-            throw new IllegalArgumentException(
-                    "El ganador declarado '" + winner + "' no tiene Pokémon en esta liga. " +
-                    "¿Quisiste decir '" + loser + "'?");
-        }
-        // If loser has 0 Pokémon → forfeit is valid, the winner is correct — no action needed
-    }
-
-    private void distributeCoins(LeagueEntity league, String winner, String loser, int roundNumber) {
-        LeagueSettings settings = league.getSettings();
-        int coinsWin  = (settings != null && settings.getCoinsPerWin()  != null) ? settings.getCoinsPerWin()  : 0;
-        int coinsLoss = (settings != null && settings.getCoinsPerLoss() != null) ? settings.getCoinsPerLoss() : 0;
-
-        for (LeagueMember m : league.getMembers()) {
-            if (m.getUsername().equals(winner)) m.setCoinBalance(m.getCoinBalance() + coinsWin);
-            if (m.getUsername().equals(loser))  m.setCoinBalance(m.getCoinBalance() + coinsLoss);
-        }
-        leagueRepository.save(league);
-
-        Instant now = Instant.now();
-        activityEventRepository.save(ActivityEventEntity.builder()
-                .leagueId(league.getId())
-                .type(ActivityEventType.MATCH_RESULT)
-                .actorUsername(winner)
-                .targetUsername(loser)
-                .roundNumber(roundNumber)
-                .createdAt(now)
-                .build());
-
-        if (coinsWin > 0) {
-            activityEventRepository.save(ActivityEventEntity.builder()
-                    .leagueId(league.getId())
-                    .type(ActivityEventType.COIN_EARNED)
-                    .actorUsername(winner)
-                    .coinsAmount(coinsWin)
-                    .roundNumber(roundNumber)
-                    .createdAt(now)
-                    .build());
-        }
-        if (coinsLoss > 0) {
-            activityEventRepository.save(ActivityEventEntity.builder()
-                    .leagueId(league.getId())
-                    .type(ActivityEventType.COIN_EARNED)
-                    .actorUsername(loser)
-                    .coinsAmount(coinsLoss)
-                    .roundNumber(roundNumber)
-                    .createdAt(now)
-                    .build());
-        }
-    }
-
-    private int findRoundNumber(ScheduleEntity schedule, String matchId) {
-        if (schedule.getJornadas() == null) return 0;
-        for (ScheduleEntity.Jornada jornada : schedule.getJornadas()) {
-            if (jornada.getMatches() == null) continue;
-            for (ScheduleEntity.Match m : jornada.getMatches()) {
-                if (matchId.equals(m.getId())) {
-                    return jornada.getRoundNumber();
-                }
-            }
-        }
-        return 0;
-    }
-
-    private ScheduleEntity.Match findMatch(ScheduleEntity schedule, String matchId) {
-        if (schedule.getJornadas() == null) {
-            throw new IllegalArgumentException("Match not found: " + matchId);
-        }
-        for (ScheduleEntity.Jornada jornada : schedule.getJornadas()) {
-            if (jornada.getMatches() == null) continue;
-            for (ScheduleEntity.Match m : jornada.getMatches()) {
-                if (matchId.equals(m.getId())) {
-                    return m;
-                }
-            }
-        }
-        throw new IllegalArgumentException("Match not found: " + matchId);
     }
 
     @Override
