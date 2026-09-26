@@ -26,10 +26,10 @@ public class LoginUserCommandHandler implements CommandHandler<LoginUserCommand,
     private final RefreshTokenPort refreshTokenPort;
 
     /** Fallos por usuario antes de bloquearlo: frena la fuerza bruta contra una cuenta. */
-    static final int MAX_FAILURES_PER_USER = 5;
+    public static final int MAX_FAILURES_PER_USER = 5;
     /** Fallos por IP antes de bloquearla: frena probar una contraseña contra muchas cuentas. */
     static final int MAX_FAILURES_PER_IP = 30;
-    static final Duration LOCKOUT_WINDOW = Duration.ofMinutes(15);
+    public static final Duration LOCKOUT_WINDOW = Duration.ofMinutes(15);
 
     public LoginUserCommandHandler(UserRepository userRepository, UserMapper userMapper,
                                    PasswordHashPort passwordHashPort, TokenPort tokenPort,

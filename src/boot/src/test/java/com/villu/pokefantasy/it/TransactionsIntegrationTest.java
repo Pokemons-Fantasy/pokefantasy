@@ -96,7 +96,7 @@ class TransactionsIntegrationTest extends IntegrationTest {
         doThrow(new RuntimeException("disk full")).when(activityEventRepository)
                 .save(argThat((ActivityEventEntity e) -> e != null));
 
-        assertThatThrownBy(() -> scheduleFacade.recordResult(LEAGUE, "m0", ASH, ASH))
+        assertThatThrownBy(() -> scheduleFacade.recordResult(LEAGUE, "m0", ASH, null, ASH))
                 .hasMessageContaining("disk full");
 
         assertThat(coins(ASH)).isZero();
@@ -141,7 +141,7 @@ class TransactionsIntegrationTest extends IntegrationTest {
                 String matchId = "m" + i;
                 futures.add(pool.submit(() -> {
                     start.await();
-                    scheduleFacade.recordResult(LEAGUE, matchId, ASH, ASH);
+                    scheduleFacade.recordResult(LEAGUE, matchId, ASH, null, ASH);
                     return null;
                 }));
             }

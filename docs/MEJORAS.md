@@ -41,7 +41,7 @@ Lista surgida de la revisión del backend (septiembre 2026). Se tacha cada punto
 
 **Juego / competición**
 - [ ] Playoffs entre los N primeros al acabar la liga regular.
-- [ ] Marcador en los partidos (p. ej. 3–1) y diferencia como criterio de desempate.
+- [x] ~~Marcador en los partidos (p. ej. 3–1) y diferencia como criterio de desempate.~~
 - [ ] Temporadas: cerrar, archivar el histórico y empezar otra (redraft o keeper).
 - [ ] Snake draft configurable y draft por subasta.
 - [ ] Waiver wire / prioridad de banca para el peor clasificado.
@@ -54,11 +54,13 @@ Lista surgida de la revisión del backend (septiembre 2026). Se tacha cada punto
 - [ ] Reglas por liga: bans de legendarios, límite por tipo o por generación.
 
 **Social y notificaciones**
-- [ ] Push por resultado registrado, apertura/cierre de ventana y "te toca en el draft".
+- [x] ~~Push "te toca en el draft".~~
+- [ ] Push por resultado registrado y apertura de ventana.
 - [ ] Chat/comentarios por liga o reacciones en el feed de actividad.
-- [ ] Recordatorio programado antes de que cierre la ventana de robos/swaps.
+- [x] ~~Recordatorio programado antes de que cierre la ventana de robos/swaps.~~
 
 **Cuenta**
-- [ ] Cambio y recuperación de contraseña.
+- [x] ~~Cambio de contraseña.~~
+- [ ] Recuperación de contraseña (requiere envío de emails).
 - [ ] Avatar.
 - [ ] Borrado de cuenta (RGPD).

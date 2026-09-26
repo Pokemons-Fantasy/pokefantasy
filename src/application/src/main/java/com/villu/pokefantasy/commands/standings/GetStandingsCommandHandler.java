@@ -12,6 +12,7 @@ import com.villu.pokefantasy.response.PlayerStandingResponse;
 import com.villu.pokefantasy.response.StandingsResponse;
 import org.springframework.stereotype.Service;
 
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,10 +40,10 @@ public class GetStandingsCommandHandler implements CommandHandler<GetStandingsCo
         LeagueEntity league = leagueRepository.findById(command.leagueId())
                 .orElseThrow(() -> new IllegalArgumentException("Liga no encontrada: " + command.leagueId()));
 
-        // wins[0], losses[1]
+        // [victorias, derrotas, marcador a favor, marcador en contra]
         Map<String, int[]> stats = new HashMap<>();
         for (LeagueMember member : league.getMembers()) {
-            stats.put(member.getUsername(), new int[]{0, 0});
+            stats.put(member.getUsername(), new int[4]);
         }
 
         Optional<ScheduleEntity> maybeSchedule = scheduleRepository.findByLeagueId(command.leagueId());
@@ -55,8 +56,16 @@ public class GetStandingsCommandHandler implements CommandHandler<GetStandingsCo
                     .forEach(m -> {
                         String winner = m.getWinnerUsername();
                         String loser = m.getPlayer1().equals(winner) ? m.getPlayer2() : m.getPlayer1();
-                        stats.computeIfAbsent(winner, k -> new int[]{0, 0})[0]++;
-                        stats.computeIfAbsent(loser, k -> new int[]{0, 0})[1]++;
+                        int[] w = stats.computeIfAbsent(winner, k -> new int[4]);
+                        int[] l = stats.computeIfAbsent(loser, k -> new int[4]);
+                        w[0]++;
+                        l[1]++;
+                        if (m.getWinnerScore() != null && m.getLoserScore() != null) {
+                            w[2] += m.getWinnerScore();
+                            w[3] += m.getLoserScore();
+                            l[2] += m.getLoserScore();
+                            l[3] += m.getWinnerScore();
+                        }
                     });
         });
 
@@ -65,6 +74,7 @@ public class GetStandingsCommandHandler implements CommandHandler<GetStandingsCo
             coinMap.put(member.getUsername(), member.getCoinBalance());
         }
 
+        // Orden: victorias, diferencia de marcador, monedas y nombre.
         List<PlayerStandingResponse> standings = stats.entrySet().stream()
                 .map(e -> PlayerStandingResponse.builder()
                         .username(e.getKey())
@@ -72,12 +82,14 @@ public class GetStandingsCommandHandler implements CommandHandler<GetStandingsCo
                         .losses(e.getValue()[1])
                         .played(e.getValue()[0] + e.getValue()[1])
                         .coins(coinMap.getOrDefault(e.getKey(), 0))
+                        .scoreFor(e.getValue()[2])
+                        .scoreAgainst(e.getValue()[3])
+                        .scoreDiff(e.getValue()[2] - e.getValue()[3])
                         .build())
-                .sorted((a, b) -> {
-                    if (b.getWins() != a.getWins()) return Integer.compare(b.getWins(), a.getWins());
-                    if (b.getCoins() != a.getCoins()) return Integer.compare(b.getCoins(), a.getCoins());
-                    return a.getUsername().compareTo(b.getUsername());
-                })
+                .sorted(Comparator.comparingInt(PlayerStandingResponse::getWins).reversed()
+                        .thenComparing(Comparator.comparingInt(PlayerStandingResponse::getScoreDiff).reversed())
+                        .thenComparing(Comparator.comparingInt(PlayerStandingResponse::getCoins).reversed())
+                        .thenComparing(PlayerStandingResponse::getUsername))
                 .toList();
 
         return StandingsResponse.builder().standings(standings).build();

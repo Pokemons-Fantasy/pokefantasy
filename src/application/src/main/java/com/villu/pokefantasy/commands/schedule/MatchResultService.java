@@ -90,7 +90,8 @@ public class MatchResultService {
      * ajustes actuales (y las anota en el partido) y registra los eventos. Guarda la liga; el
      * calendario lo guarda quien llama.
      */
-    void award(LeagueEntity league, ScheduleEntity.Match match, String winner, String loser, int roundNumber) {
+    void award(LeagueEntity league, ScheduleEntity.Match match, String winner, String loser, MatchScore score,
+               int roundNumber) {
         LeagueSettings settings = league.getSettings();
         int coinsWin  = (settings != null && settings.getCoinsPerWin()  != null) ? settings.getCoinsPerWin()  : 0;
         int coinsLoss = (settings != null && settings.getCoinsPerLoss() != null) ? settings.getCoinsPerLoss() : 0;
@@ -99,6 +100,7 @@ public class MatchResultService {
         match.setStatus(MatchStatus.COMPLETED);
         match.setWinnerCoins(coinsWin);
         match.setLoserCoins(coinsLoss);
+        setScore(match, score);
 
         addCoins(league, winner, coinsWin);
         addCoins(league, loser, coinsLoss);
@@ -139,6 +141,7 @@ public class MatchResultService {
         match.setStatus(MatchStatus.PENDING);
         match.setWinnerCoins(null);
         match.setLoserCoins(null);
+        setScore(match, null);
 
         Instant now = Instant.now();
         activityEventRepository.save(ActivityEventEntity.builder()
@@ -152,6 +155,11 @@ public class MatchResultService {
         // Contrapartida de los COIN_EARNED del registro: el historial de monedas cuadra con el saldo.
         saveCoinEvent(league.getId(), ActivityEventType.COIN_REVOKED, winner, coinsWin, roundNumber, now);
         saveCoinEvent(league.getId(), ActivityEventType.COIN_REVOKED, loser, coinsLoss, roundNumber, now);
+    }
+
+    static void setScore(ScheduleEntity.Match match, MatchScore score) {
+        match.setWinnerScore(score == null ? null : score.winner());
+        match.setLoserScore(score == null ? null : score.loser());
     }
 
     private static void addCoins(LeagueEntity league, String username, int amount) {

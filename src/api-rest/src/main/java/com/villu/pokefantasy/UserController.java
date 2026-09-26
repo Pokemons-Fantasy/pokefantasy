@@ -3,6 +3,7 @@ package com.villu.pokefantasy;
 import com.villu.pokefantasy.auth.AuthCookies;
 import com.villu.pokefantasy.commands.users.UserFacade;
 import com.villu.pokefantasy.commands.users.login.LoginResult;
+import com.villu.pokefantasy.request.user.ChangePasswordRequest;
 import com.villu.pokefantasy.request.user.RegisterPushTokenRequest;
 import com.villu.pokefantasy.request.user.UserRequest;
 import jakarta.servlet.http.HttpServletRequest;
@@ -14,6 +15,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -46,13 +48,31 @@ public class UserController {
                                                    HttpServletRequest request,
                                                    HttpServletResponse response) throws Exception {
         LoginResult login = userFacade.login(user.getUsername(), user.getPassword(), clientIp(request));
-        response.addHeader(HttpHeaders.SET_COOKIE,
-                AuthCookies.set(AuthCookies.ACCESS, login.accessToken(), login.accessTokenTtl()));
-        if (login.refreshToken() != null) {
-            response.addHeader(HttpHeaders.SET_COOKIE,
-                    AuthCookies.set(AuthCookies.REFRESH, login.refreshToken(), login.refreshTokenTtl()));
-        }
+        setSessionCookies(response, login);
         return ResponseEntity.ok(new LoginResponse(user.getUsername()));
+    }
+
+    /**
+     * Cambia la contraseña. Cierra todas las sesiones del usuario (también en otros dispositivos) y
+     * devuelve cookies nuevas para esta, así que quien la cambia sigue dentro.
+     */
+    @PutMapping("/user/password")
+    public ResponseEntity<Void> changePassword(@AuthenticationPrincipal UserDetails userDetails,
+                                               @RequestBody ChangePasswordRequest body,
+                                               HttpServletResponse response) throws Exception {
+        LoginResult session = userFacade.changePassword(
+                userDetails.getUsername(), body.getCurrentPassword(), body.getNewPassword());
+        setSessionCookies(response, session);
+        return ResponseEntity.noContent().build();
+    }
+
+    private static void setSessionCookies(HttpServletResponse response, LoginResult session) {
+        response.addHeader(HttpHeaders.SET_COOKIE,
+                AuthCookies.set(AuthCookies.ACCESS, session.accessToken(), session.accessTokenTtl()));
+        if (session.refreshToken() != null) {
+            response.addHeader(HttpHeaders.SET_COOKIE,
+                    AuthCookies.set(AuthCookies.REFRESH, session.refreshToken(), session.refreshTokenTtl()));
+        }
     }
 
     /**

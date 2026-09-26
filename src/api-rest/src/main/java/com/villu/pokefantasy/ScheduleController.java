@@ -1,5 +1,6 @@
 package com.villu.pokefantasy;
 
+import com.villu.pokefantasy.commands.schedule.MatchScore;
 import com.villu.pokefantasy.commands.schedule.ScheduleFacade;
 import com.villu.pokefantasy.request.schedule.RecordMatchResultRequest;
 import com.villu.pokefantasy.response.ScheduleResponse;
@@ -36,11 +37,11 @@ public class ScheduleController {
                                              @AuthenticationPrincipal UserDetails userDetails,
                                              @RequestBody RecordMatchResultRequest request) throws Exception {
         scheduleFacade.recordResult(leagueId, matchId, request.getWinnerUsername(),
-                userDetails.getUsername());
+                MatchScore.of(request.getWinnerScore(), request.getLoserScore()), userDetails.getUsername());
         return ResponseEntity.noContent().build();
     }
 
-    /** Corrige el ganador de un partido ya registrado (admin). */
+    /** Corrige el ganador o el marcador de un partido ya registrado (admin). */
     @PutMapping("/{leagueId}/schedule/matches/{matchId}/result")
     public ResponseEntity<Void> correctResult(@PathVariable String leagueId,
                                               @PathVariable String matchId,
@@ -49,7 +50,8 @@ public class ScheduleController {
         if (request.getWinnerUsername() == null || request.getWinnerUsername().isBlank()) {
             throw new IllegalArgumentException("winnerUsername is required");
         }
-        scheduleFacade.correctResult(leagueId, matchId, request.getWinnerUsername(), userDetails.getUsername());
+        scheduleFacade.correctResult(leagueId, matchId, request.getWinnerUsername(),
+                MatchScore.of(request.getWinnerScore(), request.getLoserScore()), userDetails.getUsername());
         return ResponseEntity.noContent().build();
     }
 

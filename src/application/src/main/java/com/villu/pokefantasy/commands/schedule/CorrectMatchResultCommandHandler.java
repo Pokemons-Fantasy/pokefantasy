@@ -49,7 +49,13 @@ public class CorrectMatchResultCommandHandler implements CommandHandler<CorrectM
         if (newWinner != null) {
             newLoser = matchResultService.requireParticipant(match, newWinner);
             if (newWinner.equals(match.getWinnerUsername())) {
-                throw new IllegalStateException("'" + newWinner + "' ya figura como ganador de este partido");
+                // Mismo ganador: solo puede cambiar el marcador, y eso no mueve monedas.
+                if (command.score() == null || command.score().equals(currentScore(match))) {
+                    throw new IllegalStateException("'" + newWinner + "' ya figura como ganador de este partido");
+                }
+                MatchResultService.setScore(match, command.score());
+                scheduleRepository.save(schedule);
+                return null;
             }
             matchResultService.requireWinnerHasTeam(command.leagueId(), newWinner, newLoser);
         }
@@ -57,12 +63,17 @@ public class CorrectMatchResultCommandHandler implements CommandHandler<CorrectM
         int roundNumber = matchResultService.findRoundNumber(schedule, command.matchId());
         matchResultService.revoke(league, match, roundNumber);
         if (newWinner != null) {
-            matchResultService.award(league, match, newWinner, newLoser, roundNumber); // guarda la liga
+            matchResultService.award(league, match, newWinner, newLoser, command.score(), roundNumber); // guarda la liga
         } else {
             leagueRepository.save(league);
         }
         scheduleRepository.save(schedule);
         return null;
+    }
+
+    private static MatchScore currentScore(ScheduleEntity.Match match) {
+        return match.getWinnerScore() == null || match.getLoserScore() == null ? null
+                : new MatchScore(match.getWinnerScore(), match.getLoserScore());
     }
 
     @Override

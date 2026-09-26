@@ -7,6 +7,7 @@ import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Optional;
 
 @Slf4j
@@ -33,5 +34,10 @@ public class ScheduleRepositoryImpl implements ScheduleRepository {
     public Optional<ScheduleEntity> findByLeagueId(String leagueId) {
         Query query = new Query(Criteria.where("leagueId").is(leagueId));
         return Optional.ofNullable(mongoTemplate.findOne(query, ScheduleEntity.class));
+    }
+
+    @Override
+    public List<ScheduleEntity> findAll() {
+        return mongoTemplate.findAll(ScheduleEntity.class);
     }
 }

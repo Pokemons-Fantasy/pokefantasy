@@ -7,14 +7,17 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.RedisConnectionFailureException;
+import org.springframework.data.redis.core.SetOperations;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 
 import java.time.Duration;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
@@ -30,12 +33,14 @@ class RefreshTokenRedisAdapterTest {
 
     @Mock private StringRedisTemplate redisTemplate;
     @Mock private ValueOperations<String, String> valueOps;
+    @Mock private SetOperations<String, String> setOps;
 
     private RefreshTokenRedisAdapter adapter;
 
     @BeforeEach
     void setUp() {
         lenient().when(redisTemplate.opsForValue()).thenReturn(valueOps);
+        lenient().when(redisTemplate.opsForSet()).thenReturn(setOps);
         adapter = new RefreshTokenRedisAdapter(redisTemplate, 30);
     }
 
@@ -50,6 +55,9 @@ class RefreshTokenRedisAdapterTest {
                 .isEqualTo(RefreshTokenRedisAdapter.key(token))
                 .startsWith(RefreshTokenRedisAdapter.PREFIX)
                 .doesNotContain(token);
+        // Y queda apuntado entre las sesiones del usuario, con la misma caducidad.
+        verify(setOps).add("refresh-user:ash", key.getValue());
+        verify(redisTemplate).expire("refresh-user:ash", TTL);
     }
 
     @Test
@@ -72,6 +80,7 @@ class RefreshTokenRedisAdapterTest {
 
         assertThat(adapter.resolve("tok")).contains("ash");
         verify(redisTemplate).expire(key, TTL);
+        verify(redisTemplate).expire("refresh-user:ash", TTL);
     }
 
     @Test
@@ -101,6 +110,27 @@ class RefreshTokenRedisAdapterTest {
         when(redisTemplate.delete(anyString())).thenThrow(new RedisConnectionFailureException("down"));
 
         assertThatCode(() -> adapter.revoke("tok")).doesNotThrowAnyException();
+    }
+
+    @Test
+    void revokeAll_deletesEverySessionOfTheUser() {
+        Set<String> keys = Set.of("refresh:a", "refresh:b");
+        when(setOps.members("refresh-user:ash")).thenReturn(keys);
+
+        adapter.revokeAll("ash");
+
+        verify(redisTemplate).delete(keys);
+        verify(redisTemplate).delete("refresh-user:ash");
+    }
+
+    @Test
+    void revokeAll_noSessions_onlyClearsTheIndex() {
+        when(setOps.members("refresh-user:ash")).thenReturn(Set.of());
+
+        adapter.revokeAll("ash");
+
+        verify(redisTemplate, never()).delete(anyCollection());
+        verify(redisTemplate).delete("refresh-user:ash");
     }
 
     @Test

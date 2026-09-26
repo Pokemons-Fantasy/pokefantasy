@@ -14,10 +14,12 @@ import java.time.Duration;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Refresh tokens en Redis: {@code refresh:<sha256(token)>} → username, con TTL deslizante.
- * Se guarda el hash, no el token: quien lea Redis no puede suplantar a nadie.
+ * Se guarda el hash, no el token: quien lea Redis no puede suplantar a nadie. Además
+ * {@code refresh-user:<username>} guarda las claves de sus sesiones, para poder revocarlas todas.
  *
  * <p>A diferencia del límite de login, aquí los fallos de Redis cierran (fail-closed): si no se puede
  * comprobar el token, no hay refresco y el usuario tendrá que volver a entrar.
@@ -27,6 +29,7 @@ import java.util.Optional;
 public class RefreshTokenRedisAdapter implements RefreshTokenPort {
 
     static final String PREFIX = "refresh:";
+    static final String USER_PREFIX = "refresh-user:";
     private static final int TOKEN_BYTES = 32;
 
     private final StringRedisTemplate redisTemplate;
@@ -45,7 +48,10 @@ public class RefreshTokenRedisAdapter implements RefreshTokenPort {
         random.nextBytes(bytes);
         String token = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
         try {
-            redisTemplate.opsForValue().set(key(token), username, ttl);
+            String key = key(token);
+            redisTemplate.opsForValue().set(key, username, ttl);
+            redisTemplate.opsForSet().add(userKey(username), key);
+            redisTemplate.expire(userKey(username), ttl);
             return token;
         } catch (RuntimeException exception) {
             log.warn("Could not store refresh token for {}: {}", username, exception.getMessage());
@@ -60,6 +66,7 @@ public class RefreshTokenRedisAdapter implements RefreshTokenPort {
             String username = redisTemplate.opsForValue().get(key);
             if (username != null) {
                 redisTemplate.expire(key, ttl);
+                redisTemplate.expire(userKey(username), ttl);
             }
             return Optional.ofNullable(username);
         } catch (RuntimeException exception) {
@@ -77,9 +84,27 @@ public class RefreshTokenRedisAdapter implements RefreshTokenPort {
         }
     }
 
+    /**
+     * Borra todas las sesiones del usuario. Si Redis falla se lanza la excepción: quien cambia la
+     * contraseña debe saber que las demás sesiones pueden seguir abiertas.
+     */
+    @Override
+    public void revokeAll(String username) {
+        String userKey = userKey(username);
+        Set<String> keys = redisTemplate.opsForSet().members(userKey);
+        if (keys != null && !keys.isEmpty()) {
+            redisTemplate.delete(keys);
+        }
+        redisTemplate.delete(userKey);
+    }
+
     @Override
     public Duration ttl() {
         return ttl;
+    }
+
+    static String userKey(String username) {
+        return USER_PREFIX + username;
     }
 
     static String key(String token) {

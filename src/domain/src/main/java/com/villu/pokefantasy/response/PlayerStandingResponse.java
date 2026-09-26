@@ -15,4 +15,8 @@ public class PlayerStandingResponse {
     private int wins;
     private int losses;
     private int coins;
+    /** Suma de marcadores a favor/en contra (solo de partidos con marcador) y su diferencia. */
+    private int scoreFor;
+    private int scoreAgainst;
+    private int scoreDiff;
 }

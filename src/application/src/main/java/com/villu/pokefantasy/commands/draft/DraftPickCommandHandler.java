@@ -31,17 +31,20 @@ public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand,
     private final UserRepository userRepository;
     private final LeagueRepository leagueRepository;
     private final ScheduleRepository scheduleRepository;
+    private final DraftTurnNotifier draftTurnNotifier;
 
     public DraftPickCommandHandler(DraftRepository draftRepository,
                                    ClosedListRepository closedListRepository,
                                    UserRepository userRepository,
                                    LeagueRepository leagueRepository,
-                                   ScheduleRepository scheduleRepository) {
+                                   ScheduleRepository scheduleRepository,
+                                   DraftTurnNotifier draftTurnNotifier) {
         this.draftRepository = draftRepository;
         this.closedListRepository = closedListRepository;
         this.userRepository = userRepository;
         this.leagueRepository = leagueRepository;
         this.scheduleRepository = scheduleRepository;
+        this.draftTurnNotifier = draftTurnNotifier;
     }
 
     @Override
@@ -118,6 +121,8 @@ public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand,
         if (draft.getStatus() == DraftStatus.COMPLETED) {
             initLeagueSettingsIfNeeded(league);
             generateLeagueSchedule(leagueId, draft.getTurnOrder());
+        } else {
+            draftTurnNotifier.notifyCurrentTurn(draft, league);
         }
         return null;
     }

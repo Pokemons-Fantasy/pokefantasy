@@ -188,6 +188,45 @@ class CorrectMatchResultCommandHandlerTest {
     }
 
     @Test
+    void correct_sameWinnerNewScore_onlyUpdatesScore_noCoinsMoved() {
+        match.setWinnerScore(2);
+        match.setLoserScore(1);
+
+        handler.handle(new CorrectMatchResultCommand(LEAGUE_ID, MATCH_ID, ASH, new MatchScore(3, 0), ADMIN));
+
+        assertThat(match.getWinnerScore()).isEqualTo(3);
+        assertThat(match.getLoserScore()).isZero();
+        assertThat(match.getWinnerUsername()).isEqualTo(ASH);
+        assertThat(coins(ASH)).isEqualTo(80);
+        assertThat(coins(BROCK)).isEqualTo(30);
+        verify(scheduleRepository).save(any());
+        verify(leagueRepository, never()).save(any());
+        verify(activityEventRepository, never()).save(any());
+    }
+
+    @Test
+    void correct_sameWinnerSameScore_conflict() {
+        match.setWinnerScore(3);
+        match.setLoserScore(1);
+
+        assertThatThrownBy(() -> handler.handle(
+                new CorrectMatchResultCommand(LEAGUE_ID, MATCH_ID, ASH, new MatchScore(3, 1), ADMIN)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("ya figura");
+    }
+
+    @Test
+    void correct_newWinnerWithScore_storesIt_andRevertClearsIt() {
+        handler.handle(new CorrectMatchResultCommand(LEAGUE_ID, MATCH_ID, BROCK, new MatchScore(2, 1), ADMIN));
+        assertThat(match.getWinnerScore()).isEqualTo(2);
+        assertThat(match.getLoserScore()).isEqualTo(1);
+
+        handler.handle(new CorrectMatchResultCommand(LEAGUE_ID, MATCH_ID, null, ADMIN));
+        assertThat(match.getWinnerScore()).isNull();
+        assertThat(match.getLoserScore()).isNull();
+    }
+
+    @Test
     void correct_winnerNotInMatch_badRequest() {
         assertThatThrownBy(() -> handler.handle(new CorrectMatchResultCommand(LEAGUE_ID, MATCH_ID, "misty", ADMIN)))
                 .isInstanceOf(IllegalArgumentException.class);
