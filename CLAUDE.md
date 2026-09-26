@@ -227,7 +227,7 @@ GET    /actuator/health                            health check (public)
 - **Métricas**: `SpringMediator` mide cada comando → timer `pokefantasy.commands` (`command`, `outcome` = success/rejected/error, `exception`). `/actuator/metrics` solo para el rol global `ADMIN`.
 - **Logs JSON**: `LOGGING_STRUCTURED_FORMAT_CONSOLE=ecs`.
 - **Sentry**: con `SENTRY_DSN`, los logs ERROR (los 500) llegan a Sentry; sin DSN no hace nada.
-- **API docs**: OpenAPI en `/v3/api-docs`, Swagger UI en `/swagger-ui.html` (públicos). La CI publica `openapi.json` como artefacto para generar el cliente TS (`npx openapi-typescript openapi.json -o src/api/schema.d.ts`).
+- **API docs**: OpenAPI en `/v3/api-docs`, Swagger UI en `/swagger-ui.html` (públicos). La CI publica `openapi.json` como artefacto. El frontend genera sus tipos a partir de él (ver *Frontend notes → Tipos de la API*).
 
 ## Performance constraints (Render free tier)
 
@@ -243,6 +243,11 @@ Stack: React 19 + Vite + TypeScript, TanStack React Query, Zustand (auth: `token
 TypeScript: use `import type { X }` for pure interfaces/types — **Netlify build fails if you don't**.
 
 TypeScript check (no emit): `./node_modules/.bin/tsc --noEmit` from `pokefantasy-web/`. Run `npm install` first if `node_modules` is missing.
+
+**Tipos de la API** (tras cambiar un DTO, un enum o un endpoint en el backend):
+1. `npm run api:spec` descarga la spec del backend local (`http://localhost:8080/v3/api-docs`) a `openapi.json` (o `npm run api:spec -- <url>`, p. ej. la de producción). El backend sirve la spec sin Mongo ni Redis si se arranca con `SPRING_MAIN_LAZY_INITIALIZATION=true`.
+2. `npm run api:types` regenera `src/api/schema.d.ts` (no editar a mano). Se commitean los dos ficheros; la CI del frontend falla (`npm run api:check`) si no corresponden.
+3. `src/api/contract.ts` compara en compilación los tipos escritos a mano de `src/api/*.ts` con los del esquema: si el backend renombra o quita un campo, o un enum gana un valor que el frontend no contempla, `tsc` falla ahí. Si añades un tipo de respuesta nuevo, añade su entrada.
 
 CSS design tokens in `src/index.css`. Animation utilities: `.animate-in`, `.stagger` (staggered children). Loading primitives: `.spinner`, `.skeleton`, `.loading-text`. Space Mono font for numeric stats (`.stat-pill-value`).
 
