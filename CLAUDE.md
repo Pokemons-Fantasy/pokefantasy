@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Documentación: vault de Obsidian
 
-Toda la documentación y el conocimiento del proyecto (back y front) vive en el vault **`C:\PokeFantasy\vault`** (no está en git). Este archivo solo contiene las reglas que hay que cumplir al programar.
+Toda la documentación y el conocimiento del proyecto (back y front) vive en el vault **`C:\PokeFantasy\vault`**, versionado en el repo privado [`Pokemons-Fantasy/pokefantasy-vault`](https://github.com/Pokemons-Fantasy/pokefantasy-vault) (commits directos a `main`; convenciones en `vault/CLAUDE.md`). Este archivo solo contiene las reglas que hay que cumplir al programar.
 
 - Punto de entrada: `vault/Home.md`. Contrato de la API: `20 Arquitectura/API REST.md`. Modelo de datos: `20 Arquitectura/Modelo de datos.md`. Una nota por feature en `50 Features/`, decisiones en `70 Decisiones/`, incidentes en `60 Operaciones/Gotchas.md`.
 - Antes de tocar una feature, leer su nota. Al terminar (PR mergeado o listo), actualizar las notas afectadas: feature (`estado`, PRs), API REST, modelo de datos, gotchas.
