@@ -113,8 +113,8 @@ public class MatchResultService {
                 .roundNumber(roundNumber)
                 .createdAt(now)
                 .build());
-        saveCoinEvent(league.getId(), winner, coinsWin, roundNumber, now);
-        saveCoinEvent(league.getId(), loser, coinsLoss, roundNumber, now);
+        saveCoinEvent(league.getId(), ActivityEventType.COIN_EARNED, winner, coinsWin, roundNumber, now);
+        saveCoinEvent(league.getId(), ActivityEventType.COIN_EARNED, loser, coinsLoss, roundNumber, now);
     }
 
     /**
@@ -140,14 +140,18 @@ public class MatchResultService {
         match.setWinnerCoins(null);
         match.setLoserCoins(null);
 
+        Instant now = Instant.now();
         activityEventRepository.save(ActivityEventEntity.builder()
                 .leagueId(league.getId())
                 .type(ActivityEventType.MATCH_RESULT_REVERTED)
                 .actorUsername(winner)
                 .targetUsername(loser)
                 .roundNumber(roundNumber)
-                .createdAt(Instant.now())
+                .createdAt(now)
                 .build());
+        // Contrapartida de los COIN_EARNED del registro: el historial de monedas cuadra con el saldo.
+        saveCoinEvent(league.getId(), ActivityEventType.COIN_REVOKED, winner, coinsWin, roundNumber, now);
+        saveCoinEvent(league.getId(), ActivityEventType.COIN_REVOKED, loser, coinsLoss, roundNumber, now);
     }
 
     private static void addCoins(LeagueEntity league, String username, int amount) {
@@ -158,11 +162,12 @@ public class MatchResultService {
         }
     }
 
-    private void saveCoinEvent(String leagueId, String username, int coins, int roundNumber, Instant now) {
+    private void saveCoinEvent(String leagueId, ActivityEventType type, String username, int coins,
+                               int roundNumber, Instant now) {
         if (coins <= 0) return;
         activityEventRepository.save(ActivityEventEntity.builder()
                 .leagueId(leagueId)
-                .type(ActivityEventType.COIN_EARNED)
+                .type(type)
                 .actorUsername(username)
                 .coinsAmount(coins)
                 .roundNumber(roundNumber)
