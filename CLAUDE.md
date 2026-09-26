@@ -167,7 +167,7 @@ CORS is restricted to `https://*.netlify.app` and `localhost` — no wildcard or
 
 **Movimientos de equipo** (robo, trade, swap, compra, liberación): usa `TeamTransferService` (abrir mercado = draft completado + calendario + liga + ventana de `TeamOperation`, bloqueo de 7 días `TRANSFER_LOCK`, cobro de monedas, banca). No repitas esas reglas en los handlers.
 
-**Resultados de partidos** (`MatchResultService`, compartido por `RecordMatchResultCommandHandler` y `CorrectMatchResultCommandHandler`): al registrar se guardan en el `Match` las monedas dadas (`winnerCoins`/`loserCoins`); corregir o deshacer devuelve **esas** (en resultados antiguos sin ellas, las de los ajustes actuales) y el saldo puede quedar negativo si ya se gastaron. Deja un evento `MATCH_RESULT_REVERTED`; clasificación y estadísticas se recalculan solas desde el calendario.
+**Resultados de partidos** (`MatchResultService`, compartido por `RecordMatchResultCommandHandler` y `CorrectMatchResultCommandHandler`): al registrar se guardan en el `Match` las monedas dadas (`winnerCoins`/`loserCoins`); corregir o deshacer devuelve **esas** (en resultados antiguos sin ellas, las de los ajustes actuales) y el saldo puede quedar negativo si ya se gastaron. Deja un evento `MATCH_RESULT_REVERTED` y un `COIN_REVOKED` por jugador con lo retirado (contrapartida de los `COIN_EARNED`, para que el historial de monedas cuadre con el saldo); clasificación y estadísticas se recalculan solas desde el calendario.
 
 ## Repository methods
 

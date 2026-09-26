@@ -32,6 +32,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.lenient;
@@ -114,12 +115,22 @@ class CorrectMatchResultCommandHandlerTest {
         assertThat(match.getWinnerCoins()).isNull();
         verify(leagueRepository).save(league);
         verify(scheduleRepository).save(any());
-        assertThat(savedEvents()).singleElement().satisfies(e -> {
+        List<ActivityEventEntity> events = savedEvents();
+        assertThat(events).hasSize(3);
+        assertThat(events.get(0)).satisfies(e -> {
             assertThat(e.getType()).isEqualTo(ActivityEventType.MATCH_RESULT_REVERTED);
             assertThat(e.getActorUsername()).isEqualTo(ASH);
             assertThat(e.getTargetUsername()).isEqualTo(BROCK);
             assertThat(e.getRoundNumber()).isEqualTo(3);
         });
+        // Un COIN_REVOKED por jugador con lo retirado, para que su historial de monedas cuadre.
+        assertThat(events.subList(1, 3)).allSatisfy(e -> {
+            assertThat(e.getType()).isEqualTo(ActivityEventType.COIN_REVOKED);
+            assertThat(e.getRoundNumber()).isEqualTo(3);
+        });
+        assertThat(events.subList(1, 3))
+                .extracting(ActivityEventEntity::getActorUsername, ActivityEventEntity::getCoinsAmount)
+                .containsExactly(tuple(ASH, 80), tuple(BROCK, 30));
     }
 
     @Test
@@ -134,7 +145,9 @@ class CorrectMatchResultCommandHandlerTest {
         assertThat(match.getWinnerCoins()).isEqualTo(100);
         assertThat(match.getLoserCoins()).isEqualTo(50);
         assertThat(savedEvents()).extracting(ActivityEventEntity::getType).containsExactly(
-                ActivityEventType.MATCH_RESULT_REVERTED, ActivityEventType.MATCH_RESULT,
+                ActivityEventType.MATCH_RESULT_REVERTED,
+                ActivityEventType.COIN_REVOKED, ActivityEventType.COIN_REVOKED,
+                ActivityEventType.MATCH_RESULT,
                 ActivityEventType.COIN_EARNED, ActivityEventType.COIN_EARNED);
     }
 
@@ -160,6 +173,9 @@ class CorrectMatchResultCommandHandlerTest {
 
         assertThat(coins(ASH)).isEqualTo(80);
         assertThat(coins(BROCK)).isEqualTo(30);
+        // Nada retirado → ningún COIN_REVOKED.
+        assertThat(savedEvents()).extracting(ActivityEventEntity::getType)
+                .containsExactly(ActivityEventType.MATCH_RESULT_REVERTED);
     }
 
     @Test
