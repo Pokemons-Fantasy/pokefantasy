@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Toda la documentación y el conocimiento del proyecto (back y front) vive en el vault **`C:\PokeFantasy\vault`**, versionado en el repo privado [`Pokemons-Fantasy/pokefantasy-vault`](https://github.com/Pokemons-Fantasy/pokefantasy-vault) (commits directos a `main`; convenciones en `vault/CLAUDE.md`). Este archivo solo contiene las reglas que hay que cumplir al programar.
 
-- Punto de entrada: `vault/Home.md`. Contrato de la API: `20 Arquitectura/API REST.md`. Modelo de datos: `20 Arquitectura/Modelo de datos.md`. Una nota por feature en `50 Features/`, decisiones en `70 Decisiones/`, incidentes en `60 Operaciones/Gotchas.md`.
+- Punto de entrada: `vault/Home.md`. Contrato de la API: `20 Arquitectura/API REST.md`. Modelo de datos: `20 Arquitectura/Modelo de datos.md`. Flujos de datos: `20 Arquitectura/Flujos de datos.md`. Una nota por feature en `50 Features/`, decisiones en `70 Decisiones/`, incidentes en `60 Operaciones/Gotchas.md`.
 - Antes de tocar una feature, leer su nota. Al terminar (PR mergeado o listo), actualizar las notas afectadas: feature (`estado`, PRs), API REST, modelo de datos, gotchas.
 - **"Añadir al roadmap"** = crear o actualizar la nota de la feature en `vault/50 Features/` desde `Plantillas/Plantilla Feature.md` con `estado: idea`. No implica implementación. `Features.base` es la vista del roadmap.
 - Specs y planes de los skills siguen en `docs/superpowers/` de cada repo (el vault los enlaza).
@@ -68,30 +68,116 @@ Maven wrapper `./mvnw` from the **repo root** with `-f src/pom.xml` (el `pom.xml
 - Infra local: `cd src && docker-compose up -d` (Mongo en replica set :27017, Redis :6379). Env var obligatoria `JWT_SECRET` (Base64, 256 bits). Resto de variables y guía de entorno local: `vault/60 Operaciones/Entorno local.md`.
 - **Versiones**: Spring Boot se versiona **solo** con el parent `spring-boot-starter-parent` de `src/pom.xml`; no fijes versiones de artefactos `org.springframework.boot` en los POM.
 
-## Reglas de arquitectura
+## Arquitectura
 
-Hexagonal, 5 módulos bajo `src/`: `domain` (entidades, repos, DTOs, puertos; sin Spring), `application` (commands, facades, lógica), `infrastructure` (adaptadores), `api-rest` (controllers), `boot`. Dependencias: `api-rest` → `application` → `domain` ← `infrastructure`.
+### 1. Qué hay en el sistema
+
+```
+Web (Netlify) / Android (Capacitor)
+   │  REST + cookies jwt/refresh            ▲ SSE (draft, usuario) · FCM push
+   ▼                                        │
+api-rest ─► application ─► domain ◄─ infrastructure ─► MongoDB Atlas (replica set) · Redis · PokeAPI · Firebase
+(controllers, jobs)  (commands, servicios, puertos)    (adaptadores)
+```
+
+5 módulos Maven bajo `src/`: `domain` (entidades con anotaciones de Spring Data, interfaces de repositorio, DTOs, excepciones; sin lógica), `application` (commands, facades, servicios de dominio, puertos), `infrastructure` (adaptadores), `api-rest` (controllers, jobs `@Scheduled`, filtros), `boot` (arranque, config, tests de integración). Diagrama completo: `vault/20 Arquitectura/Visión general.md`.
+
+### 2. Quién es responsable de qué (un solo dueño por responsabilidad)
+
+| Responsabilidad | Dueño |
+|---|---|
+| Transacción, reintentos y métricas de cada comando | `SpringMediator` (+ `TransactionPort`, `CommandMetricsPort`) |
+| Movimientos de equipo (robo, trade, swap, compra, liberar): mercado abierto, bloqueo 7 días, cobro, banca | `TeamTransferService` + `TeamOperation` |
+| Ventanas de robo / swap (hora de Madrid) | `JornadaWindowService` |
+| Registrar / corregir / deshacer resultados, monedas por partido y sus eventos | `MatchResultService` |
+| Precio de un tier | `TierPricingService` |
+| Reparto de tiers del pool | `TierAssignmentService` |
+| Calendario round-robin | `RoundRobinScheduler` |
+| Turnos vencidos del draft (cliente y job) | `DraftTurnTimeoutService` |
+| Push de turno / de cierre de ventana | `DraftTurnNotifier` / `WindowReminderService` |
+| Admin de liga / pertenencia a liga | `LeagueAdminGuard` / `LeagueMemberService` |
+| Emitir SSE (vía Redis Pub/Sub) | `RealtimeNotifier` (api-rest) |
+| Enviar push | `PushNotificationPort` |
+| Sesión (JWT + refresh), límite de login | `JwtAuthFilter` + `AuthCookies` + `RefreshTokenPort`, `LoginAttemptPort` |
+| Excepción → HTTP (`ProblemDetail`) | `ApiExceptionHandler` |
+| Índices / migraciones de esquema | `MongoIndexInitializer` / clases `*Migration` |
+| Caché de Pokémon | `PokemonCacheLoader` |
+
+Si una regla ya tiene dueño, se usa el dueño; no se reimplementa en un handler.
+
+### 3. Decisiones intencionadas (no "arreglarlas")
+
+Parecen raras o mejorables pero son a propósito. Antes de cambiarlas, leer la nota en `vault/70 Decisiones/` y preguntar.
+
+- `DraftTurnTimeoutService` **inyecta `DraftPickCommandHandler` directamente**: única excepción a "nunca llamar handlers directamente", evita una dependencia circular con el mediator (ADR-005).
+- **Los equipos son solo `draft.picks`** del último draft; `UserEntity` no guarda equipos (ADR-006).
+- **Un comando = una transacción Mongo con hasta 5 reintentos**; sin compensaciones manuales (ADR-007).
+- **SSE por Redis Pub/Sub** y emitido desde `api-rest` tras el commit, no desde los handlers (ADR-008).
+- **JWT de 15 min + refresh en Redis**, renovación transparente en el filtro; fail-closed si Redis cae (ADR-009).
+- **Ventanas evaluadas en `Europe/Madrid`** aunque Render corra en UTC (ADR-003).
+- **Bloqueo por timestamp** (`lockedUntil`, 7 días), no por jornada (ADR-004).
+- **Tipos del front generados desde OpenAPI**: cambiar un DTO obliga a regenerarlos en el front (ADR-010).
+- Deshacer un resultado devuelve **las monedas que se dieron**, aunque el saldo quede negativo.
+
+### 4. Qué puede tocar qué
+
+Dirección: `api-rest` → `application` → `domain` ← `infrastructure`; `boot` depende de todos.
 
 **CQRS / Mediator, siempre en este orden** (carpeta `application/src/main/java/com/villu/pokefantasy/commands/{feature}/`):
 
 1. **`XCommand`** — `record` que **debe implementar `Command`**. Si no, `SpringMediator` no lo registra (bug real).
 2. **`XCommandHandler`** — `@Service` implementando `CommandHandler<XCommand, R>`.
 3. **`XFacade`** — `mediator.send(new XCommand(...))`, un `send` por método.
-4. **Controller** — inyecta solo la Facade. Nunca llames a un handler directamente.
+4. **Controller** — inyecta solo la Facade.
 
-**Transacciones y concurrencia**
-- Cada comando corre en una **transacción MongoDB** (`SpringMediator` → `TransactionPort`) y se **reintenta hasta 5 veces** ante conflicto. Por tanto: relee de BD todo lo que valides; nada de efectos externos (HTTP, emails) dentro del handler; **no escribas compensaciones manuales**.
-- Push FCM: `PushNotificationPort.send`, el envío real se difiere tras el commit.
-- Para rechazar una operación **persistiendo** una limpieza previa, lanza `StaleOperationException` (confirma y devuelve 409).
-- Las entidades principales tienen `@Version`: nunca pises un documento con datos viejos.
+Prohibido:
+- Llamar a un handler desde otro sitio que no sea el mediator (salvo la excepción de ADR-005).
+- Que un controller use repositorios, servicios de dominio o handlers.
+- Que `domain` o `application` dependan de `infrastructure` o de adaptadores concretos (usar puertos); lógica de negocio en `domain` o en controllers.
+- Usar `SseEmitterRegistry` / `UserSseEmitterRegistry` directamente (usa `RealtimeNotifier`).
+- Efectos externos (HTTP, emails) dentro de un handler; compensaciones manuales.
+- Fijar versiones de artefactos `org.springframework.boot`.
 
-**Reglas de dominio**
-- **Equipos**: `DraftEntity.picks` del último draft de la liga es la **única fuente de verdad**. Todo movimiento de equipo (robo, trade, swap, compra, liberación) va por **`TeamTransferService`** + `TeamOperation`; no repitas sus reglas en los handlers.
-- **Resultados**: siempre por **`MatchResultService`** (monedas, marcador y eventos van juntos).
-- **Tiempo real**: emite con **`RealtimeNotifier`**, nunca con los registros SSE directamente.
-- **Ventanas de robo/swap**: hora de España; `JornadaWindowService` es la única fuente de verdad (`LEAGUE_ZONE = Europe/Madrid`). El front no recalcula fechas.
-- **MongoDB**: entidad nueva con índices → añadirla a `INDEXED_ENTITIES` de `MongoIndexInitializer`. Cambios de esquema en documentos existentes → migración al arrancar (ejemplos: `VersionFieldMigration`, `UserNameLowerMigration`). Campos nuevos: opcionales (pueden venir `null`).
-- **Admin de liga**: `LeagueAdminGuard.requireLeagueAdmin()`.
+### 5. Cómo se mueven los datos
+
+Escritura: `Controller` → `XFacade` → `SpringMediator` (abre transacción) → `XCommandHandler` → servicios de dominio → repositorios → **commit** → el controller emite SSE con `RealtimeNotifier` (Redis Pub/Sub → cada instancia → `EventSource` del cliente, que invalida su query de React Query y refresca). Los push se piden en el handler con `PushNotificationPort` y se envían tras el commit.
+Lectura: igual, con un comando de consulta. Los jobs (`DraftTurnTimeoutJob`, `WindowReminderJob`) entran por la Facade como un controller.
+Flujos completos (robo, pick del draft, resultado): `vault/20 Arquitectura/Flujos de datos.md`.
+
+### 6. Qué no se puede romper nunca
+
+- **Secretos fuera del repo** (`JWT_SECRET`, `FIREBASE_SERVICE_ACCOUNT_JSON`, `google-services.json`, `.env.local`); errores 500 sin detalles internos.
+- **Una sola fuente de verdad**: equipos en `draft.picks`, ventanas en `JornadaWindowService`, resultados y sus monedas en `MatchResultService`.
+- **Todo cambio de estado es un comando**: pasa por el mediator, en transacción, y es seguro ante reintentos (relee lo que valida).
+- **Nunca pisar datos ajenos**: `@Version` en las entidades principales; nada de `save()` con datos leídos antes de la transacción.
+- **Compatibilidad**: campos nuevos opcionales; el front viejo sigue funcionando con el back nuevo y viceversa.
+- **Contrato de errores**: `ProblemDetail` con `code` estable (el front depende de `code` y `message`).
+- **Gate de cobertura** 80 % y CI en verde antes de mergear.
+- Ningún patrón nuevo (librería, capa, estilo) sin una razón escrita en `vault/70 Decisiones/`.
+
+### 7. Dónde va el código nuevo
+
+| Qué | Dónde |
+|---|---|
+| Caso de uso nuevo | `application/.../commands/{feature}/` (Command + Handler + Facade) y controller en `api-rest` |
+| Regla compartida por varios casos de uso | En su dueño (tabla 2); si no existe, un servicio en `application` con nombre de la responsabilidad |
+| Integración externa | Puerto en `application/.../ports/` + adaptador en `infrastructure` (excepción histórica: `PushNotificationPort` y los repositorios viven en `domain/.../repository/`) |
+| Entidad nueva con índices | `domain/.../repository/entity/` + añadirla a `INDEXED_ENTITIES` de `MongoIndexInitializer` |
+| Cambio de esquema en documentos existentes | Migración al arrancar en `infrastructure/.../migration/` (ver `VersionFieldMigration`) |
+| Tarea periódica | Job `@Scheduled` en `api-rest` que llama a una Facade (pool de 3 hilos compartido) |
+| Evento del activity feed | Valor nuevo en `ActivityEventType` (y el front lo contempla, ver ADR-010) |
+| Excepción de negocio nueva | Mapeo en `ApiExceptionHandler` con `code` estable |
+| Tests | Unitario junto al handler; controller con `ControllerTestSupport`; integración en `boot/src/test/.../it/` |
+
+### 8. Cuándo parar y preguntar
+
+Si una tarea obliga a romper una regla de las secciones 3, 4 o 6, a cambiar una decisión intencionada, o a crear una segunda forma de hacer algo que ya tiene dueño:
+
+**PARAR** → nombrar la regla o decisión en conflicto → explicar qué afecta (datos, endpoints, front, tests) → proponer el cambio más pequeño que no la rompa → esperar respuesta del usuario antes de implementar.
+
+También parar ante: cambios de contrato de la API que rompan al front actual, migraciones que borren o transformen datos de producción, y cualquier cambio en seguridad (sesión, CORS, rutas públicas).
+
+## Errores y seguridad
 
 **Excepción → HTTP** (`ApiExceptionHandler`, respuestas `ProblemDetail` con `code` estable):
 
@@ -100,7 +186,7 @@ Hexagonal, 5 módulos bajo `src/`: `domain` (entidades, repos, DTOs, puertos; si
 | `IllegalArgumentException` | 400 | `BAD_REQUEST` |
 | `BadCredentialsException` | 401 | `INVALID_CREDENTIALS` |
 | `ForbiddenOperationException` | 403 | `FORBIDDEN` |
-| `IllegalStateException` / `StaleOperationException` | 409 | `CONFLICT` |
+| `IllegalStateException` / `StaleOperationException` (confirma y luego 409) | 409 | `CONFLICT` |
 | `OptimisticLockingFailureException` | 409 | `CONCURRENT_MODIFICATION` |
 | `DuplicateKeyException` | 409 | `DUPLICATE` |
 | `TooManyAttemptsException` | 429 | `TOO_MANY_ATTEMPTS` |
@@ -123,9 +209,6 @@ Gate JaCoCo 80 % (instrucciones y ramas) en `application`, `infrastructure` y `a
 - Sprites siempre desde CDN: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/{id}.png`.
 - No añadir endpoints si los datos ya vienen en uno existente.
 
-## Frontend (reglas)
+## Cambios que afectan al frontend
 
-- `import type { X }` para interfaces y tipos puros: **Netlify falla si no**.
-- Check de tipos: `./node_modules/.bin/tsc --noEmit` desde `pokefantasy-web/`. Antes de push, como la CI: `npm run lint`, `npm test`, `npm run api:check`, `npm run build`.
-- **Tras cambiar un DTO, enum o endpoint del backend**: `npm run api:spec` (o `npm run api:spec -- <url>`) → `npm run api:types`; commitear `openapi.json` y `src/api/schema.d.ts`. Si `tsc` falla en `src/api/contract.ts`, un tipo escrito a mano ya no cuadra con el backend: corregirlo. Tipo de respuesta nuevo → añadir su entrada en `contract.ts`.
-- Sin `VITE_API_URL` el front local apunta a **producción**: usar `pokefantasy-web/.env.local` con `VITE_API_URL=http://localhost:8080`.
+Las reglas del front están en `C:\PokeFantasy\pokefantasy-web\CLAUDE.md`. Desde el backend basta con recordar: **tras cambiar un DTO, enum o endpoint**, en el front `npm run api:spec` → `npm run api:types`, commitear `openapi.json` y `src/api/schema.d.ts`, y arreglar `src/api/contract.ts` si `tsc` falla.
