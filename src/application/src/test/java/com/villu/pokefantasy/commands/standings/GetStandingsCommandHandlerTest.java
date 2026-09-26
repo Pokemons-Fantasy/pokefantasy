@@ -127,6 +127,34 @@ class GetStandingsCommandHandlerTest {
     }
 
     @Test
+    void handle_scoreDifference_breaksTiesBeforeCoins() {
+        LeagueEntity league = leagueWithCoins("ash", 100, "brock", 500, "misty", 0);
+        when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
+
+        // ash y brock con 1 victoria; ash gana 3–0 y brock solo 3–2 → ash por delante pese a menos monedas.
+        Match m1 = new Match("m1", "ash", "misty", "ash", MatchStatus.COMPLETED);
+        m1.setWinnerScore(3);
+        m1.setLoserScore(0);
+        Match m2 = new Match("m2", "brock", "misty", "brock", MatchStatus.COMPLETED);
+        m2.setWinnerScore(3);
+        m2.setLoserScore(2);
+        Match m3 = new Match("m3", "ash", "brock", null, MatchStatus.PENDING);
+        ScheduleEntity schedule = new ScheduleEntity();
+        schedule.setLeagueId("l1");
+        schedule.setJornadas(new ArrayList<>(List.of(new Jornada(1, new ArrayList<>(List.of(m1, m2, m3)), null))));
+        when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
+
+        List<PlayerStandingResponse> standings = handler.handle(new GetStandingsCommand("l1", "ash")).getStandings();
+
+        assertThat(standings).extracting(PlayerStandingResponse::getUsername).containsExactly("ash", "brock", "misty");
+        PlayerStandingResponse misty = standings.get(2);
+        assertThat(misty.getScoreFor()).isEqualTo(2);
+        assertThat(misty.getScoreAgainst()).isEqualTo(6);
+        assertThat(misty.getScoreDiff()).isEqualTo(-4);
+        assertThat(standings.get(0).getScoreDiff()).isEqualTo(3);
+    }
+
+    @Test
     void handle_coinBalance_readFromLeagueMembers() {
         LeagueEntity league = leagueWithCoins("ash", 150, "brock", 75);
         when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));

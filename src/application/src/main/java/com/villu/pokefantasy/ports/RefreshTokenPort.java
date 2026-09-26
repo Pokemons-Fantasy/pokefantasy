@@ -20,5 +20,8 @@ public interface RefreshTokenPort {
 
     void revoke(String token);
 
+    /** Revoca todas las sesiones de {@code username} (p. ej. al cambiar la contraseña). */
+    void revokeAll(String username);
+
     Duration ttl();
 }

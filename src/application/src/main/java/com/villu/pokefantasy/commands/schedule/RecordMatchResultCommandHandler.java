@@ -42,7 +42,8 @@ public class RecordMatchResultCommandHandler implements CommandHandler<RecordMat
         matchResultService.requireWinnerHasTeam(command.leagueId(), command.winnerUsername(), loserUsername);
 
         int roundNumber = matchResultService.findRoundNumber(schedule, command.matchId());
-        matchResultService.award(league, match, command.winnerUsername(), loserUsername, roundNumber);
+        matchResultService.award(league, match, command.winnerUsername(), loserUsername, command.score(),
+                roundNumber);
         scheduleRepository.save(schedule);
         return null;
     }

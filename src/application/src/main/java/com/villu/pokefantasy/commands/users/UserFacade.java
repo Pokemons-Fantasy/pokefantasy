@@ -4,6 +4,7 @@ import com.villu.pokefantasy.commands.users.create.CreateUserCommand;
 import com.villu.pokefantasy.commands.users.login.LoginResult;
 import com.villu.pokefantasy.commands.users.login.LoginUserCommand;
 import com.villu.pokefantasy.commands.users.logout.LogoutUserCommand;
+import com.villu.pokefantasy.commands.users.password.ChangePasswordCommand;
 import com.villu.pokefantasy.commands.users.pushtoken.RegisterPushTokenCommand;
 import com.villu.pokefantasy.commands.users.search.SearchUsersCommand;
 import com.villu.pokefantasy.mediator.Mediator;
@@ -35,6 +36,10 @@ public class UserFacade {
 
     public void logout(String refreshToken) throws Exception {
         mediator.send(new LogoutUserCommand(refreshToken));
+    }
+
+    public LoginResult changePassword(String username, String currentPassword, String newPassword) throws Exception {
+        return mediator.send(new ChangePasswordCommand(username, currentPassword, newPassword));
     }
 
     public List<String> searchUsers(String prefix, String leagueId, String requestingUsername) throws Exception {

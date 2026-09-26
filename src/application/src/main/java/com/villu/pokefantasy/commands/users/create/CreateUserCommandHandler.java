@@ -1,5 +1,6 @@
 package com.villu.pokefantasy.commands.users.create;
 
+import com.villu.pokefantasy.commands.users.PasswordPolicy;
 import com.villu.pokefantasy.dto.Role;
 import com.villu.pokefantasy.dto.users.User;
 import com.villu.pokefantasy.mapper.UserMapper;
@@ -8,7 +9,6 @@ import com.villu.pokefantasy.ports.PasswordHashPort;
 import com.villu.pokefantasy.repository.UserRepository;
 import org.springframework.stereotype.Service;
 
-import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
@@ -27,9 +27,6 @@ public class CreateUserCommandHandler implements CommandHandler<CreateUserComman
 
     /** 3-20 caracteres: letras, números, guion y guion bajo (sin espacios ni caracteres raros). */
     static final Pattern USERNAME_PATTERN = Pattern.compile("^[A-Za-z0-9_-]{3,20}$");
-    static final int MIN_PASSWORD_LENGTH = 8;
-    /** bcrypt ignora todo lo que pase de 72 bytes: una contraseña más larga daría falsa sensación de seguridad. */
-    static final int MAX_PASSWORD_BYTES = 72;
 
     @Override
     public Void handle(CreateUserCommand command) {
@@ -41,13 +38,7 @@ public class CreateUserCommandHandler implements CommandHandler<CreateUserComman
             throw new IllegalArgumentException(
                     "El nombre de usuario debe tener entre 3 y 20 caracteres: letras, números, '_' o '-'.");
         }
-        if (command.password().length() < MIN_PASSWORD_LENGTH) {
-            throw new IllegalArgumentException(
-                    "La contraseña debe tener al menos " + MIN_PASSWORD_LENGTH + " caracteres.");
-        }
-        if (command.password().getBytes(StandardCharsets.UTF_8).length > MAX_PASSWORD_BYTES) {
-            throw new IllegalArgumentException("La contraseña es demasiado larga (máximo 72 caracteres).");
-        }
+        PasswordPolicy.validate(command.password());
 
         User user = User.builder()
                 .id(UUID.randomUUID().toString())

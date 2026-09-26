@@ -120,6 +120,10 @@ Folder: `application/src/main/java/com/villu/pokefantasy/commands/{feature}/`
 - Si Redis no acepta la publicación, el evento se entrega solo en la instancia local (con una sola instancia no se pierde nada). La suscripción la arranca `RealtimeSubscriptionStarter` en segundo plano (reintenta cada 10 s): la app arranca aunque Redis esté caído, y luego el contenedor se resuscribe solo.
 - `spring.data.redis.timeout`/`connect-timeout` = 2 s: sin ello Lettuce espera 60 s por comando y, con Redis caído, cada petición que lo toca se colgaba un minuto.
 
+### Notificaciones push (FCM)
+
+`PushNotificationPort.send` (el envío real se hace tras el commit). Se envían en: robo, trade propuesto, **"te toca en el draft"** (`DraftTurnNotifier`: al empezar el draft y tras cada pick, manual o automático, al jugador en turno) y **aviso de cierre de ventana** (`WindowReminderService` + `WindowReminderJob` cada 15 min: si la ventana de robos o de swaps cierra en < 3 h, push a todos los miembros; la jornada guarda en `stealReminderSentFor`/`swapReminderSentFor` de qué cierre avisó, así no se repite aunque haya reinicios o varias instancias, y se vuelve a avisar si el admin cambia la hora).
+
 ### Zona horaria
 
 Los deadlines de robo/swap (`stealWindowCloseDay/Time`, `swapWindowCloseDay/Time`) son hora de pared española: `JornadaWindowService` los evalúa en `JornadaWindowService.LEAGUE_ZONE` (`Europe/Madrid`, con horario de verano), no en la zona del servidor (Render corre en UTC).
@@ -148,7 +152,8 @@ Stateless JWT. Public endpoints (no token required): `POST /v1/user`, `POST /v1/
 - **Búsqueda de usuarios** (`GET /v1/users/search?q=&leagueId=`): `leagueId` obligatorio y solo para admins de esa liga (es el autocompletado de "añadir miembro").
 - **Draft**: `POST /draft/auto-pick` y `GET /draft/events` exigen ser miembro de la liga. `SseEmitterRegistry` admite como mucho 3 conexiones por usuario y liga (cierra la más antigua).
 
-- **Registro** (`CreateUserCommandHandler`): username `^[A-Za-z0-9_-]{3,20}$`; contraseña ≥ 8 caracteres y ≤ 72 bytes (límite de bcrypt). Solo se valida al registrarse: los usuarios existentes siguen entrando.
+- **Registro** (`CreateUserCommandHandler`): username `^[A-Za-z0-9_-]{3,20}$`; contraseña ≥ 8 caracteres y ≤ 72 bytes (límite de bcrypt; `PasswordPolicy`, compartida con el cambio de contraseña). Solo se valida al registrarse: los usuarios existentes siguen entrando.
+- **Cambio de contraseña** (`PUT /v1/user/password`, `ChangePasswordCommandHandler`): exige la actual; sus fallos cuentan para el mismo bloqueo que el login (`user:<name>`). Al cambiarla, `RefreshTokenPort.revokeAll` cierra **todas** las sesiones del usuario (Redis guarda sus claves en el set `refresh-user:<username>`) y se devuelven cookies nuevas para la sesión actual.
 - **Límite de intentos de login** (`LoginUserCommandHandler` + `LoginAttemptPort` → `LoginAttemptRedisAdapter`, claves `login-fail:*` en Redis): 5 fallos por usuario o 30 por IP en 15 min → 429 durante la ventana, aunque la contraseña sea correcta. Un login correcto limpia el contador del usuario. IP = primera entrada de `X-Forwarded-For` (la pone Render). Si Redis falla, no bloquea (fail-open). Everything else requires `Authorization: Bearer <token>`. `LeagueAdminGuard.requireLeagueAdmin()` guards admin-only operations — checks `LeagueRole.ADMIN` in the league's member list.
 
 CORS is restricted to `https://*.netlify.app` and `localhost` — no wildcard origin (`SecurityConfig.java`). If you add a custom domain, update `corsConfigurationSource()`.
@@ -167,7 +172,7 @@ CORS is restricted to `https://*.netlify.app` and `localhost` — no wildcard or
 
 **Movimientos de equipo** (robo, trade, swap, compra, liberación): usa `TeamTransferService` (abrir mercado = draft completado + calendario + liga + ventana de `TeamOperation`, bloqueo de 7 días `TRANSFER_LOCK`, cobro de monedas, banca). No repitas esas reglas en los handlers.
 
-**Resultados de partidos** (`MatchResultService`, compartido por `RecordMatchResultCommandHandler` y `CorrectMatchResultCommandHandler`): al registrar se guardan en el `Match` las monedas dadas (`winnerCoins`/`loserCoins`); corregir o deshacer devuelve **esas** (en resultados antiguos sin ellas, las de los ajustes actuales) y el saldo puede quedar negativo si ya se gastaron. Deja un evento `MATCH_RESULT_REVERTED` y un `COIN_REVOKED` por jugador con lo retirado (contrapartida de los `COIN_EARNED`, para que el historial de monedas cuadre con el saldo); clasificación y estadísticas se recalculan solas desde el calendario.
+**Resultados de partidos** (`MatchResultService`, compartido por `RecordMatchResultCommandHandler` y `CorrectMatchResultCommandHandler`): marcador opcional (`MatchScore`, p. ej. 3–1, desde el punto de vista del ganador: los dos o ninguno, 0-99, ganador con más; se guarda en `Match.winnerScore/loserScore`; corregir con el mismo ganador y otro marcador solo cambia el marcador, sin mover monedas). Clasificación: victorias → diferencia de marcador → monedas → nombre. al registrar se guardan en el `Match` las monedas dadas (`winnerCoins`/`loserCoins`); corregir o deshacer devuelve **esas** (en resultados antiguos sin ellas, las de los ajustes actuales) y el saldo puede quedar negativo si ya se gastaron. Deja un evento `MATCH_RESULT_REVERTED` y un `COIN_REVOKED` por jugador con lo retirado (contrapartida de los `COIN_EARNED`, para que el historial de monedas cuadre con el saldo); clasificación y estadísticas se recalculan solas desde el calendario.
 
 ## Repository methods
 
@@ -181,6 +186,7 @@ CORS is restricted to `https://*.netlify.app` and `localhost` — no wildcard or
 ```
 POST   /v1/user                                    register
 POST   /v1/user/login                              login
+PUT    /v1/user/password                           change password (closes other sessions)
 GET    /v1/leagues/my                              my leagues
 POST   /v1/leagues                                 create league
 GET    /v1/leagues/{id}                            league detail
@@ -201,8 +207,8 @@ POST   /v1/leagues/{id}/steal                      steal rival's pokémon
 PUT    /v1/leagues/{id}/steal-price                raise own pokémon steal price
 GET    /v1/leagues/{id}/my-coins                   own coin balance
 GET    /v1/leagues/{id}/trades?history=50           my trades: all pending + latest N resolved (max 200)
-POST   /v1/leagues/{id}/schedule/matches/{matchId}/result   record result (admin)
-PUT    /v1/leagues/{id}/schedule/matches/{matchId}/result   correct winner of a recorded match (admin)
+POST   /v1/leagues/{id}/schedule/matches/{matchId}/result   record result (admin; optional winnerScore/loserScore)
+PUT    /v1/leagues/{id}/schedule/matches/{matchId}/result   correct winner and/or score of a recorded match (admin)
 DELETE /v1/leagues/{id}/schedule/matches/{matchId}/result   undo result → PENDING, coins returned (admin)
 GET    /actuator/health                            health check (public)
 ```

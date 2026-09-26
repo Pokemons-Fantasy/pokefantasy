@@ -4,6 +4,7 @@ import com.villu.pokefantasy.commands.users.create.CreateUserCommand;
 import com.villu.pokefantasy.commands.users.login.LoginResult;
 import com.villu.pokefantasy.commands.users.login.LoginUserCommand;
 import com.villu.pokefantasy.commands.users.logout.LogoutUserCommand;
+import com.villu.pokefantasy.commands.users.password.ChangePasswordCommand;
 import com.villu.pokefantasy.commands.users.search.SearchUsersCommand;
 import com.villu.pokefantasy.mediator.Mediator;
 import org.junit.jupiter.api.BeforeEach;
@@ -63,6 +64,15 @@ class UserFacadeTest {
         ArgumentCaptor<LogoutUserCommand> captor = ArgumentCaptor.forClass(LogoutUserCommand.class);
         verify(mediator).send(captor.capture());
         assertThat(captor.getValue().refreshToken()).isEqualTo("refresh");
+    }
+
+    @Test
+    void changePassword_sendsCommand() throws Exception {
+        facade.changePassword("ash", "old", "new");
+
+        ArgumentCaptor<ChangePasswordCommand> captor = ArgumentCaptor.forClass(ChangePasswordCommand.class);
+        verify(mediator).send(captor.capture());
+        assertThat(captor.getValue()).isEqualTo(new ChangePasswordCommand("ash", "old", "new"));
     }
 
     @Test

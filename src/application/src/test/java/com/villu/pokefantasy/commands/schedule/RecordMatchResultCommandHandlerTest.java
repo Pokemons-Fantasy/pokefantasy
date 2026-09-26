@@ -134,6 +134,21 @@ class RecordMatchResultCommandHandlerTest {
         Match saved = captor.getValue().getJornadas().get(0).getMatches().get(0);
         assertThat(saved.getWinnerUsername()).isEqualTo(PLAYER1);
         assertThat(saved.getStatus()).isEqualTo(MatchStatus.COMPLETED);
+        assertThat(saved.getWinnerScore()).isNull(); // sin marcador
+    }
+
+    @Test
+    void handle_withScore_storesIt() {
+        when(leagueAdminGuard.requireLeagueAdmin(LEAGUE_ID, ADMIN)).thenReturn(leagueWithSettings(100, 50));
+        when(scheduleRepository.findByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(scheduleWithMatch(MATCH_ID)));
+
+        handler.handle(new RecordMatchResultCommand(LEAGUE_ID, MATCH_ID, PLAYER2, new MatchScore(3, 1), ADMIN));
+
+        ArgumentCaptor<ScheduleEntity> captor = ArgumentCaptor.forClass(ScheduleEntity.class);
+        verify(scheduleRepository).save(captor.capture());
+        Match saved = captor.getValue().getJornadas().get(0).getMatches().get(0);
+        assertThat(saved.getWinnerScore()).isEqualTo(3);
+        assertThat(saved.getLoserScore()).isEqualTo(1);
     }
 
     @Test

@@ -1,7 +1,6 @@
 package com.villu.pokefantasy.repository.entity;
 
 import com.villu.pokefantasy.dto.MatchStatus;
-import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
@@ -26,12 +25,23 @@ public class ScheduleEntity {
     private List<Jornada> jornadas;
 
     @Data
-    @AllArgsConstructor
     @NoArgsConstructor
     public static class Jornada {
         private int roundNumber;
         private List<Match> matches;
         private String startDate;   // ISO "YYYY-MM-DD", null until admin sets seasonStartDate
+        /**
+         * Cierre de la ventana de robos/swaps (ISO local, hora de {@code LEAGUE_ZONE}) del que ya se avisó
+         * por push, para no repetir el aviso. Si el admin cambia la hora de cierre, se vuelve a avisar.
+         */
+        private String stealReminderSentFor;
+        private String swapReminderSentFor;
+
+        public Jornada(int roundNumber, List<Match> matches, String startDate) {
+            this.roundNumber = roundNumber;
+            this.matches = matches;
+            this.startDate = startDate;
+        }
     }
 
     @Data
@@ -49,6 +59,9 @@ public class ScheduleEntity {
          */
         private Integer winnerCoins;
         private Integer loserCoins;
+        /** Marcador (p. ej. 3–1) desde el punto de vista del ganador; {@code null} si no se indicó. */
+        private Integer winnerScore;
+        private Integer loserScore;
 
         public Match(String id, String player1, String player2, String winnerUsername, MatchStatus status) {
             this.id = id;

@@ -139,39 +139,61 @@ public class JornadaWindowService {
     // Private helpers
     // -------------------------------------------------------------------------
 
+    /**
+     * Cierre de la ventana de robos ({@code steal}) o de swaps de la jornada activa, si ahora mismo está
+     * abierta y tiene hora de cierre. Vacío si está cerrada o si no hay fechas configuradas (abierta sin
+     * límite).
+     */
+    public Optional<LocalDateTime> openWindowDeadline(ScheduleEntity schedule, boolean steal, LeagueSettings settings) {
+        return activeJornadaWithOpenWindow(schedule)
+                .filter(active -> active.getStartDate() != null)
+                .map(active -> steal
+                        ? getStealDeadline(active.getStartDate(), settings)
+                        : getSwapDeadline(active.getStartDate(), settings))
+                .filter(deadline -> now().isBefore(deadline));
+    }
+
+    /** Hora actual en {@link #LEAGUE_ZONE}. */
+    public LocalDateTime now() {
+        return LocalDateTime.now(clock.withZone(LEAGUE_ZONE));
+    }
+
     private boolean isWindowOpen(ScheduleEntity schedule, boolean steal, LeagueSettings settings) {
-        if (schedule == null || schedule.getJornadas() == null) {
+        Optional<Jornada> active = activeJornadaWithOpenWindow(schedule);
+        if (active.isEmpty()) {
             return false;
+        }
+        if (active.get().getStartDate() == null) {
+            return true; // no dates configured yet → no time restriction
+        }
+        return openWindowDeadline(schedule, steal, settings).isPresent();
+    }
+
+    /**
+     * Jornada activa si su ventana puede estar abierta: hay temporada en curso y la jornada anterior (si
+     * la hay) tiene todos los resultados. No mira la hora de cierre.
+     */
+    private Optional<Jornada> activeJornadaWithOpenWindow(ScheduleEntity schedule) {
+        if (schedule == null || schedule.getJornadas() == null) {
+            return Optional.empty();
         }
 
         Optional<Jornada> activeOpt = getActiveJornada(schedule);
         if (activeOpt.isEmpty()) {
-            return false; // season complete → no window
+            return Optional.empty(); // season complete → no window
         }
 
         Jornada active = activeOpt.get();
-
-        if (active.getStartDate() == null) {
-            return true; // no dates configured yet → no time restriction
-        }
-
-        // Check that the previous jornada (if any) is fully completed
         int activeRound = active.getRoundNumber();
-        if (activeRound > 1) {
-            List<Jornada> jornadas = schedule.getJornadas();
-            Optional<Jornada> prevOpt = jornadas.stream()
+        if (active.getStartDate() != null && activeRound > 1) {
+            Optional<Jornada> prevOpt = schedule.getJornadas().stream()
                     .filter(j -> j.getRoundNumber() == activeRound - 1)
                     .findFirst();
             if (prevOpt.isPresent() && !allCompleted(prevOpt.get())) {
-                return false; // previous jornada still has pending results
+                return Optional.empty(); // previous jornada still has pending results
             }
         }
-
-        LocalDateTime deadline = steal
-                ? getStealDeadline(active.getStartDate(), settings)
-                : getSwapDeadline(active.getStartDate(), settings);
-
-        return LocalDateTime.now(clock.withZone(LEAGUE_ZONE)).isBefore(deadline);
+        return activeOpt;
     }
 
     private LocalDateTime buildDeadline(String startDate, int dayOfWeek, String time) {

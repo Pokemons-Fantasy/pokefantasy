@@ -24,15 +24,18 @@ public class StartDraftCommandHandler implements CommandHandler<StartDraftComman
     private final LeagueAdminGuard leagueAdminGuard;
     private final LeagueRepository leagueRepository;
     private final TierAssignmentService tierAssignmentService;
+    private final DraftTurnNotifier draftTurnNotifier;
 
     public StartDraftCommandHandler(DraftRepository draftRepository,
                                     LeagueAdminGuard leagueAdminGuard,
                                     LeagueRepository leagueRepository,
-                                    TierAssignmentService tierAssignmentService) {
+                                    TierAssignmentService tierAssignmentService,
+                                    DraftTurnNotifier draftTurnNotifier) {
         this.draftRepository = draftRepository;
         this.leagueAdminGuard = leagueAdminGuard;
         this.leagueRepository = leagueRepository;
         this.tierAssignmentService = tierAssignmentService;
+        this.draftTurnNotifier = draftTurnNotifier;
     }
 
     @Override
@@ -73,6 +76,7 @@ public class StartDraftCommandHandler implements CommandHandler<StartDraftComman
 
         draftRepository.save(draft);
         assignTiersToPool(command.leagueId());
+        draftTurnNotifier.notifyCurrentTurn(draft, leagueRepository.findById(command.leagueId()).orElse(null));
         return null;
     }
 

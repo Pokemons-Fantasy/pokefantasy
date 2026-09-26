@@ -51,6 +51,27 @@ class SessionIntegrationTest extends IntegrationTest {
     }
 
     @Test
+    void changePassword_closesOtherSessions_keepsThisOne_andOnlyTheNewPasswordWorks() throws Exception {
+        ApiClient phone = client().loggedInAs("ash_k", "pikachu123");
+        ApiClient laptop = client().loggedInAs("ash_k", "pikachu123");
+        String laptopRefresh = laptop.cookie("refresh");
+
+        HttpResponse<String> change = phone.put("/v1/user/password",
+                "{\"currentPassword\":\"pikachu123\",\"newPassword\":\"raichu4567\"}");
+
+        assertThat(change.statusCode()).isEqualTo(204);
+        assertThat(phone.get("/v1/leagues/my").statusCode()).isEqualTo(200);
+        phone.forgetCookie("jwt");
+        assertThat(phone.get("/v1/leagues/my").statusCode()).isEqualTo(200); // su refresh nuevo vale
+        assertThat(sendWithRefresh(client(), laptopRefresh).statusCode()).isIn(401, 403);
+
+        assertThat(client().post("/v1/user/login", "{\"username\":\"ash_k\",\"password\":\"pikachu123\"}")
+                .statusCode()).isEqualTo(401);
+        assertThat(client().post("/v1/user/login", "{\"username\":\"ash_k\",\"password\":\"raichu4567\"}")
+                .statusCode()).isEqualTo(200);
+    }
+
+    @Test
     void errors_areProblemDetailWithStableCode() throws Exception {
         HttpResponse<String> badRegister = client().post("/v1/user", "{\"username\":\"a\",\"password\":\"pikachu123\"}");
         assertThat(badRegister.statusCode()).isEqualTo(400);

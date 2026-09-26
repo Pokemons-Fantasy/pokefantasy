@@ -35,6 +35,7 @@ class StartDraftCommandHandlerTest {
     @Mock private LeagueAdminGuard leagueAdminGuard;
     @Mock private LeagueRepository leagueRepository;
     @Mock private TierAssignmentService tierAssignmentService;
+    @Mock private DraftTurnNotifier draftTurnNotifier;
 
     private StartDraftCommandHandler handler;
 
@@ -43,7 +44,8 @@ class StartDraftCommandHandlerTest {
 
     @BeforeEach
     void setUp() {
-        handler = new StartDraftCommandHandler(draftRepository, leagueAdminGuard, leagueRepository, tierAssignmentService);
+        handler = new StartDraftCommandHandler(draftRepository, leagueAdminGuard, leagueRepository, tierAssignmentService,
+                draftTurnNotifier);
     }
 
     private void allowAdmin() {
@@ -145,6 +147,7 @@ class StartDraftCommandHandlerTest {
         assertThat(saved.getTurnOrder()).containsExactly("ash", "Brock", "Misty");
         assertThat(saved.getLeagueId()).isEqualTo(LEAGUE_ID);
         assertThat(saved.getPicks()).isEmpty();
+        verify(draftTurnNotifier).notifyCurrentTurn(eq(saved), any()); // avisa a ash, primero en turno
     }
 
     @Test

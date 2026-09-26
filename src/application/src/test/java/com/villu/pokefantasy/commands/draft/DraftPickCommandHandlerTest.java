@@ -39,6 +39,7 @@ class DraftPickCommandHandlerTest {
     @Mock private UserRepository userRepository;
     @Mock private LeagueRepository leagueRepository;
     @Mock private ScheduleRepository scheduleRepository;
+    @Mock private DraftTurnNotifier draftTurnNotifier;
 
     private DraftPickCommandHandler handler;
 
@@ -49,7 +50,7 @@ class DraftPickCommandHandlerTest {
     @BeforeEach
     void setUp() {
         handler = new DraftPickCommandHandler(draftRepository, closedListRepository, userRepository,
-                leagueRepository, scheduleRepository);
+                leagueRepository, scheduleRepository, draftTurnNotifier);
     }
 
     @Test
@@ -207,6 +208,7 @@ class DraftPickCommandHandlerTest {
         assertThat(saved.getPicks()).hasSize(1);
         assertThat(saved.getPicks().get(0).getUsername()).isEqualTo(USERNAME);
         assertThat(saved.getCurrentTurnIndex()).isEqualTo(1); // advanced to brock
+        verify(draftTurnNotifier).notifyCurrentTurn(saved, null); // avisa a brock
     }
 
     @Test
@@ -257,6 +259,7 @@ class DraftPickCommandHandlerTest {
         ArgumentCaptor<DraftEntity> captor = ArgumentCaptor.forClass(DraftEntity.class);
         verify(draftRepository).save(captor.capture());
         assertThat(captor.getValue().getStatus()).isEqualTo(DraftStatus.COMPLETED);
+        verifyNoInteractions(draftTurnNotifier); // draft terminado: no le toca a nadie
 
         // Default settings initialised on the league
         ArgumentCaptor<LeagueEntity> leagueCaptor = ArgumentCaptor.forClass(LeagueEntity.class);

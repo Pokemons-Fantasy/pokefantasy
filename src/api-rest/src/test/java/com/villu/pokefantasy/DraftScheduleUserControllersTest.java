@@ -1,6 +1,7 @@
 package com.villu.pokefantasy;
 
 import com.villu.pokefantasy.commands.draft.DraftFacade;
+import com.villu.pokefantasy.commands.schedule.MatchScore;
 import com.villu.pokefantasy.commands.schedule.ScheduleFacade;
 import com.villu.pokefantasy.commands.users.UserFacade;
 import com.villu.pokefantasy.commands.users.login.LoginResult;
@@ -106,11 +107,21 @@ class DraftScheduleUserControllersTest extends ControllerTestSupport {
     void results_recordCorrectRevert() throws Exception {
         mvc.perform(json(post("/v1/leagues/l1/schedule/matches/m1/result"), "{\"winnerUsername\":\"misty\"}"))
                 .andExpect(status().isNoContent());
-        verify(scheduleFacade).recordResult("l1", "m1", "misty", ME);
+        verify(scheduleFacade).recordResult("l1", "m1", "misty", null, ME);
 
-        mvc.perform(json(put("/v1/leagues/l1/schedule/matches/m1/result"), "{\"winnerUsername\":\"brock\"}"))
+        mvc.perform(json(put("/v1/leagues/l1/schedule/matches/m1/result"),
+                        "{\"winnerUsername\":\"brock\",\"winnerScore\":3,\"loserScore\":1}"))
                 .andExpect(status().isNoContent());
-        verify(scheduleFacade).correctResult("l1", "m1", "brock", ME);
+        verify(scheduleFacade).correctResult("l1", "m1", "brock", new MatchScore(3, 1), ME);
+
+        // Marcador incompleto o con el ganador por debajo → 400 sin llegar a la fachada.
+        mvc.perform(json(post("/v1/leagues/l1/schedule/matches/m2/result"),
+                        "{\"winnerUsername\":\"misty\",\"winnerScore\":3}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Indica el marcador de los dos jugadores, o ninguno."));
+        mvc.perform(json(post("/v1/leagues/l1/schedule/matches/m2/result"),
+                        "{\"winnerUsername\":\"misty\",\"winnerScore\":1,\"loserScore\":2}"))
+                .andExpect(status().isBadRequest());
 
         mvc.perform(json(put("/v1/leagues/l1/schedule/matches/m1/result"), "{}"))
                 .andExpect(status().isBadRequest());
@@ -173,6 +184,31 @@ class DraftScheduleUserControllersTest extends ControllerTestSupport {
 
         assertThat(result.getResponse().getHeaders("Set-Cookie")).singleElement()
                 .satisfies(c -> assertThat(c).startsWith("jwt="));
+    }
+
+    @Test
+    void changePassword_setsFreshSessionCookies() throws Exception {
+        when(userFacade.changePassword(ME, "old-password", "new-password")).thenReturn(
+                new LoginResult("new-jwt", Duration.ofMinutes(15), "new-refresh", Duration.ofDays(30)));
+
+        MvcResult result = mvc.perform(json(put("/v1/user/password"),
+                        "{\"currentPassword\":\"old-password\",\"newPassword\":\"new-password\"}"))
+                .andExpect(status().isNoContent()).andReturn();
+
+        assertThat(result.getResponse().getHeaders("Set-Cookie"))
+                .anySatisfy(c -> assertThat(c).startsWith("jwt=new-jwt;"))
+                .anySatisfy(c -> assertThat(c).startsWith("refresh=new-refresh;"));
+    }
+
+    @Test
+    void changePassword_wrongCurrentPassword_401() throws Exception {
+        when(userFacade.changePassword(ME, "wrong", "new-password"))
+                .thenThrow(new org.springframework.security.authentication.BadCredentialsException("no"));
+
+        mvc.perform(json(put("/v1/user/password"),
+                        "{\"currentPassword\":\"wrong\",\"newPassword\":\"new-password\"}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"));
     }
 
     @Test

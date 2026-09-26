@@ -68,6 +68,8 @@ public class GetScheduleCommandHandler implements CommandHandler<GetScheduleComm
                                                             .player2(m.getPlayer2())
                                                             .winnerUsername(m.getWinnerUsername())
                                                             .status(m.getStatus())
+                                                            .winnerScore(m.getWinnerScore())
+                                                            .loserScore(m.getLoserScore())
                                                             .build())
                                                     .collect(Collectors.toList()))
                                     .build();

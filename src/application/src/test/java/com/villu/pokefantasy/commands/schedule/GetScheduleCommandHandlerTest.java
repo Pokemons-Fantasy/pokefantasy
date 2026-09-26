@@ -47,7 +47,9 @@ class GetScheduleCommandHandlerTest {
     void handle_propagatesWindowFlagsFromService() {
         ScheduleEntity schedule = new ScheduleEntity();
         schedule.setLeagueId("l1");
-        Match m = new Match("m1", "ash", "brock", null, MatchStatus.PENDING);
+        Match m = new Match("m1", "ash", "brock", "ash", MatchStatus.COMPLETED);
+        m.setWinnerScore(3);
+        m.setLoserScore(1);
         // startDate null → toResponse no calcula deadlines, solo las flags de ventana
         Jornada j = new Jornada(1, new ArrayList<>(List.of(m)), null);
         schedule.setJornadas(new ArrayList<>(List.of(j)));
@@ -63,6 +65,9 @@ class GetScheduleCommandHandlerTest {
         assertThat(response.getJornadas()).hasSize(1);
         assertThat(response.isStealWindowOpen()).isTrue();
         assertThat(response.isSwapWindowOpen()).isFalse();
+        ScheduleResponse.MatchResponse match = response.getJornadas().get(0).getMatches().get(0);
+        assertThat(match.getWinnerScore()).isEqualTo(3);
+        assertThat(match.getLoserScore()).isEqualTo(1);
     }
 
     @Test
