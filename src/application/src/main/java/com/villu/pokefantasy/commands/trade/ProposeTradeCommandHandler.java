@@ -3,6 +3,7 @@ package com.villu.pokefantasy.commands.trade;
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.TradeStatus;
 import com.villu.pokefantasy.mediator.CommandHandler;
+import com.villu.pokefantasy.team.TeamTransferService;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.PushNotificationPort;
@@ -26,17 +27,20 @@ public class ProposeTradeCommandHandler implements CommandHandler<ProposeTradeCo
     private final LeagueRepository leagueRepository;
     private final UserRepository userRepository;
     private final PushNotificationPort pushNotificationPort;
+    private final TeamTransferService teamTransferService;
 
     public ProposeTradeCommandHandler(TradeRepository tradeRepository,
                                       DraftRepository draftRepository,
                                       LeagueRepository leagueRepository,
                                       UserRepository userRepository,
-                                      PushNotificationPort pushNotificationPort) {
+                                      PushNotificationPort pushNotificationPort,
+                                      TeamTransferService teamTransferService) {
         this.tradeRepository = tradeRepository;
         this.draftRepository = draftRepository;
         this.leagueRepository = leagueRepository;
         this.userRepository = userRepository;
         this.pushNotificationPort = pushNotificationPort;
+        this.teamTransferService = teamTransferService;
     }
 
     @Override
@@ -69,8 +73,8 @@ public class ProposeTradeCommandHandler implements CommandHandler<ProposeTradeCo
         DraftPick proposerPick = findPick(draft, proposer, proposerPokemonName);
         DraftPick responderPick = findPick(draft, responder, responderPokemonName);
 
-        assertNotLocked(proposerPick, proposerPokemonName);
-        assertNotLocked(responderPick, responderPokemonName);
+        teamTransferService.requireUnlocked(proposerPick);
+        teamTransferService.requireUnlocked(responderPick);
 
         if (proposerMember.getCoinBalance() < coinsOffered) {
             throw new IllegalStateException("No tienes suficientes monedas para esta oferta. Necesitas "
@@ -115,13 +119,6 @@ public class ProposeTradeCommandHandler implements CommandHandler<ProposeTradeCo
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException(
                         "'" + pokemonName + "' no está en el equipo de " + username));
-    }
-
-    private void assertNotLocked(DraftPick pick, String pokemonName) {
-        if (pick.getLockedUntil() != null && Instant.now().isBefore(pick.getLockedUntil())) {
-            throw new IllegalStateException(
-                    "'" + pokemonName + "' está bloqueado hasta " + pick.getLockedUntil() + ".");
-        }
     }
 
     @Override

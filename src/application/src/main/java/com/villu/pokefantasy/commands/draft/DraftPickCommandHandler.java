@@ -3,7 +3,6 @@ package com.villu.pokefantasy.commands.draft;
 import com.villu.pokefantasy.commands.schedule.RoundRobinScheduler;
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueSettings;
-import com.villu.pokefantasy.dto.Pokemons;
 import com.villu.pokefantasy.mediator.CommandHandler;
 import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
@@ -16,13 +15,11 @@ import com.villu.pokefantasy.repository.entity.DraftPick;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity;
 import com.villu.pokefantasy.repository.entity.UserEntity;
-import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 
 @Service
 public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand, Void> {
@@ -34,17 +31,20 @@ public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand,
     private final UserRepository userRepository;
     private final LeagueRepository leagueRepository;
     private final ScheduleRepository scheduleRepository;
+    private final DraftTurnNotifier draftTurnNotifier;
 
     public DraftPickCommandHandler(DraftRepository draftRepository,
                                    ClosedListRepository closedListRepository,
                                    UserRepository userRepository,
                                    LeagueRepository leagueRepository,
-                                   ScheduleRepository scheduleRepository) {
+                                   ScheduleRepository scheduleRepository,
+                                   DraftTurnNotifier draftTurnNotifier) {
         this.draftRepository = draftRepository;
         this.closedListRepository = closedListRepository;
         this.userRepository = userRepository;
         this.leagueRepository = leagueRepository;
         this.scheduleRepository = scheduleRepository;
+        this.draftTurnNotifier = draftTurnNotifier;
     }
 
     @Override
@@ -86,8 +86,6 @@ public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand,
             throw new IllegalStateException("User already has the maximum of " + maxTeamSize + " Pokémon in this league");
         }
 
-        List<Pokemons> currentPokemons = user.getPokemons() != null ? user.getPokemons() : new ArrayList<>();
-
         if (draft.getPicks() == null) {
             draft.setPicks(new ArrayList<>());
         }
@@ -100,17 +98,6 @@ public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand,
 
         ClosedListEntity entry = closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(pokemonName, leagueId)
                 .orElseThrow(() -> new IllegalArgumentException("Pokémon '" + pokemonName + "' is not in the closed list for this league"));
-
-        Pokemons pokemon = new Pokemons();
-        pokemon.setId(entry.getPokemonId());
-        pokemon.setName(entry.getPokemonName());
-        pokemon.setStats(entry.getStats());
-        pokemon.setTypes(entry.getTypes());
-        pokemon.setLeagueId(leagueId);
-
-        currentPokemons.add(pokemon);
-        user.setPokemons(currentPokemons);
-        userRepository.updateUserWithPokemons(user);
 
         DraftPick pick = new DraftPick(username, entry.getPokemonName(),
                 entry.getPokemonId(), draft.getCurrentRound(), Instant.now(), null, null);
@@ -126,15 +113,7 @@ public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand,
 
         advanceTurn(draft, maxTeamSize);
         draft.setCurrentTurnStartedAt(Instant.now());
-        try {
-            draftRepository.save(draft);
-        } catch (OptimisticLockingFailureException exception) {
-            removeAddedPokemon(user, currentPokemons, pokemon, leagueId);
-            throw new IllegalStateException("Another player made a pick at the same time. Please try your pick again.", exception);
-        } catch (RuntimeException exception) {
-            removeAddedPokemon(user, currentPokemons, pokemon, leagueId);
-            throw exception;
-        }
+        draftRepository.save(draft);
 
         // When this pick completes the draft:
         // 1. Lazily initialize league settings with defaults.
@@ -142,6 +121,8 @@ public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand,
         if (draft.getStatus() == DraftStatus.COMPLETED) {
             initLeagueSettingsIfNeeded(league);
             generateLeagueSchedule(leagueId, draft.getTurnOrder());
+        } else {
+            draftTurnNotifier.notifyCurrentTurn(draft, league);
         }
         return null;
     }
@@ -165,13 +146,6 @@ public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand,
         if (league != null && league.getSettings() == null) {
             league.setSettings(LeagueSettings.defaults());
             leagueRepository.save(league);
-        }
-    }
-
-    private void removeAddedPokemon(UserEntity user, List<Pokemons> currentPokemons, Pokemons pokemon, String leagueId) {
-        if (currentPokemons.removeIf(p -> Objects.equals(p.getId(), pokemon.getId()) && leagueId.equals(p.getLeagueId()))) {
-            user.setPokemons(currentPokemons);
-            userRepository.updateUserWithPokemons(user);
         }
     }
 

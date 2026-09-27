@@ -63,6 +63,10 @@ public class NominatePokemonCommandHandler implements CommandHandler<NominatePok
         }
 
         List<PokemonCacheDto> cachedList = cachePort.getPokemon("pokemons");
+        if (cachedList.isEmpty()) {
+            // PokemonCacheLoader aún no ha podido traer la lista de PokeAPI (reintenta cada minuto).
+            throw new IllegalStateException("La lista de Pokémon aún se está cargando. Inténtalo en unos minutos.");
+        }
         PokemonCacheDto cached = cachedList.stream()
                 .filter(p -> p.getName().equalsIgnoreCase(command.pokemonName()))
                 .findFirst()

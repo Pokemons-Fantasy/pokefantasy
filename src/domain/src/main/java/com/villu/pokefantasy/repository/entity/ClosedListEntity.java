@@ -5,6 +5,7 @@ import com.villu.pokefantasy.dto.Tier;
 import com.villu.pokefantasy.dto.Type;
 import lombok.Data;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Version;
 import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.mapping.Document;
 
@@ -16,6 +17,8 @@ import java.util.List;
 public class ClosedListEntity {
     @Id
     private String id;
+    @Version
+    private Long version;
     private Integer pokemonId;
     private String pokemonName;
     private Tier tier;

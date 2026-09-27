@@ -17,12 +17,12 @@ import java.util.List;
 public class TradeController {
 
     private final TradeFacade tradeFacade;
-    private final UserSseEmitterRegistry userSseRegistry;
+    private final RealtimeNotifier realtimeNotifier;
     private final ObjectMapper objectMapper;
 
-    public TradeController(TradeFacade tradeFacade, UserSseEmitterRegistry userSseRegistry, ObjectMapper redisObjectMapper) {
+    public TradeController(TradeFacade tradeFacade, RealtimeNotifier realtimeNotifier, ObjectMapper redisObjectMapper) {
         this.tradeFacade = tradeFacade;
-        this.userSseRegistry = userSseRegistry;
+        this.realtimeNotifier = realtimeNotifier;
         this.objectMapper = redisObjectMapper;
     }
 
@@ -38,15 +38,17 @@ public class TradeController {
                 .put("proposer", userDetails.getUsername())
                 .put("tradeId", tradeId)
                 .toString();
-        userSseRegistry.sendToUser(request.getResponder(), "trade-proposed", payload);
+        realtimeNotifier.notifyUser(request.getResponder(), "trade-proposed", payload);
         return ResponseEntity.ok().build();
     }
 
     @GetMapping("/trades")
     public ResponseEntity<List<TradeResponse>> getTrades(
             @PathVariable String leagueId,
+            // Trades ya resueltos a devolver (los más recientes; máx. 200). Los pendientes van siempre.
+            @RequestParam(defaultValue = "50") int history,
             @AuthenticationPrincipal UserDetails userDetails) throws Exception {
-        return ResponseEntity.ok(tradeFacade.getTrades(leagueId, userDetails.getUsername()));
+        return ResponseEntity.ok(tradeFacade.getTrades(leagueId, userDetails.getUsername(), history));
     }
 
     @PostMapping("/trades/{tradeId}/respond")

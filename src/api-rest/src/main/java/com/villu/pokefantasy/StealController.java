@@ -14,12 +14,12 @@ import tools.jackson.databind.ObjectMapper;
 public class StealController {
 
     private final StealFacade stealFacade;
-    private final UserSseEmitterRegistry userSseRegistry;
+    private final RealtimeNotifier realtimeNotifier;
     private final ObjectMapper objectMapper;
 
-    public StealController(StealFacade stealFacade, UserSseEmitterRegistry userSseRegistry, ObjectMapper redisObjectMapper) {
+    public StealController(StealFacade stealFacade, RealtimeNotifier realtimeNotifier, ObjectMapper redisObjectMapper) {
         this.stealFacade = stealFacade;
-        this.userSseRegistry = userSseRegistry;
+        this.realtimeNotifier = realtimeNotifier;
         this.objectMapper = redisObjectMapper;
     }
 
@@ -33,7 +33,7 @@ public class StealController {
                 .put("actorUsername", userDetails.getUsername())
                 .put("pokemonName", request.getTargetPokemonName())
                 .toString();
-        userSseRegistry.sendToUser(victim, "steal", payload);
+        realtimeNotifier.notifyUser(victim, "steal", payload);
         return ResponseEntity.ok().build();
     }
 

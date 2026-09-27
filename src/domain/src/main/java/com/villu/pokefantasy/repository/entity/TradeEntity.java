@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Version;
 import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.index.CompoundIndexes;
 import org.springframework.data.mongodb.core.mapping.Document;
@@ -20,11 +21,16 @@ import java.time.Instant;
 @CompoundIndexes({
         @CompoundIndex(def = "{'leagueId': 1, 'status': 1}"),
         // Cubre findPendingByResponder, que filtra por responder+status sin acotar por liga.
-        @CompoundIndex(def = "{'responder': 1, 'status': 1}")
+        @CompoundIndex(def = "{'responder': 1, 'status': 1}"),
+        // Trades de un participante en la liga (findByLeagueIdAndParticipant: un índice por rama del $or).
+        @CompoundIndex(def = "{'leagueId': 1, 'proposer': 1, 'resolvedAt': -1}"),
+        @CompoundIndex(def = "{'leagueId': 1, 'responder': 1, 'resolvedAt': -1}")
 })
 public class TradeEntity {
     @Id
     private String id;
+    @Version
+    private Long version;
     private String leagueId;
     private String proposer;
     private String responder;
