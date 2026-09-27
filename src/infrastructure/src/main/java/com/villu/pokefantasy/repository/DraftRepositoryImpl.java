@@ -8,6 +8,7 @@ import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Component;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -42,5 +43,14 @@ public class DraftRepositoryImpl implements DraftRepository {
     @Override
     public List<DraftEntity> findAllInProgress() {
         return mongoTemplate.find(new Query(Criteria.where("status").is(DraftStatus.IN_PROGRESS)), DraftEntity.class);
+    }
+
+    @Override
+    public List<DraftEntity> findAllByLeagueIdsNewestFirst(Collection<String> leagueIds) {
+        Query query = new Query(Criteria.where("leagueId").in(leagueIds))
+                .with(Sort.by(Sort.Direction.DESC, "_id"));
+        // Solo lo necesario para decidir el estado: los picks de cada draft pesan
+        query.fields().include("leagueId", "status");
+        return mongoTemplate.find(query, DraftEntity.class);
     }
 }
