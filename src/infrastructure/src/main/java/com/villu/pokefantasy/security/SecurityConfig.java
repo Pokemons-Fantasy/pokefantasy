@@ -11,6 +11,8 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.context.RequestAttributeSecurityContextRepository;
+import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -28,14 +30,9 @@ public class SecurityConfig {
             "/v1/user", "/v1/user/login", "/v1/user/logout",
             "/actuator/health", "/actuator/health/liveness");
 
-    private final JwtAuthFilter jwtAuthFilter;
-
-    public SecurityConfig(JwtAuthFilter jwtAuthFilter) {
-        this.jwtAuthFilter = jwtAuthFilter;
-    }
-
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http, JwtAuthFilter jwtAuthFilter,
+                                           SecurityContextRepository securityContextRepository) throws Exception {
         RequestMatcher publicPaths = request -> PUBLIC_PATHS.contains(request.getServletPath())
                 || isApiDocs(request.getServletPath());
 
@@ -43,6 +40,7 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .securityContext(context -> context.securityContextRepository(securityContextRepository))
                 .authorizeHttpRequests(auth -> auth
                         .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                         .requestMatchers(publicPaths).permitAll()
@@ -53,6 +51,16 @@ public class SecurityConfig {
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
+    }
+
+    /**
+     * Dónde vive la autenticación de cada petición: en un atributo de la propia petición, sin sesión (la
+     * API es stateless). {@link JwtAuthFilter} la guarda aquí y la cadena la carga en cada dispatch, así
+     * que los ASYNC (cierre de una conexión SSE) y ERROR de la misma petición siguen autenticados.
+     */
+    @Bean
+    public SecurityContextRepository securityContextRepository() {
+        return new RequestAttributeSecurityContextRepository();
     }
 
     /** Especificación OpenAPI y Swagger UI: públicas (la API la ve igualmente cualquiera con el frontend). */
