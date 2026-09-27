@@ -12,11 +12,14 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.context.SecurityContextHolderStrategy;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
+import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -27,6 +30,10 @@ import java.util.Optional;
  * Autentica con el JWT de acceso (cookie {@code jwt} o cabecera Bearer). Si falta o ha caducado y hay
  * una cookie {@code refresh} vigente, emite un JWT nuevo en la misma respuesta: el cliente no tiene
  * que hacer nada para renovar la sesión.
+ *
+ * <p>La autenticación se guarda en el {@link SecurityContextRepository} (atributo de la petición, sin
+ * sesión): los dispatch posteriores de la misma petición, como el ASYNC con que Tomcat cierra una
+ * conexión SSE, no vuelven a pasar por este filtro y la recuperan de ahí.
  */
 @Component
 @Slf4j
@@ -35,19 +42,23 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     private final TokenPort tokenPort;
     private final RefreshTokenPort refreshTokenPort;
     private final UserDetailsService userDetailsService;
+    private final SecurityContextRepository securityContextRepository;
+    private final SecurityContextHolderStrategy securityContextHolderStrategy =
+            SecurityContextHolder.getContextHolderStrategy();
 
     public JwtAuthFilter(TokenPort tokenPort, RefreshTokenPort refreshTokenPort,
-                         UserDetailsService userDetailsService) {
+                         UserDetailsService userDetailsService, SecurityContextRepository securityContextRepository) {
         this.tokenPort = tokenPort;
         this.refreshTokenPort = refreshTokenPort;
         this.userDetailsService = userDetailsService;
+        this.securityContextRepository = securityContextRepository;
     }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
 
-        if (SecurityContextHolder.getContext().getAuthentication() == null) {
+        if (securityContextHolderStrategy.getContext().getAuthentication() == null) {
             String token = cookie(request, AuthCookies.ACCESS);
             if (token == null) {
                 String header = request.getHeader("Authorization");
@@ -56,7 +67,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 }
             }
 
-            boolean authenticated = token != null && authenticateWithAccessToken(token, request);
+            boolean authenticated = token != null && authenticateWithAccessToken(token, request, response);
             if (!authenticated) {
                 String refreshToken = cookie(request, AuthCookies.REFRESH);
                 if (refreshToken != null) {
@@ -67,7 +78,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         chain.doFilter(request, response);
     }
 
-    private boolean authenticateWithAccessToken(String token, HttpServletRequest request) {
+    private boolean authenticateWithAccessToken(String token, HttpServletRequest request,
+                                                HttpServletResponse response) {
         try {
             String username = tokenPort.extractUsername(token);
             if (username == null) {
@@ -77,10 +89,10 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             if (!tokenPort.isTokenValid(token, userDetails.getUsername())) {
                 return false;
             }
-            authenticate(userDetails, request);
+            authenticate(userDetails, request, response);
             return true;
         } catch (JwtException | IllegalArgumentException | UsernameNotFoundException ignored) {
-            SecurityContextHolder.clearContext();
+            securityContextHolderStrategy.clearContext();
             log.debug("Ignoring invalid JWT authentication attempt", ignored);
             return false;
         }
@@ -104,14 +116,17 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         // Renueva también el Max-Age de la cookie: la caducidad deslizante está en Redis y en el navegador.
         response.addHeader(HttpHeaders.SET_COOKIE, AuthCookies.set(AuthCookies.REFRESH,
                 refreshToken, refreshTokenPort.ttl()));
-        authenticate(userDetails, request);
+        authenticate(userDetails, request, response);
     }
 
-    private static void authenticate(UserDetails userDetails, HttpServletRequest request) {
+    private void authenticate(UserDetails userDetails, HttpServletRequest request, HttpServletResponse response) {
         UsernamePasswordAuthenticationToken auth =
-                new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+                UsernamePasswordAuthenticationToken.authenticated(userDetails, null, userDetails.getAuthorities());
         auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-        SecurityContextHolder.getContext().setAuthentication(auth);
+        SecurityContext context = securityContextHolderStrategy.createEmptyContext();
+        context.setAuthentication(auth);
+        securityContextHolderStrategy.setContext(context);
+        securityContextRepository.saveContext(context, request, response);
     }
 
     private static String cookie(HttpServletRequest request, String name) {

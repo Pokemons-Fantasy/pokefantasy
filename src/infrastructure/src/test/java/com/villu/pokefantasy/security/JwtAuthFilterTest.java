@@ -11,10 +11,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.web.context.RequestAttributeSecurityContextRepository;
+import org.springframework.security.web.context.SecurityContextRepository;
 
 import java.time.Duration;
 import java.util.Collections;
@@ -36,11 +40,12 @@ class JwtAuthFilterTest {
     @Mock HttpServletResponse response;
     @Mock FilterChain chain;
 
+    SecurityContextRepository securityContextRepository = new RequestAttributeSecurityContextRepository();
     JwtAuthFilter filter;
 
     @BeforeEach
     void setUp() {
-        filter = new JwtAuthFilter(tokenPort, refreshTokenPort, userDetailsService);
+        filter = new JwtAuthFilter(tokenPort, refreshTokenPort, userDetailsService, securityContextRepository);
         SecurityContextHolder.clearContext();
     }
 
@@ -85,6 +90,28 @@ class JwtAuthFilterTest {
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
         verify(chain).doFilter(request, response);
         verifyNoInteractions(tokenPort);
+    }
+
+    /**
+     * Tomcat vuelve a pasar la misma petición por la cadena de seguridad en un dispatch ASYNC (p. ej. al
+     * cerrar una conexión SSE), que empieza con el contexto vacío: la autenticación tiene que poder
+     * recuperarse del repositorio.
+     */
+    @Test
+    void doFilter_savesTheAuthenticationForLaterDispatchesOfTheSameRequest() throws Exception {
+        MockHttpServletRequest sseRequest = new MockHttpServletRequest();
+        sseRequest.setCookies(new Cookie("jwt", "valid-token"));
+        when(tokenPort.extractUsername("valid-token")).thenReturn("ash");
+        when(tokenPort.isTokenValid("valid-token", "ash")).thenReturn(true);
+        when(userDetailsService.loadUserByUsername("ash"))
+                .thenReturn(new User("ash", "", Collections.emptyList()));
+
+        filter.doFilterInternal(sseRequest, new MockHttpServletResponse(), chain);
+        SecurityContextHolder.clearContext();
+
+        assertThat(securityContextRepository.loadDeferredContext(sseRequest).get().getAuthentication())
+                .isNotNull()
+                .extracting(auth -> auth.getName()).isEqualTo("ash");
     }
 
     // ── Refresh token ─────────────────────────────────────────────────────────

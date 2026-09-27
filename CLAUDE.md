@@ -114,6 +114,7 @@ Parecen raras o mejorables pero son a propósito. Antes de cambiarlas, leer la n
 - **Un comando = una transacción Mongo con hasta 5 reintentos**; sin compensaciones manuales (ADR-007).
 - **SSE por Redis Pub/Sub** y emitido desde `api-rest` tras el commit, no desde los handlers (ADR-008).
 - **JWT de 15 min + refresh en Redis**, renovación transparente en el filtro; fail-closed si Redis cae (ADR-009).
+- **La autenticación se guarda en la petición** (`SecurityContextRepository` = `RequestAttributeSecurityContextRepository`, sin sesión): Spring Security autoriza cada dispatch y el ASYNC que cierra un SSE no pasa por `JwtAuthFilter` (ADR-011).
 - **Ventanas evaluadas en `Europe/Madrid`** aunque Render corra en UTC (ADR-003).
 - **Bloqueo por timestamp** (`lockedUntil`, 7 días), no por jornada (ADR-004).
 - **Tipos del front generados desde OpenAPI**: cambiar un DTO obliga a regenerarlos en el front (ADR-010).
@@ -135,6 +136,7 @@ Prohibido:
 - Que un controller use repositorios, servicios de dominio o handlers.
 - Que `domain` o `application` dependan de `infrastructure` o de adaptadores concretos (usar puertos); lógica de negocio en `domain` o en controllers.
 - Usar `SseEmitterRegistry` / `UserSseEmitterRegistry` directamente (usa `RealtimeNotifier`).
+- Autenticar con `SecurityContextHolder.getContext().setAuthentication(...)`: contexto nuevo con `SecurityContextHolderStrategy` y `securityContextRepository.saveContext(...)` (ADR-011).
 - Efectos externos (HTTP, emails) dentro de un handler; compensaciones manuales.
 - Fijar versiones de artefactos `org.springframework.boot`.
 
