@@ -3,6 +3,7 @@ package com.villu.pokefantasy.repository;
 import com.villu.pokefantasy.repository.entity.UserEntity;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -10,6 +11,7 @@ import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Locale;
 
 @Component
 @Slf4j
@@ -25,6 +27,7 @@ public class UserRepositoryImpl implements UserRepository {
     public void saveUser(UserEntity userEntity) {
         try {
             // Rely on the unique index on `name` — no TOCTOU race condition
+            userEntity.setNameLower(userEntity.getName() == null ? null : userEntity.getName().toLowerCase(Locale.ROOT));
             mongoTemplate.save(userEntity);
         } catch (DuplicateKeyException e) {
             log.warn("Intento de registro con nombre duplicado: {}", userEntity.getName());
@@ -47,29 +50,27 @@ public class UserRepositoryImpl implements UserRepository {
     }
 
     @Override
-    public void updateUserWithPokemons(UserEntity userEntity) {
-        mongoTemplate.save(userEntity);
-    }
-
-    @Override
     public List<UserEntity> findByUsernamePrefix(String prefix) {
-        Query query = new Query(
-            Criteria.where("name").regex("^" + java.util.regex.Pattern.quote(prefix), "i")
-        ).limit(20);
+        // Rango [prefijo, prefijo + U+FFFF) sobre nameLower: usa el índice, sin regex ni escapes.
+        String lower = prefix.toLowerCase(Locale.ROOT);
+        Query query = new Query(Criteria.where("nameLower").gte(lower).lt(lower + Character.MAX_VALUE))
+                .with(Sort.by("nameLower"))
+                .limit(20);
         return mongoTemplate.find(query, UserEntity.class);
     }
 
     @Override
     public void addFcmToken(String username, String token) {
         Query query = new Query(Criteria.where("name").is(username));
-        Update update = new Update().addToSet("fcmTokens", token);
+        // Incrementa version para que un save() posterior con el usuario desactualizado no borre el token.
+        Update update = new Update().addToSet("fcmTokens", token).inc("version", 1);
         mongoTemplate.updateFirst(query, update, UserEntity.class);
     }
 
     @Override
     public void removeFcmToken(String token) {
         Query query = new Query(Criteria.where("fcmTokens").is(token));
-        Update update = new Update().pull("fcmTokens", token);
+        Update update = new Update().pull("fcmTokens", token).inc("version", 1);
         mongoTemplate.updateMulti(query, update, UserEntity.class);
     }
 }

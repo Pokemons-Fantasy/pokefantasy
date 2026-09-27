@@ -12,8 +12,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import org.springframework.data.redis.RedisConnectionFailureException;
+import org.springframework.web.client.ResourceAccessException;
+
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -77,5 +81,36 @@ class PokemonCacheLoaderTest {
                 .hasMessageContaining("Failed to load pokemons");
 
         verify(cacheAdapter, never()).put(any());
+    }
+
+    @Test
+    void ensureLoaded_pokeApiDown_doesNotPropagateSoStartupContinues() {
+        when(cacheAdapter.isCached()).thenReturn(false);
+        when(pokemonApiAdapter.fetchAllPokemons()).thenThrow(new ResourceAccessException("timeout"));
+
+        assertThatCode(() -> loader.ensureLoaded()).doesNotThrowAnyException();
+        verify(cacheAdapter, never()).put(any());
+    }
+
+    @Test
+    void ensureLoaded_redisDown_doesNotPropagate() {
+        when(cacheAdapter.isCached()).thenThrow(new RedisConnectionFailureException("down"));
+
+        assertThatCode(() -> loader.ensureLoaded()).doesNotThrowAnyException();
+    }
+
+    @Test
+    void ensureLoaded_cacheEmpty_loadsIt() {
+        when(cacheAdapter.isCached()).thenReturn(false);
+        ResultPokemonDto pikachu = new ResultPokemonDto();
+        pikachu.setName("pikachu");
+        pikachu.setUrl("https://pokeapi.co/api/v2/pokemon/25/");
+        PokemonResponseApi response = new PokemonResponseApi();
+        response.setResults(List.of(pikachu));
+        when(pokemonApiAdapter.fetchAllPokemons()).thenReturn(response);
+
+        loader.ensureLoaded();
+
+        verify(cacheAdapter).put(any());
     }
 }

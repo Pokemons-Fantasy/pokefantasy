@@ -52,7 +52,8 @@ class ProposeTradeCommandHandlerTest {
     void setUp() {
         handler = new ProposeTradeCommandHandler(
                 tradeRepository, draftRepository, leagueRepository,
-                userRepository, pushNotificationPort);
+                userRepository, pushNotificationPort,
+                new com.villu.pokefantasy.team.TeamTransferService(draftRepository, null, leagueRepository, null));
     }
 
     @Test
