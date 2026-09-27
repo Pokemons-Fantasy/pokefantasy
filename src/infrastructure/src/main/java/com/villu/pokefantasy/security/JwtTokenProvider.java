@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
+import java.time.Duration;
 import java.util.Date;
 
 @Component
@@ -33,6 +34,11 @@ public class JwtTokenProvider implements TokenPort {
                 .expiration(new Date(now + expirationMs))
                 .signWith(signingKey())
                 .compact();
+    }
+
+    @Override
+    public Duration accessTokenTtl() {
+        return Duration.ofMillis(expirationMs);
     }
 
     @Override

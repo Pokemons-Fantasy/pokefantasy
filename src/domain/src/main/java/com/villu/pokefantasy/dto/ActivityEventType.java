@@ -7,6 +7,9 @@ public enum ActivityEventType {
     POKEMON_RELEASED,
     TRADE_COMPLETED,
     MATCH_RESULT,
+    MATCH_RESULT_REVERTED,
     TIER_CHANGE,
-    COIN_EARNED
+    COIN_EARNED,
+    /** Monedas retiradas al anular un resultado; {@code coinsAmount} es lo retirado (positivo). */
+    COIN_REVOKED
 }

@@ -1,62 +1,44 @@
 package com.villu.pokefantasy.commands.trade;
 
-import com.villu.pokefantasy.commands.schedule.JornadaWindowService;
 import com.villu.pokefantasy.dto.ActivityEventType;
-import com.villu.pokefantasy.dto.DraftStatus;
-import com.villu.pokefantasy.dto.Pokemons;
 import com.villu.pokefantasy.dto.TradeStatus;
 import com.villu.pokefantasy.exception.ForbiddenOperationException;
+import com.villu.pokefantasy.exception.StaleOperationException;
 import com.villu.pokefantasy.mediator.CommandHandler;
+import com.villu.pokefantasy.team.TeamOperation;
+import com.villu.pokefantasy.team.TeamTransferService;
 import com.villu.pokefantasy.repository.ActivityEventRepository;
-import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
-import com.villu.pokefantasy.repository.ScheduleRepository;
 import com.villu.pokefantasy.repository.TradeRepository;
-import com.villu.pokefantasy.repository.UserRepository;
 import com.villu.pokefantasy.repository.entity.ActivityEventEntity;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
 import com.villu.pokefantasy.repository.entity.DraftPick;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import com.villu.pokefantasy.repository.entity.LeagueMember;
-import com.villu.pokefantasy.repository.entity.ScheduleEntity;
 import com.villu.pokefantasy.repository.entity.TradeEntity;
-import com.villu.pokefantasy.repository.entity.UserEntity;
-import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.List;
 
 @Service
 public class RespondToTradeCommandHandler implements CommandHandler<RespondToTradeCommand, Void> {
 
     private final TradeRepository tradeRepository;
     private final DraftRepository draftRepository;
-    private final ScheduleRepository scheduleRepository;
     private final LeagueRepository leagueRepository;
-    private final UserRepository userRepository;
-    private final ClosedListRepository closedListRepository;
-    private final JornadaWindowService jornadaWindowService;
+    private final TeamTransferService teamTransferService;
     private final ActivityEventRepository activityEventRepository;
 
     public RespondToTradeCommandHandler(TradeRepository tradeRepository,
                                         DraftRepository draftRepository,
-                                        ScheduleRepository scheduleRepository,
                                         LeagueRepository leagueRepository,
-                                        UserRepository userRepository,
-                                        ClosedListRepository closedListRepository,
-                                        JornadaWindowService jornadaWindowService,
+                                        TeamTransferService teamTransferService,
                                         ActivityEventRepository activityEventRepository) {
         this.tradeRepository = tradeRepository;
         this.draftRepository = draftRepository;
-        this.scheduleRepository = scheduleRepository;
         this.leagueRepository = leagueRepository;
-        this.userRepository = userRepository;
-        this.closedListRepository = closedListRepository;
-        this.jornadaWindowService = jornadaWindowService;
+        this.teamTransferService = teamTransferService;
         this.activityEventRepository = activityEventRepository;
     }
 
@@ -86,29 +68,17 @@ public class RespondToTradeCommandHandler implements CommandHandler<RespondToTra
     private void executeTrade(TradeEntity trade) {
         String leagueId = trade.getLeagueId();
 
-        DraftEntity draft = draftRepository.findLatestByLeagueId(leagueId)
-                .filter(d -> d.getStatus() == DraftStatus.COMPLETED)
-                .orElseThrow(() -> new IllegalStateException(
-                        "Trades are only allowed after the draft is completed"));
-
-        ScheduleEntity schedule = scheduleRepository.findByLeagueId(leagueId)
-                .orElseThrow(() -> new IllegalStateException("No schedule found for this league"));
-
-        LeagueEntity league = leagueRepository.findById(leagueId)
-                .orElseThrow(() -> new IllegalArgumentException("League not found: " + leagueId));
-
-        if (!jornadaWindowService.isSwapWindowOpen(schedule, league.getSettings())) {
-            throw new IllegalStateException(
-                    "La ventana de intercambios no está abierta. El plazo cerró el viernes a las 16:00.");
-        }
+        TeamTransferService.Market market = teamTransferService.openMarket(leagueId, TeamOperation.TRADE);
+        DraftEntity draft = market.draft();
+        LeagueEntity league = market.league();
 
         DraftPick proposerPick = findPickOrInvalidate(draft, trade,
                 trade.getProposer(), trade.getProposerPokemonName());
         DraftPick responderPick = findPickOrInvalidate(draft, trade,
                 trade.getResponder(), trade.getResponderPokemonName());
 
-        assertNotLocked(proposerPick, trade.getProposerPokemonName());
-        assertNotLocked(responderPick, trade.getResponderPokemonName());
+        teamTransferService.requireUnlocked(proposerPick);
+        teamTransferService.requireUnlocked(responderPick);
 
         LeagueMember proposerMember = getMember(league, trade.getProposer());
         LeagueMember responderMember = getMember(league, trade.getResponder());
@@ -122,44 +92,23 @@ public class RespondToTradeCommandHandler implements CommandHandler<RespondToTra
         responderMember.setCoinBalance(responderMember.getCoinBalance() + trade.getCoinsOffered());
         leagueRepository.save(league);
 
-        // 2. user.getPokemons() de ambos
-        Pokemons removedFromProposer = movePokemon(trade.getProposer(), trade.getProposerPokemonName(),
-                trade.getResponderPokemonName(), trade.getResponderPokemonId(), leagueId);
-        Pokemons removedFromResponder = movePokemon(trade.getResponder(), trade.getResponderPokemonName(),
-                trade.getProposerPokemonName(), trade.getProposerPokemonId(), leagueId);
-
-        // 3. DraftPicks: intercambio de username + bloqueo
+        // 2. DraftPicks: intercambio de dueño + bloqueo
         Instant now = Instant.now();
-        Instant lockUntil = now.plus(7, ChronoUnit.DAYS);
-        proposerPick.setUsername(trade.getResponder());
-        proposerPick.setLockedUntil(lockUntil);
-        proposerPick.setPickedAt(now);
-        responderPick.setUsername(trade.getProposer());
-        responderPick.setLockedUntil(lockUntil);
-        responderPick.setPickedAt(now);
+        teamTransferService.transfer(proposerPick, trade.getResponder(), now);
+        teamTransferService.transfer(responderPick, trade.getProposer(), now);
 
-        try {
-            draftRepository.save(draft);
-        } catch (OptimisticLockingFailureException exception) {
-            compensateTrade(league, proposerMember, responderMember, trade,
-                    removedFromProposer, removedFromResponder, leagueId);
-            throw new IllegalStateException("Otro jugador modificó el draft al mismo tiempo. Inténtalo de nuevo.", exception);
-        } catch (RuntimeException exception) {
-            compensateTrade(league, proposerMember, responderMember, trade,
-                    removedFromProposer, removedFromResponder, leagueId);
-            throw exception;
-        }
+        draftRepository.save(draft);
 
-        // 4. Trade aceptado
+        // 3. Trade aceptado
         trade.setStatus(TradeStatus.ACCEPTED);
         trade.setResolvedAt(now);
         tradeRepository.save(trade);
 
-        // 5. Auto-cancelar propuestas en conflicto
+        // 4. Auto-cancelar propuestas en conflicto
         cancelConflicting(leagueId, trade.getId(),
                 trade.getProposerPokemonName(), trade.getResponderPokemonName());
 
-        // 6. Activity event
+        // 5. Activity event
         activityEventRepository.save(ActivityEventEntity.builder()
                 .leagueId(leagueId)
                 .type(ActivityEventType.TRADE_COMPLETED)
@@ -182,64 +131,10 @@ public class RespondToTradeCommandHandler implements CommandHandler<RespondToTra
                     trade.setStatus(TradeStatus.CANCELLED);
                     trade.setResolvedAt(Instant.now());
                     tradeRepository.save(trade);
-                    throw new IllegalStateException("La propuesta ya no es válida: '"
+                    // StaleOperationException confirma la transacción: la cancelación del trade se persiste.
+                    throw new StaleOperationException("La propuesta ya no es válida: '"
                             + pokemonName + "' ha cambiado de dueño.");
                 });
-    }
-
-    /** @return el Pokemons entregado (removido), o null si el usuario no existe / no lo tenía. */
-    private Pokemons movePokemon(String username, String giveName,
-                                 String takeName, int takeId, String leagueId) {
-        UserEntity user = userRepository.findByUsername(username);
-        if (user == null) return null;
-        List<Pokemons> pokemons = user.getPokemons() != null
-                ? new ArrayList<>(user.getPokemons()) : new ArrayList<>();
-        Pokemons removed = pokemons.stream()
-                .filter(p -> leagueId.equals(p.getLeagueId()) && giveName.equalsIgnoreCase(p.getName()))
-                .findFirst().orElse(null);
-        if (removed != null) {
-            pokemons.remove(removed);
-        }
-        Pokemons received = new Pokemons();
-        received.setId(takeId);
-        received.setName(takeName);
-        received.setLeagueId(leagueId);
-        closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(takeName, leagueId)
-                .ifPresent(entry -> {
-                    received.setStats(entry.getStats());
-                    received.setTypes(entry.getTypes());
-                });
-        pokemons.add(received);
-        user.setPokemons(pokemons);
-        userRepository.updateUserWithPokemons(user);
-        return removed;
-    }
-
-    /**
-     * Revierte monedas y pokémon de ambos jugadores si draftRepository.save(draft) falla —
-     * evita dejar user.pokemons/coinBalance mutados sin el DraftPick correspondiente actualizado.
-     */
-    private void compensateTrade(LeagueEntity league, LeagueMember proposerMember, LeagueMember responderMember,
-                                 TradeEntity trade, Pokemons removedFromProposer, Pokemons removedFromResponder,
-                                 String leagueId) {
-        proposerMember.setCoinBalance(proposerMember.getCoinBalance() + trade.getCoinsOffered());
-        responderMember.setCoinBalance(responderMember.getCoinBalance() - trade.getCoinsOffered());
-        leagueRepository.save(league);
-
-        revertPokemon(trade.getProposer(), trade.getResponderPokemonName(), removedFromProposer, leagueId);
-        revertPokemon(trade.getResponder(), trade.getProposerPokemonName(), removedFromResponder, leagueId);
-    }
-
-    private void revertPokemon(String username, String receivedName, Pokemons removed, String leagueId) {
-        UserEntity user = userRepository.findByUsername(username);
-        if (user == null) return;
-        List<Pokemons> pokemons = new ArrayList<>(user.getPokemons());
-        pokemons.removeIf(p -> leagueId.equals(p.getLeagueId()) && receivedName.equalsIgnoreCase(p.getName()));
-        if (removed != null) {
-            pokemons.add(removed);
-        }
-        user.setPokemons(pokemons);
-        userRepository.updateUserWithPokemons(user);
     }
 
     private void cancelConflicting(String leagueId, String executedTradeId,
@@ -258,13 +153,6 @@ public class RespondToTradeCommandHandler implements CommandHandler<RespondToTra
 
     private boolean matches(String name, String a, String b) {
         return name.equalsIgnoreCase(a) || name.equalsIgnoreCase(b);
-    }
-
-    private void assertNotLocked(DraftPick pick, String pokemonName) {
-        if (pick.getLockedUntil() != null && Instant.now().isBefore(pick.getLockedUntil())) {
-            throw new IllegalStateException(
-                    "'" + pokemonName + "' está bloqueado hasta " + pick.getLockedUntil() + ".");
-        }
     }
 
     private LeagueMember getMember(LeagueEntity league, String username) {

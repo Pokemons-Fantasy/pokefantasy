@@ -2,7 +2,6 @@ package com.villu.pokefantasy.commands.draft;
 
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueSettings;
-import com.villu.pokefantasy.dto.Pokemons;
 import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
@@ -40,6 +39,7 @@ class DraftPickCommandHandlerTest {
     @Mock private UserRepository userRepository;
     @Mock private LeagueRepository leagueRepository;
     @Mock private ScheduleRepository scheduleRepository;
+    @Mock private DraftTurnNotifier draftTurnNotifier;
 
     private DraftPickCommandHandler handler;
 
@@ -50,7 +50,7 @@ class DraftPickCommandHandlerTest {
     @BeforeEach
     void setUp() {
         handler = new DraftPickCommandHandler(draftRepository, closedListRepository, userRepository,
-                leagueRepository, scheduleRepository);
+                leagueRepository, scheduleRepository, draftTurnNotifier);
     }
 
     @Test
@@ -121,7 +121,6 @@ class DraftPickCommandHandlerTest {
         }
         DraftEntity draft = activeDraft(List.of(USERNAME), 0, 11, picks);
         UserEntity user = new UserEntity();
-        user.setPokemons(new ArrayList<>());
         ClosedListEntity entry = closedListEntry(POKEMON, 25);
 
         LeagueEntity league = new LeagueEntity();
@@ -137,7 +136,7 @@ class DraftPickCommandHandlerTest {
         // Should succeed (10 picks < maxTeamSize 20)
         handler.handle(new DraftPickCommand(USERNAME, POKEMON, LEAGUE_ID));
 
-        verify(userRepository).updateUserWithPokemons(any());
+        verify(draftRepository).save(draft);
     }
 
     @Test
@@ -169,10 +168,9 @@ class DraftPickCommandHandlerTest {
     }
 
     @Test
-    void handle_optimisticLockFailure_rollsBackAndThrowsIllegalState() {
+    void handle_draftSaveConflict_propagatesWithoutCompensating() {
         DraftEntity draft = activeDraft(List.of(USERNAME), 0, 1, new ArrayList<>());
         UserEntity user = new UserEntity();
-        user.setPokemons(new ArrayList<>());
         ClosedListEntity entry = closedListEntry(POKEMON, 25);
 
         when(draftRepository.findActiveByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
@@ -183,18 +181,17 @@ class DraftPickCommandHandlerTest {
                 .when(draftRepository).save(any());
 
         assertThatThrownBy(() -> handler.handle(new DraftPickCommand(USERNAME, POKEMON, LEAGUE_ID)))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("try your pick again");
+                .isInstanceOf(OptimisticLockingFailureException.class);
 
-        // Pokemon should have been rolled back from user
-        verify(userRepository, times(2)).updateUserWithPokemons(user);
+        // Sin compensaciones manuales: el conflicto se propaga intacto para que la transacción
+        // del mediator deshaga todas las escrituras y reintente el comando.
+        verify(draftRepository).save(draft);
     }
 
     @Test
     void handle_happyPath_addsPokemonAndAdvancesTurn() {
         DraftEntity draft = activeDraft(List.of(USERNAME, "brock"), 0, 1, new ArrayList<>());
         UserEntity user = new UserEntity();
-        user.setPokemons(new ArrayList<>());
         ClosedListEntity entry = closedListEntry(POKEMON, 25);
 
         when(draftRepository.findActiveByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
@@ -204,12 +201,6 @@ class DraftPickCommandHandlerTest {
 
         handler.handle(new DraftPickCommand(USERNAME, POKEMON, LEAGUE_ID));
 
-        // User updated with the new pokemon
-        ArgumentCaptor<UserEntity> userCaptor = ArgumentCaptor.forClass(UserEntity.class);
-        verify(userRepository).updateUserWithPokemons(userCaptor.capture());
-        assertThat(userCaptor.getValue().getPokemons())
-                .anyMatch(p -> POKEMON.equals(p.getName()) && LEAGUE_ID.equals(p.getLeagueId()));
-
         // Draft saved with pick recorded and turn advanced
         ArgumentCaptor<DraftEntity> draftCaptor = ArgumentCaptor.forClass(DraftEntity.class);
         verify(draftRepository).save(draftCaptor.capture());
@@ -217,13 +208,13 @@ class DraftPickCommandHandlerTest {
         assertThat(saved.getPicks()).hasSize(1);
         assertThat(saved.getPicks().get(0).getUsername()).isEqualTo(USERNAME);
         assertThat(saved.getCurrentTurnIndex()).isEqualTo(1); // advanced to brock
+        verify(draftTurnNotifier).notifyCurrentTurn(saved, null); // avisa a brock
     }
 
     @Test
     void handle_recordsPickInDraftHistory() {
         DraftEntity draft = activeDraft(List.of(USERNAME, "brock"), 0, 1, new ArrayList<>());
         UserEntity user = new UserEntity();
-        user.setPokemons(new ArrayList<>());
         ClosedListEntity entry = closedListEntry(POKEMON, 25);
 
         when(draftRepository.findActiveByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
@@ -252,7 +243,6 @@ class DraftPickCommandHandlerTest {
         // 1 player, already at round 10 → next would exceed max so draft completes
         DraftEntity draft = activeDraft(List.of(USERNAME), 0, 10, new ArrayList<>());
         UserEntity user = new UserEntity();
-        user.setPokemons(new ArrayList<>());
         ClosedListEntity entry = closedListEntry(POKEMON, 25);
         LeagueEntity league = new LeagueEntity();
         league.setId(LEAGUE_ID);
@@ -269,6 +259,7 @@ class DraftPickCommandHandlerTest {
         ArgumentCaptor<DraftEntity> captor = ArgumentCaptor.forClass(DraftEntity.class);
         verify(draftRepository).save(captor.capture());
         assertThat(captor.getValue().getStatus()).isEqualTo(DraftStatus.COMPLETED);
+        verifyNoInteractions(draftTurnNotifier); // draft terminado: no le toca a nadie
 
         // Default settings initialised on the league
         ArgumentCaptor<LeagueEntity> leagueCaptor = ArgumentCaptor.forClass(LeagueEntity.class);
@@ -282,7 +273,6 @@ class DraftPickCommandHandlerTest {
     void handle_lastPickWithExistingSettings_doesNotOverwrite() {
         DraftEntity draft = activeDraft(List.of(USERNAME), 0, 10, new ArrayList<>());
         UserEntity user = new UserEntity();
-        user.setPokemons(new ArrayList<>());
         ClosedListEntity entry = closedListEntry(POKEMON, 25);
         LeagueEntity league = new LeagueEntity();
         league.setId(LEAGUE_ID);
@@ -306,7 +296,6 @@ class DraftPickCommandHandlerTest {
         // 1 player, round 3 → completing round wraps to round 4
         DraftEntity draft = activeDraft(List.of(USERNAME), 0, 3, new ArrayList<>());
         UserEntity user = new UserEntity();
-        user.setPokemons(new ArrayList<>());
         ClosedListEntity entry = closedListEntry(POKEMON, 25);
 
         when(draftRepository.findActiveByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
@@ -329,7 +318,6 @@ class DraftPickCommandHandlerTest {
         // 1 player, round 10 → advancing goes to round 11 which exceeds MAX → draft completes
         DraftEntity draft = activeDraft(List.of(USERNAME), 0, 10, new ArrayList<>());
         UserEntity user = new UserEntity();
-        user.setPokemons(new ArrayList<>());
         ClosedListEntity entry = closedListEntry(POKEMON, 25);
         LeagueEntity league = new LeagueEntity();
         league.setId(LEAGUE_ID);

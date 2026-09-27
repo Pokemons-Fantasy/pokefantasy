@@ -2,6 +2,16 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Documentación: vault de Obsidian
+
+Toda la documentación y el conocimiento del proyecto (back y front) vive en el vault **`C:\PokeFantasy\vault`**, versionado en el repo privado [`Pokemons-Fantasy/pokefantasy-vault`](https://github.com/Pokemons-Fantasy/pokefantasy-vault) (commits directos a `main`; convenciones en `vault/CLAUDE.md`). Este archivo solo contiene las reglas que hay que cumplir al programar.
+
+- Punto de entrada: `vault/Home.md`. Contrato de la API: `20 Arquitectura/API REST.md`. Modelo de datos: `20 Arquitectura/Modelo de datos.md`. Flujos de datos: `20 Arquitectura/Flujos de datos.md`. Una nota por feature en `50 Features/`, decisiones en `70 Decisiones/`, incidentes en `60 Operaciones/Gotchas.md`.
+- Antes de tocar una feature, leer su nota. Al terminar (PR mergeado o listo), actualizar las notas afectadas: feature (`estado`, PRs), API REST, modelo de datos, gotchas.
+- **"Añadir al roadmap"** = crear o actualizar la nota de la feature en `vault/50 Features/` desde `Plantillas/Plantilla Feature.md` con `estado: idea`. No implica implementación. `Features.base` es la vista del roadmap.
+- Specs y planes de los skills siguen en `docs/superpowers/` de cada repo (el vault los enlaza).
+- Si una nota contradice al código, manda el código: corregir la nota.
+
 ## Repos & Deploy
 
 | Repo | Local path | Base branch | Deploy |
@@ -14,8 +24,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Git workflow (mandatory)
 
-### Antes de empezar cualquier tarea de implementación
-
 1. **Revisar PRs abiertos** en ambos repos antes de crear ramas o tocar código:
    ```powershell
    $h = @{ Authorization = "Bearer $env:GITHUB_TOKEN"; Accept = "application/vnd.github+json" }
@@ -23,20 +31,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
    Invoke-RestMethod "https://api.github.com/repos/Pokemons-Fantasy/pokefantasy/pulls?state=open"    -Headers $h | Select number,title,@{n='branch';e={$_.head.ref}}
    ```
    Si hay PRs abiertos, mencionarlos al usuario antes de continuar.
+2. **Siempre invocar el skill `brainstorming`** antes de implementar cualquier feature nueva, aunque parezca simple.
+3. Never push directly to `develop` (backend) or `main` (frontend): `feature/...` or `fix/...` → commit → push → PR. Backend PRs target `develop`; frontend PRs target `main`.
+4. Si un cambio toca back y front, el front debe tolerar el back viejo (campos opcionales) y el back no romper el front viejo: así da igual el orden de los merges.
 
-2. **"Añadir al roadmap"** significa editar `CLAUDE.md` **y** `docs/DIAGRAMS.md` (entidades, flujo de negocio y tabla de estado). Ambos archivos se actualizan siempre juntos. No implica implementación.
-
-3. **Siempre invocar el skill `brainstorming`** antes de implementar cualquier feature nueva, aunque parezca simple.
-
----
-
-Never push directly to `develop` (backend) or `main` (frontend). Always:
-
-```
-feature/... or fix/... → commit → push → PR
-```
-
-Backend PRs target `develop`; frontend PRs target `main`. There is no `gh` CLI — create PRs via GitHub API:
+There is no `gh` CLI — create PRs via GitHub API:
 
 ```powershell
 $token = $env:GITHUB_TOKEN   # set in your shell, never hardcode
@@ -49,173 +48,169 @@ Shell: PowerShell on Windows. Git Bash also available via Bash tool (use paths l
 
 ## Build commands
 
-Use the Maven wrapper `./mvnw` from the **repo root** (`C:\PokeFantasy\pokefantasy`). Maven is not on PATH:
+Maven wrapper `./mvnw` from the **repo root** with `-f src/pom.xml` (el `pom.xml` padre está en `src/`). Maven is not on PATH. La CI (`.github/workflows/workflow.yml`, en cada PR y push a `develop`) ejecuta el primer comando y además construye la imagen Docker:
 
 ```bash
-# Build + tests + coverage gate (80% instruction & branch, JaCoCo)
-./mvnw -B -ntp clean verify
+# Build + tests (unit, controllers, integration with Testcontainers if Docker is available) + coverage gate (80% JaCoCo)
+./mvnw -B -ntp -f src/pom.xml clean verify
 
-# Build without tests (used by Docker)
-./mvnw -B -ntp clean package -DskipTests
+# Build without tests
+./mvnw -B -ntp -f src/pom.xml clean package -DskipTests
 
 # Application module tests only (fast, no infra/Redis/MongoDB needed)
-./mvnw -B -ntp test -pl application -am       # -am builds domain dependency first
+./mvnw -B -ntp -f src/pom.xml test -pl application -am
 
 # Single test class
-./mvnw -B -ntp test -pl application -am -Dtest=MyTestClass
+./mvnw -B -ntp -f src/pom.xml test -pl application -am -Dtest=MyTestClass
 ```
 
-Start infrastructure before running locally:
+- Antes de hacer push a un PR, `verify` (no solo `test`: `test` no ejecuta el gate de JaCoCo). Sin Docker los tests de integración se saltan: antes de un PR grande, ejecutarlos con Docker abierto.
+- Infra local: `cd src && docker-compose up -d` (Mongo en replica set :27017, Redis :6379). Env var obligatoria `JWT_SECRET` (Base64, 256 bits). Resto de variables y guía de entorno local: `vault/60 Operaciones/Entorno local.md`.
+- **Versiones**: Spring Boot se versiona **solo** con el parent `spring-boot-starter-parent` de `src/pom.xml`; no fijes versiones de artefactos `org.springframework.boot` en los POM.
 
-```bash
-cd src && docker-compose up -d   # MongoDB :27017, Redis :6379
-```
+## Arquitectura
 
-Required env var: `JWT_SECRET` (Base64-encoded 256-bit key). Optional: `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD`, `REDIS_SSL`, `MONGODB_URI`.
-
-On startup, `PokemonCacheLoader` (`@PostConstruct`) fetches all ~1300 Pokémon from PokeAPI into Redis — **app fails to start if PokeAPI is unreachable**.
-
-## Architecture
-
-5-module Maven multi-module, hexagonal architecture. All source under `src/`:
+### 1. Qué hay en el sistema
 
 ```
-domain/         → Entities, repository interfaces, DTOs, port interfaces (no Spring)
-application/    → Command/Mediator, Facades, business logic
-infrastructure/ → Port implementations (MongoDB, Redis, JWT, PokeAPI)
-api-rest/       → REST controllers + request/response DTOs
-boot/           → Entry point, application.yml, assembles all modules
+Web (Netlify) / Android (Capacitor)
+   │  REST + cookies jwt/refresh            ▲ SSE (draft, usuario) · FCM push
+   ▼                                        │
+api-rest ─► application ─► domain ◄─ infrastructure ─► MongoDB Atlas (replica set) · Redis · PokeAPI · Firebase
+(controllers, jobs)  (commands, servicios, puertos)    (adaptadores)
 ```
 
-Dependency direction: `api-rest` → `application` → `domain` ← `infrastructure`. `boot` depends on all.
+5 módulos Maven bajo `src/`: `domain` (entidades con anotaciones de Spring Data, interfaces de repositorio, DTOs, excepciones; sin lógica), `application` (commands, facades, servicios de dominio, puertos), `infrastructure` (adaptadores), `api-rest` (controllers, jobs `@Scheduled`, filtros), `boot` (arranque, config, tests de integración). Diagrama completo: `vault/20 Arquitectura/Visión general.md`.
 
-## CQRS / Mediator pattern — always follow this order
+### 2. Quién es responsable de qué (un solo dueño por responsabilidad)
 
-Every use case needs these four pieces, in this order:
+| Responsabilidad | Dueño |
+|---|---|
+| Transacción, reintentos y métricas de cada comando | `SpringMediator` (+ `TransactionPort`, `CommandMetricsPort`) |
+| Movimientos de equipo (robo, trade, swap, compra, liberar): mercado abierto, bloqueo 7 días, cobro, banca | `TeamTransferService` + `TeamOperation` |
+| Ventanas de robo / swap (hora de Madrid) | `JornadaWindowService` |
+| Registrar / corregir / deshacer resultados, monedas por partido y sus eventos | `MatchResultService` |
+| Precio de un tier | `TierPricingService` |
+| Reparto de tiers del pool | `TierAssignmentService` |
+| Calendario round-robin | `RoundRobinScheduler` |
+| Turnos vencidos del draft (cliente y job) | `DraftTurnTimeoutService` |
+| Push de turno / de cierre de ventana | `DraftTurnNotifier` / `WindowReminderService` |
+| Admin de liga / pertenencia a liga | `LeagueAdminGuard` / `LeagueMemberService` |
+| Emitir SSE (vía Redis Pub/Sub) | `RealtimeNotifier` (api-rest) |
+| Enviar push | `PushNotificationPort` |
+| Sesión (JWT + refresh), límite de login | `JwtAuthFilter` + `AuthCookies` + `RefreshTokenPort`, `LoginAttemptPort` |
+| Excepción → HTTP (`ProblemDetail`) | `ApiExceptionHandler` |
+| Índices / migraciones de esquema | `MongoIndexInitializer` / clases `*Migration` |
+| Caché de Pokémon | `PokemonCacheLoader` |
 
-1. **`XCommand`** — Java `record` that **must implement `interface Command`**. If it doesn't, `SpringMediator` won't register it (this caused a real bug).
-2. **`XCommandHandler`** — `@Service` implementing `CommandHandler<XCommand, R>`.
-3. **`XFacade`** — calls `mediator.send(new XCommand(...))`. One `send` per method.
-4. **Controller** — injects the Facade only.
+Si una regla ya tiene dueño, se usa el dueño; no se reimplementa en un handler.
 
-Folder: `application/src/main/java/com/villu/pokefantasy/commands/{feature}/`
+### 3. Decisiones intencionadas (no "arreglarlas")
 
-`SpringMediator` auto-discovers all `CommandHandler` beans via constructor injection. Never call handlers directly.
+Parecen raras o mejorables pero son a propósito. Antes de cambiarlas, leer la nota en `vault/70 Decisiones/` y preguntar.
 
-## Exception → HTTP mapping (`ApiExceptionHandler`)
+- `DraftTurnTimeoutService` **inyecta `DraftPickCommandHandler` directamente**: única excepción a "nunca llamar handlers directamente", evita una dependencia circular con el mediator (ADR-005).
+- **Los equipos son solo `draft.picks`** del último draft; `UserEntity` no guarda equipos (ADR-006).
+- **Un comando = una transacción Mongo con hasta 5 reintentos**; sin compensaciones manuales (ADR-007).
+- **SSE por Redis Pub/Sub** y emitido desde `api-rest` tras el commit, no desde los handlers (ADR-008).
+- **JWT de 15 min + refresh en Redis**, renovación transparente en el filtro; fail-closed si Redis cae (ADR-009).
+- **La autenticación se guarda en la petición** (`SecurityContextRepository` = `RequestAttributeSecurityContextRepository`, sin sesión): Spring Security autoriza cada dispatch y el ASYNC que cierra un SSE no pasa por `JwtAuthFilter` (ADR-011).
+- **Ventanas evaluadas en `Europe/Madrid`** aunque Render corra en UTC (ADR-003).
+- **Bloqueo por timestamp** (`lockedUntil`, 7 días), no por jornada (ADR-004).
+- **Tipos del front generados desde OpenAPI**: cambiar un DTO obliga a regenerarlos en el front (ADR-010).
+- Deshacer un resultado devuelve **las monedas que se dieron**, aunque el saldo quede negativo.
 
-| Exception | HTTP |
-|-----------|------|
-| `IllegalArgumentException` | 400 |
-| `IllegalStateException` | 409 |
-| `ForbiddenOperationException` | 403 |
-| `Exception` | 500 |
+### 4. Qué puede tocar qué
 
-## Security
+Dirección: `api-rest` → `application` → `domain` ← `infrastructure`; `boot` depende de todos.
 
-Stateless JWT. Public endpoints (no token required): `POST /v1/user`, `POST /v1/user/login`, `GET /actuator/health`. Everything else requires `Authorization: Bearer <token>`. `LeagueAdminGuard.requireLeagueAdmin()` guards admin-only operations — checks `LeagueRole.ADMIN` in the league's member list.
+**CQRS / Mediator, siempre en este orden** (carpeta `application/src/main/java/com/villu/pokefantasy/commands/{feature}/`):
 
-CORS is restricted to `https://*.netlify.app` and `localhost` — no wildcard origin (`SecurityConfig.java`). If you add a custom domain, update `corsConfigurationSource()`.
+1. **`XCommand`** — `record` que **debe implementar `Command`**. Si no, `SpringMediator` no lo registra (bug real).
+2. **`XCommandHandler`** — `@Service` implementando `CommandHandler<XCommand, R>`.
+3. **`XFacade`** — `mediator.send(new XCommand(...))`, un `send` por método.
+4. **Controller** — inyecta solo la Facade.
 
-## Key entities
+Prohibido:
+- Llamar a un handler desde otro sitio que no sea el mediator (salvo la excepción de ADR-005).
+- Que un controller use repositorios, servicios de dominio o handlers.
+- Que `domain` o `application` dependan de `infrastructure` o de adaptadores concretos (usar puertos); lógica de negocio en `domain` o en controllers.
+- Usar `SseEmitterRegistry` / `UserSseEmitterRegistry` directamente (usa `RealtimeNotifier`).
+- Autenticar con `SecurityContextHolder.getContext().setAuthentication(...)`: contexto nuevo con `SecurityContextHolderStrategy` y `securityContextRepository.saveContext(...)` (ADR-011).
+- Efectos externos (HTTP, emails) dentro de un handler; compensaciones manuales.
+- Fijar versiones de artefactos `org.springframework.boot`.
 
-**`UserEntity`** (collection `users`): `id`, `name` (username), `password` (bcrypt), `roles`, `pokemons` (`List<Pokemons>` with `leagueId` field to separate by league).
+### 5. Cómo se mueven los datos
 
-**`LeagueEntity`** (collection `leagues`): `id`, `name`, `createdBy`, `status`, `members` (`List<LeagueMember{username, leagueRole}>`). `leagueRole` is per-league (ADMIN / USER), not global.
+Escritura: `Controller` → `XFacade` → `SpringMediator` (abre transacción) → `XCommandHandler` → servicios de dominio → repositorios → **commit** → el controller emite SSE con `RealtimeNotifier` (Redis Pub/Sub → cada instancia → `EventSource` del cliente, que invalida su query de React Query y refresca). Los push se piden en el handler con `PushNotificationPort` y se envían tras el commit.
+Lectura: igual, con un comando de consulta. Los jobs (`DraftTurnTimeoutJob`, `WindowReminderJob`) entran por la Facade como un controller.
+Flujos completos (robo, pick del draft, resultado): `vault/20 Arquitectura/Flujos de datos.md`.
 
-**`ClosedListEntity`** (collection `closed_list`): `leagueId`, `pokemonId`, `pokemonName`, `nominatedBy`, `tier` (S/A/B/C/D), `stats`, `types`, `sprite`.
+### 6. Qué no se puede romper nunca
 
-**`DraftEntity`** (collection `draft`): `id`, `leagueId`, `status` (PENDING/IN_PROGRESS/COMPLETED/CANCELLED), `turnOrder`, `currentTurnIndex` (0-based), `currentRound` (starts at 1), `picks` (`List<DraftPick{username, pokemonName, pokemonId, round, pickedAt}>`), `@Version` (optimistic locking).
+- **Secretos fuera del repo** (`JWT_SECRET`, `FIREBASE_SERVICE_ACCOUNT_JSON`, `google-services.json`, `.env.local`); errores 500 sin detalles internos.
+- **Una sola fuente de verdad**: equipos en `draft.picks`, ventanas en `JornadaWindowService`, resultados y sus monedas en `MatchResultService`.
+- **Todo cambio de estado es un comando**: pasa por el mediator, en transacción, y es seguro ante reintentos (relee lo que valida).
+- **Nunca pisar datos ajenos**: `@Version` en las entidades principales; nada de `save()` con datos leídos antes de la transacción.
+- **Compatibilidad**: campos nuevos opcionales; el front viejo sigue funcionando con el back nuevo y viceversa.
+- **Contrato de errores**: `ProblemDetail` con `code` estable (el front depende de `code` y `message`).
+- **Gate de cobertura** 80 % y CI en verde antes de mergear.
+- Ningún patrón nuevo (librería, capa, estilo) sin una razón escrita en `vault/70 Decisiones/`.
 
-**Critical**: `TeamsPage` in the frontend derives teams from `draft.picks`, NOT from `user.getPokemons()`. Any operation that changes a player's team (swap, etc.) must update **both**: `user.getPokemons()` AND the corresponding `DraftPick` in `DraftEntity`.
+### 7. Dónde va el código nuevo
 
-## Repository methods
+| Qué | Dónde |
+|---|---|
+| Caso de uso nuevo | `application/.../commands/{feature}/` (Command + Handler + Facade) y controller en `api-rest` |
+| Regla compartida por varios casos de uso | En su dueño (tabla 2); si no existe, un servicio en `application` con nombre de la responsabilidad |
+| Integración externa | Puerto en `application/.../ports/` + adaptador en `infrastructure` (excepción histórica: `PushNotificationPort` y los repositorios viven en `domain/.../repository/`) |
+| Entidad nueva con índices | `domain/.../repository/entity/` + añadirla a `INDEXED_ENTITIES` de `MongoIndexInitializer` |
+| Cambio de esquema en documentos existentes | Migración al arrancar en `infrastructure/.../migration/` (ver `VersionFieldMigration`) |
+| Tarea periódica | Job `@Scheduled` en `api-rest` que llama a una Facade (pool de 3 hilos compartido) |
+| Evento del activity feed | Valor nuevo en `ActivityEventType` (y el front lo contempla, ver ADR-010) |
+| Excepción de negocio nueva | Mapeo en `ApiExceptionHandler` con `code` estable |
+| Tests | Unitario junto al handler; controller con `ControllerTestSupport`; integración en `boot/src/test/.../it/` |
 
-- `UserRepository`: `findByUsername`, `saveUser`, `updateUserWithPokemons`
-- `LeagueRepository`: `findById`, `findByMemberUsername`, `addMember`, `removeMember`
-- `ClosedListRepository`: `findAllByLeagueId`, `findByPokemonNameIgnoreCaseAndLeagueId`
-- `DraftRepository`: `findActiveByLeagueId` (PENDING/IN_PROGRESS only), `findLatestByLeagueId` (any status), `save`
+### 8. Cuándo parar y preguntar
 
-## Current endpoints
+Si una tarea obliga a romper una regla de las secciones 3, 4 o 6, a cambiar una decisión intencionada, o a crear una segunda forma de hacer algo que ya tiene dueño:
 
-```
-POST   /v1/user                                    register
-POST   /v1/user/login                              login
-GET    /v1/leagues                                 my leagues
-POST   /v1/leagues                                 create league
-GET    /v1/leagues/{id}                            league detail
-POST   /v1/leagues/{id}/members                    add member
-DELETE /v1/leagues/{id}/members/{username}         expel/leave
-GET    /v1/leagues/{id}/closed-list                pokemon pool
-POST   /v1/leagues/{id}/closed-list/nominate       nominate pokemon
-DELETE /v1/leagues/{id}/closed-list/nominate/{name}
-POST   /v1/leagues/{id}/draft/start                start draft
-POST   /v1/leagues/{id}/draft/pick                 make pick
-GET    /v1/leagues/{id}/draft                      draft status
-DELETE /v1/leagues/{id}/draft                      cancel draft
-POST   /v1/leagues/{id}/draft/auto-pick             auto-pick random pokemon when turn timer expires
-GET    /v1/leagues/{id}/bench                      bench (unchosen pokemons)
-POST   /v1/leagues/{id}/bench/swap                 bench swap (tier parity + net coin change)
-POST   /v1/leagues/{id}/bench/buy                  buy bench pokémon with coins (round=0 sentinel)
-POST   /v1/leagues/{id}/steal                      steal rival's pokémon
-PUT    /v1/leagues/{id}/steal-price                raise own pokémon steal price
-GET    /v1/leagues/{id}/my-coins                   own coin balance
-GET    /actuator/health                            health check (public)
-```
+**PARAR** → nombrar la regla o decisión en conflicto → explicar qué afecta (datos, endpoints, front, tests) → proponer el cambio más pequeño que no la rompa → esperar respuesta del usuario antes de implementar.
+
+También parar ante: cambios de contrato de la API que rompan al front actual, migraciones que borren o transformen datos de producción, y cualquier cambio en seguridad (sesión, CORS, rutas públicas).
+
+## Errores y seguridad
+
+**Excepción → HTTP** (`ApiExceptionHandler`, respuestas `ProblemDetail` con `code` estable):
+
+| Exception | HTTP | `code` |
+|-----------|------|--------|
+| `IllegalArgumentException` | 400 | `BAD_REQUEST` |
+| `BadCredentialsException` | 401 | `INVALID_CREDENTIALS` |
+| `ForbiddenOperationException` | 403 | `FORBIDDEN` |
+| `IllegalStateException` / `StaleOperationException` (confirma y luego 409) | 409 | `CONFLICT` |
+| `OptimisticLockingFailureException` | 409 | `CONCURRENT_MODIFICATION` |
+| `DuplicateKeyException` | 409 | `DUPLICATE` |
+| `TooManyAttemptsException` | 429 | `TOO_MANY_ATTEMPTS` |
+| `Exception` | 500 | `INTERNAL_ERROR` |
+
+**Seguridad**: sesión por cookies httpOnly (JWT 15 min + refresh en Redis). Públicos solo los de `SecurityConfig.PUBLIC_PATHS` + OpenAPI. CORS en `SecurityConfig.corsConfigurationSource()`: si se añade un dominio propio, actualizarlo. Detalle en `vault/20 Arquitectura/Seguridad y auth.md`.
 
 ## Tests
 
-The `application` module has a unit test suite (348 tests, pure Mockito, no Spring context). JaCoCo 80% gate runs on `mvn verify` at BUNDLE level across all modules.
+Gate JaCoCo 80 % (instrucciones y ramas) en `application`, `infrastructure` y `api-rest`.
 
-**What's covered**: `CreateUserCommandHandler`, `LoginUserCommandHandler`, `StartDraftCommandHandler`, `DraftPickCommandHandler`, `GetDraftStatusCommandHandler`, `SwapWithBenchCommandHandler`, `StealPokemonCommandHandler`, `SetStealPriceCommandHandler`, `LeagueAdminGuard`.
+- **Unitarios**: Mockito puro, sin contexto de Spring; se mockean puertos y repositorios (inyección por constructor).
+- **Controladores**: MockMvc standalone con `ControllerTestSupport`.
+- **Integración** (`boot/src/test/.../it/`): Testcontainers con Mongo **`withReplicaSet()`** (sin él no hay transacciones y los tests mienten) y Redis.
+- Ternarios y null-checks defensivos cuentan como ramas: simplificarlos cuando sea seguro sale más barato que testear cada combinación.
 
-**Pattern**: all handlers use constructor injection — mock the ports and repositories, test business logic directly. No `@SpringBootTest` needed.
+## Rendimiento (Render free tier)
 
-`UserEntity.name` has `@Indexed(unique=true)` — MongoDB enforces uniqueness at DB level, not application level (no TOCTOU race).
+- Minimizar llamadas al backend: caché de React Query con `staleTime`.
+- Sprites siempre desde CDN: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/{id}.png`.
+- No añadir endpoints si los datos ya vienen en uno existente.
 
-## Performance constraints (Render free tier)
+## Cambios que afectan al frontend
 
-- Minimise backend calls — use React Query cache with `staleTime`.
-- Pokémon sprites always from CDN: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/{id}.png`
-- Don't add new endpoints if data already comes from an existing one.
-- GitHub Action pings `/actuator/health` every 10 min to prevent Render cold starts.
-
-## Frontend notes
-
-Stack: React 19 + Vite + TypeScript, TanStack React Query, Zustand (auth: `token` + `username` in localStorage under `auth-storage`), Axios with Bearer interceptor, React Router v7.
-
-TypeScript: use `import type { X }` for pure interfaces/types — **Netlify build fails if you don't**.
-
-TypeScript check (no emit): `./node_modules/.bin/tsc --noEmit` from `pokefantasy-web/`. Run `npm install` first if `node_modules` is missing.
-
-CSS design tokens in `src/index.css`. Animation utilities: `.animate-in`, `.stagger` (staggered children). Loading primitives: `.spinner`, `.skeleton`, `.loading-text`. Space Mono font for numeric stats (`.stat-pill-value`).
-
-## Roadmap
-
-**Done**: JWT auth, closed list + tiers, draft + 10 Pokémon/player limit, production deploy, login/register/home UI, pool selection page, league system with per-league roles, cancel draft, expel/leave league (cleans draft picks + adjusts turn order), teams view (TeamsPage), bench system (1-for-1 swap), keep-alive ping (every 5 min with retry), Redis cache skip on startup if already populated, auto-tier assignment on draft start (BST-relative quintiles, S/A/B/C/D), tier badges in pool / draft / teams UI, league settings with per-tier coin prices (priceTierS/A/B/C/D), round-robin calendar (primera + segunda vuelta, auto-generated on draft completion), admin records match results, seed script for complete demo league (8 players, 128 pool, 80 picks, 48 bench), **coin balance per player** (private, grows with wins/losses), **paid bench swaps** (tier parity rule — can't trade up; net coin change when trading down), **Pokémon steal system** (steal price = priceTierX or custom raised by owner; victim receives 2×; stolen Pokémon locked until jornada ends), **admin manual tier adjustment** (bidirectional cascade — promotion bumps lowest-BST from each intermediate tier down; demotion bumps highest-BST up; tier counts always balanced; dedicated `/leagues/:leagueId/tiers` admin page with tier tabs and cascade modal; TeamsPage cleaned of all tier-adjust code), **sticky own-team panel in TeamsPage** (user's team pinned below header via `position: sticky`; collapsible toggle; rival teams scroll underneath; `max-height: 42vh` with internal scroll for large teams), **configurable tier percentages** (admin sets % of pool per tier S/A/B/C/D; must sum 100; persisted in `LeagueSettings`; applied at draft start AND on every settings save via `TierAssignmentService` — changing percentages immediately re-tiers the entire pool including already-drafted Pokémon; settings editable any time except during IN_PROGRESS draft), **player-to-player trades** (1-for-1 between two players with optional coin cost; A proposes their Pokémon + target Pokémon + optional coins, B accepts or rejects; executes only on accept; global pending-trades notification banner across all leagues — PRs #40/#41 backend, #24/#25 frontend), **steal/swap window unification** (backend `JornadaWindowService` is the single source of truth; `ScheduleResponse` exposes `stealWindowOpen`/`swapWindowOpen`; frontend consumes them without recomputing date arithmetic — PRs #42/#44 backend, #26 frontend), **original draft history** (`DraftEntity.draftHistory` snapshots each user's first pick, immutable against steals/swaps/trades; shown in the draft history view), **activity feed** (chronological log of all league events — steals, swaps, trades, match results, tier changes, coin movements; `/leagues/:id/activity` page, polling every 30 s; new `activity_events` MongoDB collection — PRs #47 backend, #27 frontend), **settings page two-column layout** (sticky sidebar with save button always visible, pending-changes list with old→new values, unsaved-changes indicator — PR #29 frontend), **steal/swap window banners** (TeamsPage always shows both steal and swap window state simultaneously — PR #28 frontend), **buy bench Pokémon with coins** (player spends coins to acquire an unclaimed bench Pokémon without giving up any of their own; price = priceTierX; same swap window; `DraftPick.round = 0` sentinel; `BENCH_PURCHASE` activity event; unified `BenchActionModal` with choose/buy views — PRs #51 backend, #30 frontend), **popup unificado en Pokémon rival** (`RivalActionModal` shown when steal window is open — PR #31 frontend), **exportar equipo a Pokémon Showdown** (botón "📋 Showdown"; copia al portapapeles en formato Showdown; solo especies, sin backend — PR #32 frontend), **TeamsPage refactor** (1503 → 696 líneas; 5 modales extraídos; utils `sprites.ts` + `tiers.ts` — PR #33 frontend), **sistema centralizado de toasts** (Zustand `toastStore`, `ToastContainer` fixed bottom-right, auto-dismiss, helper `extractErrorMessage`; ~15 `useState` de error migrados en 14 archivos — PR #34 frontend), **página de clasificación** (`GET /v1/leagues/{id}/standings` agrega W/L y monedas; `StandingsPage` con tabla Pos/Jugador/PJ/V/D/Monedas, medallas top-3, fila propia destacada — PR #53 backend, #35 frontend), **Pokémon detail card modal** (sprite grande, tipos con pastillas de color, stats base HP/Atk/Def/SpA/SpD/Spe, tier badge; ℹ️ on hover en pool, draft, teams y banca; transform layer en `getClosedList` para aplanar shape de PokéAPI — PR #37 frontend), **versión 1.0.0** (badge `v1.0.0` bottom-right en frontend; pom.xml sin SNAPSHOT — PRs #36 frontend, #56 backend), **fix spring-boot-maven-plugin** (version 4.0.2 en `boot/pom.xml` elimina warning de Maven en Render — PR #50 backend), **SSE notificaciones usuarios** (robo + trade propuesto en tiempo real; `UserSseEmitterRegistry`; endpoint autenticado `GET /v1/users/events`; `useNotificationSse` reemplaza polling 30s con fallback polling 120s si SSE se cierra — PRs #72 backend, #62 frontend), **fix PORT env var** (Render inyecta `PORT`; `application.yml` usa `${PORT:8080}` — PR #73 backend), **JWT httpOnly cookie** (`SameSite=None; Secure`; CORS `allowCredentials(true)`; `JwtAuthFilter` lee cookie primero, Bearer header como fallback; `POST /v1/user/logout` limpia cookie; SSE usa `@AuthenticationPrincipal`; `withCredentials: true` en Axios + EventSource; `authStore` solo persiste `username` — PRs #74 backend, #63 frontend), **versión 1.1.0** (badge `v1.1.0`; `versionCode 2 / versionName "1.1"` en Android; Dockerfile usa wildcard `boot-*.jar` — PRs #75 backend, directo a main frontend), **skeletons de carga** (componentes `SkeletonTable` y `SkeletonGrid` reutilizables; sustituyen los `<p>Cargando...</p>` en todas las páginas), **confirmación de pick en el draft** (modal `pendingPick` en `DraftPage` antes de llamar `draftPick` — evita picks accidentales), **temporizador de turno en el draft** (`turnTimerSeconds` en `LeagueSettings`; `currentTurnStartedAt` en `DraftEntity`; `turnDeadline` en `DraftStatusResponse`; cuenta atrás en `DraftPage`; `POST /auto-pick` con `AutoPickDraftCommandHandler` inyectando `DraftPickCommandHandler` directamente para evitar dependencia circular con `SpringMediator`; 348 tests — PRs #58 backend, #40 frontend), **diseño responsive para móvil** (`own-team-panel-header` reestructurado en info/actions groups; clase `.pokemon-grid-modal` corrige overflow de grids en modales; `modal-actions` wrappea en pantallas estrechas; header-right compacto en mobile), **filtro de rivales en TeamsPage** (input de nombre + pills S/A/B/C/D multiselect encima de los equipos rivales; equipos con 0 resultados se ocultan; contador de rivales/pokémon visibles; botón limpiar; equipo propio y banca no afectados — PR #43 frontend), **dark/light toggle** (botón ☀️/🌙 en todos los headers via componente `PageHeader` compartido; CSS vars bajo `.theme-light` en `<html>`; persistido en `localStorage`; flash prevention con inline script en `index.html` — PR #44 frontend), **página de perfil de jugador** (ruta `/leagues/:leagueId/players/:username`; avatar + stats W/L/PJ/monedas; equipo actual en grid; historial original del draft si difiere del equipo actual; `MyProfilePage` en `/profile` con ligas del usuario; `PageHeader` compartido con back customizable — PR #45 frontend), **actualizaciones en tiempo real del draft (SSE)** (`SseEmitterRegistry` con `Map<leagueId, List<SseEmitter>>`; heartbeat cada 30 s contra timeout de Render; endpoint público `GET /v1/leagues/{id}/draft/events`; `DraftController` llama `broadcastUpdate` tras pick/start/cancel/auto-pick; frontend reemplaza `refetchInterval: 5000` por `EventSource` con fallback polling 10 s si SSE se cierra; 367 tests — PRs #59 backend, #46 frontend), **gestión de miembros** (link de invitación de un solo uso TTL 48h en Redis — admin genera token desde `LeagueDetailPage`, cualquier usuario autenticado lo canjea en `/invite/:token`; autocomplete de username al añadir miembro con debounce 300ms, regex MongoDB `^prefix` case-insensitive, excluye ya-miembros; `InviteRepository` + `GenerateInviteLink` + `RedeemInvite` + `SearchUsers` commands/handlers; 19 tests nuevos — PRs #60 backend, #47 frontend).
-
-**endpoint de estadísticas de temporada** (`GET /v1/leagues/{id}/season-stats`; por jugador: wins, losses, played, winPct, currentStreak positivo/negativo, mvpPokemon (primer pick de draftHistory); ordenado por wins DESC; 375 tests — PR #61 backend), **bloqueo temporal de robos/trades** (`DraftPick.lockedUntilRound: Integer` → `lockedUntil: Instant`; al robar o aceptar trade: `lockedUntil = now + 7 días`; check puro de timestamp sin depender del estado de jornada; `ProposeTradeCommandHandler` ya no inyecta `ScheduleRepository`; migración automática — docs con `lockedUntilRound` se leen como desbloqueados; tooltip muestra fecha exacta DD/MM HH:MM; 378 tests — PRs #62 backend, #48 frontend), **app Android (Capacitor)** (Capacitor 7, `appId: com.pokefantasy.app`, `androidScheme: https`; `@capacitor/clipboard` reemplaza `navigator.clipboard`; APK compilable desde Android Studio en Windows), **push notifications FCM** (Firebase Admin SDK 9.4.2; `PushNotificationPort` + `FirebasePushNotificationAdapter`; `POST /v1/users/push-token`; `UserEntity.fcmTokens` con `$addToSet`/`$pull`; dispatch en robo y trade propuesto; token refresh en login via `useEffect` en `App.tsx`; `deleteToken()` en `MainActivity.java` para invalidar caché en reinstalación; `google-auth-library-credentials:1.29.0` explícito para evitar conflict con Spring Boot 4.0.2 BOM — gotcha documentado en sección Mobile), **safe area Android/iOS** (`env(safe-area-inset-top)` en `.page-header`; `calc(60px + env(...))` en `.own-team-panel` sticky; `env(safe-area-inset-bottom)` en `body`).
-
-**Deuda técnica** (sin deuda técnica activa)
-
-**Next** (sin pendientes activos — proyecto completo en v1.1.0)
-
-**Mobile — DONE** (Capacitor wraps the existing React app — zero rewrite. iOS fuera de scope hasta tener Mac + Apple Developer account):
-
-1. ~~**Proyecto Firebase**~~ — **DONE**. Proyecto `pokefantasy-5920a` en Firebase Console. Service account JSON en `FIREBASE_SERVICE_ACCOUNT_JSON` env var de Render.
-2. ~~**CORS para Capacitor**~~ — **DONE** (PR #64). `capacitor://localhost` añadido a `allowedOriginPatterns`.
-3. ~~**Capacitor setup + Android**~~ — **DONE**. `@capacitor/core`, `@capacitor/cli`, `@capacitor/android`, `@capacitor/clipboard`. `capacitor.config.ts` (`appId: com.pokefantasy.app`, `webDir: dist`, `androidScheme: https`). Scripts `cap:sync` y `cap:open`. APK compilable desde Android Studio.
-4. ~~**Push notifications — backend**~~ — **DONE**. `PushNotificationPort` (domain interface), `FirebasePushNotificationAdapter` (firebase-admin 9.4.2, `sendEachForMulticast`, cleanup de tokens UNREGISTERED/INVALID_ARGUMENT), `POST /v1/users/push-token` (CQRS `RegisterPushTokenCommand`), `UserEntity.fcmTokens` (`$addToSet`). Disparado en robo (`StealPokemonCommandHandler`) y trade propuesto (`ProposeTradeCommandHandler`). **Gotcha crítico**: Spring Boot 4.0.2 BOM pinea `google-auth-library-credentials` a `1.23.0` pero `firebase-admin` necesita `1.29.0` (contiene `CredentialTypeForMetrics`). Fix: dependency explícita `google-auth-library-credentials:1.29.0` en `infrastructure/pom.xml`.
-5. ~~**Push notification client — frontend**~~ — **DONE**. `@capacitor/push-notifications` v8. `main.tsx`: `requestPermissions` → `register()` → listener `registration` usa `apiClient.post('/v1/users/push-token')` (cookie httpOnly automática). `App.tsx`: `useEffect` sobre `username` de Zustand llama `register()` al iniciar sesión (evita race condition si la app se abre sin sesión). `MainActivity.java`: `FirebaseMessaging.deleteToken()` en primer arranque via `SharedPreferences` flag `fcm_token_reset_v1` para forzar token fresco tras reinstalación. `android/app/build.gradle`: `proguard-android-optimize.txt` (AGP 9.2.1 eliminó `proguard-android.txt`) + `firebase-messaging:24.1.1`.
-6. ~~**Safe area Android**~~ — **DONE**. `viewport-fit=cover` ya estaba en `index.html`. Añadido en `index.css`: `padding-top: env(safe-area-inset-top)` en `.page-header`; `top: calc(60px + env(safe-area-inset-top))` en `.own-team-panel` (sticky); `padding-bottom: env(safe-area-inset-bottom)` en `body`. Header light-theme background fix incluido.
-7. ~~**App icons + splash screen**~~ — **DONE**.
-8. ~~**Deep links (invite)**~~ — **DONE**.
-9. ~~**Status bar color**~~ — **DONE**.
-10. ~~**Haptics**~~ — **DONE**. `@capacitor/haptics@8.0.2`. `ImpactStyle.Medium` en pick de draft (`DraftPage.tsx`) y aceptar trade (`TradesModal.tsx`); `ImpactStyle.Heavy` en confirmar robo (`TeamsPage.tsx`). Disparo en `onSuccess` de cada mutación. `@capacitor/status-bar@8.0.2`. `useTheme.ts` llama `StatusBar.setStyle` + `StatusBar.setBackgroundColor` en el `useEffect` existente. Dark: `#0a0a0f` + `Style.Dark`; Light: `#f4f4f8` + `Style.Light`. Se aplica en mount y en cada toggle. Custom scheme `pokefantasy://`. Intent-filter en `AndroidManifest.xml` para scheme `pokefantasy://`. `@capacitor/app` instalado. `DeepLinkHandler` en `App.tsx` escucha `appUrlOpen` y `getLaunchUrl` para navegar al path correcto (app en ejecucion y arranque en frio). `LeagueDetailPage` genera `pokefantasy://invite/{token}` en native y `${origin}/invite/{token}` en web. Icono "PF" bold monospace dorado `#fbbf24` sobre negro `#0a0a0f`. Script `scripts/generate-assets.mjs` (sharp + SVG) genera `resources/icon.png` (1024×1024) y `resources/splash.png` (2732×2732). `@capacitor/assets generate --android` distribuye a todos los densities (87 assets). `values/colors.xml` con `colorSplashBackground`; `values-v31/styles.xml` con `windowSplashScreenBackground` + `windowSplashScreenAnimatedIcon` para splash nativo Android 12+. Regenerar con `npm run generate:assets`.
-
-**Notas operativas Mobile**:
-- FCM **no funciona** en emuladores Android Studio estándar — requiere imagen con Google Play o dispositivo físico.
-- Flujo deploy: `npm run build` → `npm run cap:sync` → Android Studio → Build APK.
-- `google-services.json` (de Firebase Console) debe estar en `android/app/` — no se commitea al repo.
-
-**Mobile — completo**. Sin pendientes.
+Las reglas del front están en `C:\PokeFantasy\pokefantasy-web\CLAUDE.md`. Desde el backend basta con recordar: **tras cambiar un DTO, enum o endpoint**, en el front `npm run api:spec` → `npm run api:types`, commitear `openapi.json` y `src/api/schema.d.ts`, y arreglar `src/api/contract.ts` si `tsc` falla.

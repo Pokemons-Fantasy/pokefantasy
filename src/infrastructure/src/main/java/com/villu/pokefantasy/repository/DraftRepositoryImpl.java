@@ -8,6 +8,7 @@ import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Optional;
 
 @Component
@@ -36,5 +37,10 @@ public class DraftRepositoryImpl implements DraftRepository {
         Query query = new Query(Criteria.where("leagueId").is(leagueId))
                 .with(Sort.by(Sort.Direction.DESC, "_id")).limit(1);
         return Optional.ofNullable(mongoTemplate.findOne(query, DraftEntity.class));
+    }
+
+    @Override
+    public List<DraftEntity> findAllInProgress() {
+        return mongoTemplate.find(new Query(Criteria.where("status").is(DraftStatus.IN_PROGRESS)), DraftEntity.class);
     }
 }

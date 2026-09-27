@@ -8,16 +8,26 @@ spring:
       password: ${REDIS_PASSWORD:}
       ssl:
         enabled: ${REDIS_SSL:false}
+      # Sin esto Lettuce espera 60 s por comando: con Redis caído cada petición que lo toca
+      # (login, refresh, eventos en tiempo real…) se quedaría colgada un minuto.
+      timeout: 2s
+      connect-timeout: 2s
+  task:
+    scheduling:
+      pool:
+        # Heartbeats SSE, caché de PokeAPI y turnos vencidos del draft: que una llamada lenta
+        # a PokeAPI no retrase los demás.
+        size: 3
   mongodb:
     uri: ${MONGODB_URI:mongodb://root:password@localhost:27017/pokefantasy?authSource=admin}
-    auto-index-creation: true
 server:
   port: ${PORT:8080}
 management:
   endpoints:
     web:
       exposure:
-        include: health
+        # metrics solo para usuarios con rol ADMIN (SecurityConfig). Métrica de negocio: pokefantasy.commands
+        include: health, metrics
   endpoint:
     health:
       show-details: when-authorized
@@ -29,4 +39,21 @@ management:
 jwt:
   # Must be provided externally as a Base64-encoded 256-bit key
   secret: ${JWT_SECRET}
-  expiration-ms: 86400000
+  # JWT de acceso: corto (15 min). La sesión la mantiene el refresh token (cookie `refresh`, revocable
+  # en Redis), que caduca tras estos días sin actividad.
+  expiration-ms: 900000
+  refresh-expiration-days: 30
+
+logging:
+  pattern:
+    # requestId (RequestIdFilter) en cada línea. Para logs JSON en producción:
+    # LOGGING_STRUCTURED_FORMAT_CONSOLE=ecs (incluye el requestId del MDC).
+    correlation: "[%X{requestId:-}] "
+
+# Errores 500 a Sentry si se define SENTRY_DSN (sin DSN, Sentry no hace nada).
+sentry:
+  dsn: ${SENTRY_DSN:}
+  send-default-pii: false
+  logging:
+    minimum-event-level: error
+    minimum-breadcrumb-level: info

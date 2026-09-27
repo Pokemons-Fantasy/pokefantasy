@@ -71,4 +71,9 @@ class JwtTokenProviderTest {
 
         assertThat(provider.extractUsername(tokenFromOtherKey)).isNull();
     }
+
+    @Test
+    void accessTokenTtl_matchesConfiguredExpiration() {
+        assertThat(provider.accessTokenTtl()).isEqualTo(java.time.Duration.ofHours(1));
+    }
 }

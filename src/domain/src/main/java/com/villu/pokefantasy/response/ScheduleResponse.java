@@ -42,5 +42,8 @@ public class ScheduleResponse {
         private String player2;
         private String winnerUsername;
         private MatchStatus status;
+        /** Marcador desde el punto de vista del ganador; {@code null} si no se indicó. */
+        private Integer winnerScore;
+        private Integer loserScore;
     }
 }
