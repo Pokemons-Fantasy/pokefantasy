@@ -1,7 +1,9 @@
 package com.villu.pokefantasy.commands.league;
 
+import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueRole;
 import com.villu.pokefantasy.dto.LeagueStatus;
+import com.villu.pokefantasy.league.CurrentDraftService;
 import com.villu.pokefantasy.league.LeagueMembershipGuard;
 import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
@@ -25,12 +27,13 @@ class GetLeagueDetailCommandHandlerTest {
 
     @Mock private LeagueRepository leagueRepository;
     @Mock private LeagueMembershipGuard leagueMembershipGuard;
+    @Mock private CurrentDraftService currentDraftService;
 
     private GetLeagueDetailCommandHandler handler;
 
     @BeforeEach
     void setUp() {
-        handler = new GetLeagueDetailCommandHandler(leagueRepository, leagueMembershipGuard);
+        handler = new GetLeagueDetailCommandHandler(leagueRepository, leagueMembershipGuard, currentDraftService);
     }
 
     @Test
@@ -53,6 +56,7 @@ class GetLeagueDetailCommandHandlerTest {
                 new LeagueMember("ash", LeagueRole.ADMIN, 0),
                 new LeagueMember("brock", LeagueRole.USER, 0)));
         when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
+        when(currentDraftService.statusOf("l1")).thenReturn(Optional.of(DraftStatus.IN_PROGRESS));
 
         LeagueDetailResponse result = handler.handle(new GetLeagueDetailCommand("l1", "ash"));
 
@@ -60,6 +64,7 @@ class GetLeagueDetailCommandHandlerTest {
         assertThat(result.getName()).isEqualTo("Kanto");
         assertThat(result.getCreatedBy()).isEqualTo("ash");
         assertThat(result.getStatus()).isEqualTo(LeagueStatus.ACTIVE);
+        assertThat(result.getDraftStatus()).isEqualTo(DraftStatus.IN_PROGRESS);
         assertThat(result.getMembers()).hasSize(2);
         assertThat(result.getMembers().get(0).getUsername()).isEqualTo("ash");
         assertThat(result.getMembers().get(0).getLeagueRole()).isEqualTo(LeagueRole.ADMIN);

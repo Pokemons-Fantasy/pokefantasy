@@ -1,6 +1,8 @@
 package com.villu.pokefantasy.commands.league;
 
+import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueStatus;
+import com.villu.pokefantasy.league.CurrentDraftService;
 import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import com.villu.pokefantasy.repository.entity.LeagueMember;
@@ -13,6 +15,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
@@ -21,12 +24,13 @@ import static org.mockito.Mockito.when;
 class GetMyLeaguesCommandHandlerTest {
 
     @Mock private LeagueRepository leagueRepository;
+    @Mock private CurrentDraftService currentDraftService;
 
     private GetMyLeaguesCommandHandler handler;
 
     @BeforeEach
     void setUp() {
-        handler = new GetMyLeaguesCommandHandler(leagueRepository);
+        handler = new GetMyLeaguesCommandHandler(leagueRepository, currentDraftService);
     }
 
     @Test
@@ -47,6 +51,7 @@ class GetMyLeaguesCommandHandlerTest {
                 new LeagueMember("brock", com.villu.pokefantasy.dto.LeagueRole.USER, 0)
         )));
         when(leagueRepository.findByMemberUsername("ash")).thenReturn(List.of(league));
+        when(currentDraftService.statusByLeague(List.of("l1"))).thenReturn(Map.of("l1", DraftStatus.COMPLETED));
 
         List<LeagueResponse> result = handler.handle(new GetMyLeaguesCommand("ash"));
 
@@ -55,6 +60,7 @@ class GetMyLeaguesCommandHandlerTest {
         assertThat(result.get(0).getName()).isEqualTo("Kanto");
         assertThat(result.get(0).getMemberCount()).isEqualTo(2);
         assertThat(result.get(0).getStatus()).isEqualTo(LeagueStatus.ACTIVE);
+        assertThat(result.get(0).getDraftStatus()).isEqualTo(DraftStatus.COMPLETED);
     }
 
     @Test

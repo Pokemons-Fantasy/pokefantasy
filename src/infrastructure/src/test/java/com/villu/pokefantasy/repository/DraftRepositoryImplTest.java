@@ -32,4 +32,21 @@ class DraftRepositoryImplTest {
         assertThat(query.getValue().getQueryObject()).isEqualTo(new Document("status", DraftStatus.IN_PROGRESS));
         assertThat(result).containsExactly(draft);
     }
+
+    @Test
+    void findAllByLeagueIdsNewestFirst_filtersByLeaguesAndSortsByIdDesc() {
+        MongoTemplate mongoTemplate = mock(MongoTemplate.class);
+        DraftEntity draft = new DraftEntity();
+        when(mongoTemplate.find(any(Query.class), eq(DraftEntity.class))).thenReturn(List.of(draft));
+
+        List<DraftEntity> result = new DraftRepositoryImpl(mongoTemplate).findAllByLeagueIdsNewestFirst(List.of("l1", "l2"));
+
+        ArgumentCaptor<Query> query = ArgumentCaptor.forClass(Query.class);
+        verify(mongoTemplate).find(query.capture(), eq(DraftEntity.class));
+        assertThat(query.getValue().getQueryObject())
+                .isEqualTo(new Document("leagueId", new Document("$in", List.of("l1", "l2"))));
+        assertThat(query.getValue().getSortObject()).isEqualTo(new Document("_id", -1));
+        assertThat(query.getValue().getFieldsObject()).containsOnlyKeys("leagueId", "status");
+        assertThat(result).containsExactly(draft);
+    }
 }

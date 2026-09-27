@@ -1,5 +1,6 @@
 package com.villu.pokefantasy.commands.league;
 
+import com.villu.pokefantasy.league.CurrentDraftService;
 import com.villu.pokefantasy.league.LeagueMembershipGuard;
 import com.villu.pokefantasy.mediator.CommandHandler;
 import com.villu.pokefantasy.repository.LeagueRepository;
@@ -12,10 +13,13 @@ public class GetLeagueDetailCommandHandler implements CommandHandler<GetLeagueDe
 
     private final LeagueRepository leagueRepository;
     private final LeagueMembershipGuard leagueMembershipGuard;
+    private final CurrentDraftService currentDraftService;
 
-    public GetLeagueDetailCommandHandler(LeagueRepository leagueRepository, LeagueMembershipGuard leagueMembershipGuard) {
+    public GetLeagueDetailCommandHandler(LeagueRepository leagueRepository, LeagueMembershipGuard leagueMembershipGuard,
+                                         CurrentDraftService currentDraftService) {
         this.leagueRepository = leagueRepository;
         this.leagueMembershipGuard = leagueMembershipGuard;
+        this.currentDraftService = currentDraftService;
     }
 
     @Override
@@ -30,6 +34,7 @@ public class GetLeagueDetailCommandHandler implements CommandHandler<GetLeagueDe
                 .name(league.getName())
                 .createdBy(league.getCreatedBy())
                 .status(league.getStatus())
+                .draftStatus(currentDraftService.statusOf(league.getId()).orElse(null))
                 .members(league.getMembers().stream()
                         .map(m -> LeagueMemberResponse.builder()
                                 .username(m.getUsername())
