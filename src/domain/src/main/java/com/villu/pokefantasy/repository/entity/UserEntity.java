@@ -28,4 +28,9 @@ public class UserEntity {
     private Role role;
     @Indexed(sparse = true)
     private List<String> fcmTokens = new ArrayList<>();
+    /**
+     * Epoch en ms de la última foto de perfil subida; {@code null} = sin foto. El front lo usa para
+     * construir la URL de la foto ({@code ?v=}), que se cachea como inmutable.
+     */
+    private Long avatarVersion;
 }
