@@ -1,9 +1,11 @@
 package com.villu.pokefantasy.it;
 
+import java.io.ByteArrayOutputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -66,13 +68,36 @@ public class ApiClient {
         cookies.remove(name);
     }
 
+    /** Multipart con una sola parte de fichero, como el FormData del navegador. */
+    public HttpResponse<String> putMultipart(String path, String field, String filename,
+                                             String contentType, byte[] content) throws Exception {
+        String boundary = "----pokefantasy" + System.nanoTime();
+        ByteArrayOutputStream body = new ByteArrayOutputStream();
+        body.write(("--" + boundary + "\r\n"
+                + "Content-Disposition: form-data; name=\"" + field + "\"; filename=\"" + filename + "\"\r\n"
+                + "Content-Type: " + contentType + "\r\n\r\n").getBytes(StandardCharsets.UTF_8));
+        body.write(content);
+        body.write(("\r\n--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
+        return send(HttpRequest.newBuilder(URI.create(baseUrl + path))
+                .header("Content-Type", "multipart/form-data; boundary=" + boundary)
+                .PUT(HttpRequest.BodyPublishers.ofByteArray(body.toByteArray())));
+    }
+
+    public HttpResponse<byte[]> getBytes(String path) throws Exception {
+        return send(HttpRequest.newBuilder(URI.create(baseUrl + path)).GET(), HttpResponse.BodyHandlers.ofByteArray());
+    }
+
     private HttpResponse<String> send(HttpRequest.Builder builder) throws Exception {
+        return send(builder, HttpResponse.BodyHandlers.ofString());
+    }
+
+    private <T> HttpResponse<T> send(HttpRequest.Builder builder, HttpResponse.BodyHandler<T> bodyHandler) throws Exception {
         if (!cookies.isEmpty()) {
             builder.header("Cookie", cookies.entrySet().stream()
                     .map(e -> e.getKey() + "=" + e.getValue())
                     .collect(Collectors.joining("; ")));
         }
-        HttpResponse<String> response = http.send(builder.build(), HttpResponse.BodyHandlers.ofString());
+        HttpResponse<T> response = http.send(builder.build(), bodyHandler);
         for (String setCookie : response.headers().allValues("Set-Cookie")) {
             String pair = setCookie.split(";", 2)[0];
             String name = pair.substring(0, pair.indexOf('='));

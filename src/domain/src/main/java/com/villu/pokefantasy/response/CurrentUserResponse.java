@@ -1,14 +1,12 @@
 package com.villu.pokefantasy.response;
 
-import com.villu.pokefantasy.dto.LeagueRole;
 import lombok.Builder;
 import lombok.Data;
 
 @Data
 @Builder
-public class LeagueMemberResponse {
+public class CurrentUserResponse {
     private String username;
-    private LeagueRole leagueRole;
     /** Versión de su foto de perfil; {@code null} = sin foto. */
     private Long avatarVersion;
 }

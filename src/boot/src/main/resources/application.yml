@@ -18,6 +18,12 @@ spring:
         # Heartbeats SSE, caché de PokeAPI y turnos vencidos del draft: que una llamada lenta
         # a PokeAPI no retrase los demás.
         size: 3
+  servlet:
+    multipart:
+      # Foto de perfil: el cliente sube un JPEG de 256x256 (~30 KB). El handler rechaza más de 300 KB
+      # con 400; esto corta antes (413) lo que no tiene sentido leer en memoria.
+      max-file-size: 1MB
+      max-request-size: 1MB
   mongodb:
     uri: ${MONGODB_URI:mongodb://root:password@localhost:27017/pokefantasy?authSource=admin}
 server:

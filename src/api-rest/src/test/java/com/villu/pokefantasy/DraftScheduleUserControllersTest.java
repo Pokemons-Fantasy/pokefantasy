@@ -6,13 +6,18 @@ import com.villu.pokefantasy.commands.schedule.ScheduleFacade;
 import com.villu.pokefantasy.commands.users.UserFacade;
 import com.villu.pokefantasy.commands.users.login.LoginResult;
 import com.villu.pokefantasy.exception.ForbiddenOperationException;
+import com.villu.pokefantasy.response.AvatarImageResponse;
+import com.villu.pokefantasy.response.CurrentUserResponse;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -23,6 +28,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -234,5 +240,66 @@ class DraftScheduleUserControllersTest extends ControllerTestSupport {
 
         mvc.perform(get("/v1/users/events")).andExpect(request().asyncStarted());
         assertThat(userRegistry.connectionCount(ME)).isEqualTo(1);
+    }
+
+    // ── Avatar ───────────────────────────────────────────────────────────────
+
+    @Test
+    void uploadAvatar_passesBytesAndReturnsVersion() throws Exception {
+        byte[] image = {1, 2, 3};
+        when(userFacade.uploadAvatar(ME, image)).thenReturn(42L);
+
+        mvc.perform(multipart(HttpMethod.PUT, "/v1/user/avatar")
+                        .file(new MockMultipartFile("file", "avatar.jpg", "image/jpeg", image)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.avatarVersion").value(42));
+    }
+
+    @Test
+    void uploadAvatar_invalidImage_400() throws Exception {
+        when(userFacade.uploadAvatar(org.mockito.ArgumentMatchers.eq(ME), org.mockito.ArgumentMatchers.any()))
+                .thenThrow(new IllegalArgumentException("La imagen debe ser JPEG"));
+
+        mvc.perform(multipart(HttpMethod.PUT, "/v1/user/avatar")
+                        .file(new MockMultipartFile("file", "a.png", "image/png", new byte[]{1})))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("BAD_REQUEST"));
+    }
+
+    @Test
+    void deleteAvatar_204() throws Exception {
+        mvc.perform(delete("/v1/user/avatar")).andExpect(status().isNoContent());
+        verify(userFacade).deleteAvatar(ME);
+    }
+
+    @Test
+    void getAvatar_servesJpegWithImmutableCache() throws Exception {
+        byte[] data = {1, 2, 3};
+        when(userFacade.getAvatar("misty", ME)).thenReturn(Optional.of(new AvatarImageResponse(data, "image/jpeg")));
+
+        MvcResult result = mvc.perform(get("/v1/users/misty/avatar").param("v", "42"))
+                .andExpect(status().isOk()).andReturn();
+
+        assertThat(result.getResponse().getContentType()).isEqualTo("image/jpeg");
+        assertThat(result.getResponse().getContentAsByteArray()).isEqualTo(data);
+        assertThat(result.getResponse().getHeader("Cache-Control"))
+                .contains("max-age=31536000").contains("private").contains("immutable");
+    }
+
+    @Test
+    void getAvatar_missing_404() throws Exception {
+        when(userFacade.getAvatar("misty", ME)).thenReturn(Optional.empty());
+
+        mvc.perform(get("/v1/users/misty/avatar")).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void me_returnsCurrentUser() throws Exception {
+        when(userFacade.me(ME)).thenReturn(CurrentUserResponse.builder().username(ME).avatarVersion(42L).build());
+
+        mvc.perform(get("/v1/user/me"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.username").value(ME))
+                .andExpect(jsonPath("$.avatarVersion").value(42));
     }
 }

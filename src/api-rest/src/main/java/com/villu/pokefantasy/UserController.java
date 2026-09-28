@@ -6,22 +6,31 @@ import com.villu.pokefantasy.commands.users.login.LoginResult;
 import com.villu.pokefantasy.request.user.ChangePasswordRequest;
 import com.villu.pokefantasy.request.user.RegisterPushTokenRequest;
 import com.villu.pokefantasy.request.user.UserRequest;
+import com.villu.pokefantasy.response.AvatarImageResponse;
+import com.villu.pokefantasy.response.CurrentUserResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.CookieValue;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.time.Duration;
 import java.util.List;
 
 @RestController
@@ -111,6 +120,44 @@ public class UserController {
             @RequestBody RegisterPushTokenRequest request) throws Exception {
         userFacade.registerPushToken(userDetails.getUsername(), request.getToken());
         return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/user/me")
+    public ResponseEntity<CurrentUserResponse> me(@AuthenticationPrincipal UserDetails userDetails) throws Exception {
+        return ResponseEntity.ok(userFacade.me(userDetails.getUsername()));
+    }
+
+    /** Sube la foto de perfil ya recortada por el cliente (JPEG pequeño). Sustituye a la anterior. */
+    @PutMapping(value = "/user/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<AvatarVersionResponse> uploadAvatar(@AuthenticationPrincipal UserDetails userDetails,
+                                                              @RequestPart("file") MultipartFile file) throws Exception {
+        long version = userFacade.uploadAvatar(userDetails.getUsername(), file.getBytes());
+        return ResponseEntity.ok(new AvatarVersionResponse(version));
+    }
+
+    @DeleteMapping("/user/avatar")
+    public ResponseEntity<Void> deleteAvatar(@AuthenticationPrincipal UserDetails userDetails) throws Exception {
+        userFacade.deleteAvatar(userDetails.getUsername());
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Foto de perfil (solo para el propio usuario y sus compañeros de liga; si no, 404). El front la pide
+     * con {@code ?v=<avatarVersion>}: cada versión es una URL distinta, así que se cachea un año como inmutable.
+     */
+    @GetMapping("/users/{username}/avatar")
+    public ResponseEntity<byte[]> getAvatar(@PathVariable String username,
+                                            @AuthenticationPrincipal UserDetails userDetails) throws Exception {
+        return userFacade.getAvatar(username, userDetails.getUsername())
+                .map(UserController::avatarResponse)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    private static ResponseEntity<byte[]> avatarResponse(AvatarImageResponse avatar) {
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(avatar.contentType()))
+                .cacheControl(CacheControl.maxAge(Duration.ofDays(365)).cachePrivate().immutable())
+                .body(avatar.data());
     }
 
     @GetMapping("/users/events")

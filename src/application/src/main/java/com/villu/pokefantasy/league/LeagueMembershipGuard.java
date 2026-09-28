@@ -26,4 +26,14 @@ public class LeagueMembershipGuard {
         }
         return league;
     }
+
+    /** {@code true} si son el mismo usuario o están juntos en alguna liga. */
+    public boolean sharesLeague(String username, String otherUsername) {
+        if (username.equals(otherUsername)) {
+            return true;
+        }
+        return leagueRepository.findByMemberUsername(username).stream()
+                .anyMatch(league -> league.getMembers().stream()
+                        .anyMatch(m -> m.getUsername().equals(otherUsername)));
+    }
 }
