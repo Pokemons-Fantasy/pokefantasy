@@ -8,6 +8,7 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.InsufficientAuthenticationException;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -40,6 +41,7 @@ class ApiExceptionHandlerTest {
                 case "conflict" -> new IllegalStateException("El draft ya empezó");
                 case "forbidden" -> new ForbiddenOperationException("No eres admin");
                 case "credentials" -> new BadCredentialsException("x");
+                case "unauthenticated" -> new InsufficientAuthenticationException("Full authentication is required");
                 case "attempts" -> new TooManyAttemptsException("Demasiados intentos", Duration.ofMinutes(15));
                 case "lock" -> new OptimisticLockingFailureException("stale");
                 case "duplicate" -> new DuplicateKeyException("Ya existe un usuario con name=ash");
@@ -77,6 +79,13 @@ class ApiExceptionHandlerTest {
                 .andExpect(jsonPath("$.message").value("Invalid username or password"));
         problem("lock", 409, "CONCURRENT_MODIFICATION");
         problem("duplicate", 409, "DUPLICATE");
+    }
+
+    @Test
+    void missingSession_is401Unauthenticated_notConfusedWithBadCredentials() throws Exception {
+        problem("unauthenticated", 401, "UNAUTHENTICATED")
+                .andExpect(jsonPath("$.message").value("Sesión no iniciada o caducada"));
+        problem("credentials", 401, "INVALID_CREDENTIALS");
     }
 
     @Test

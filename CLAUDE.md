@@ -187,6 +187,7 @@ También parar ante: cambios de contrato de la API que rompan al front actual, m
 |-----------|------|--------|
 | `IllegalArgumentException` | 400 | `BAD_REQUEST` |
 | `BadCredentialsException` | 401 | `INVALID_CREDENTIALS` |
+| `AuthenticationException` (sin sesión, desde el entry point de `SecurityConfig`) | 401 | `UNAUTHENTICATED` |
 | `ForbiddenOperationException` | 403 | `FORBIDDEN` |
 | `IllegalStateException` / `StaleOperationException` (confirma y luego 409) | 409 | `CONFLICT` |
 | `OptimisticLockingFailureException` | 409 | `CONCURRENT_MODIFICATION` |
