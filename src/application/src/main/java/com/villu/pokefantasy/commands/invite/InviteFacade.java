@@ -16,7 +16,7 @@ public class InviteFacade {
         return mediator.send(new GenerateInviteLinkCommand(leagueId, requestingUsername));
     }
 
-    public String redeem(String token, String username) throws Exception {
+    public RedeemInviteResponse redeem(String token, String username) throws Exception {
         return mediator.send(new RedeemInviteCommand(token, username));
     }
 }

@@ -2,6 +2,7 @@ package com.villu.pokefantasy;
 
 import com.villu.pokefantasy.commands.activity.ActivityFeedFacade;
 import com.villu.pokefantasy.commands.invite.InviteFacade;
+import com.villu.pokefantasy.commands.invite.RedeemInviteResponse;
 import com.villu.pokefantasy.commands.league.LeagueFacade;
 import com.villu.pokefantasy.exception.ForbiddenOperationException;
 import org.junit.jupiter.api.Test;
@@ -99,14 +100,15 @@ class LeagueControllersTest extends ControllerTestSupport {
 
     @Test
     void invites_generateAndRedeem() throws Exception {
-        when(inviteFacade.redeem("tok", ME)).thenReturn("l1");
+        when(inviteFacade.redeem("tok", ME)).thenReturn(new RedeemInviteResponse("l1", true));
 
         mvc.perform(post("/v1/leagues/l1/invite/generate")).andExpect(status().isOk());
         verify(inviteFacade).generateInvite("l1", ME);
 
         mvc.perform(post("/v1/invite/tok/redeem"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.leagueId").value("l1"));
+                .andExpect(jsonPath("$.leagueId").value("l1"))
+                .andExpect(jsonPath("$.alreadyMember").value(true));
     }
 
     @Test

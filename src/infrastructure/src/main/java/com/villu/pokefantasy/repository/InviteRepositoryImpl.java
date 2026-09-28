@@ -22,9 +22,4 @@ public class InviteRepositoryImpl implements InviteRepository {
     public String findLeagueId(String token) {
         return redisTemplate.opsForValue().get(PREFIX + token);
     }
-
-    @Override
-    public void delete(String token) {
-        redisTemplate.delete(PREFIX + token);
-    }
 }
