@@ -63,6 +63,29 @@ class LeagueMembershipGuardTest {
         assertThat(result).isSameAs(league);
     }
 
+    @Test
+    void sharesLeague_sameUser_isTrueWithoutQuerying() {
+        assertThat(guard.sharesLeague("ash", "ash")).isTrue();
+    }
+
+    @Test
+    void sharesLeague_bothInSomeLeague_isTrue() {
+        LeagueEntity other = leagueWithMembers(new LeagueMember("ash", LeagueRole.USER, 0));
+        LeagueEntity shared = leagueWithMembers(
+                new LeagueMember("ash", LeagueRole.USER, 0), new LeagueMember("misty", LeagueRole.ADMIN, 0));
+        when(leagueRepository.findByMemberUsername("ash")).thenReturn(List.of(other, shared));
+
+        assertThat(guard.sharesLeague("ash", "misty")).isTrue();
+    }
+
+    @Test
+    void sharesLeague_noCommonLeague_isFalse() {
+        when(leagueRepository.findByMemberUsername("ash"))
+                .thenReturn(List.of(leagueWithMembers(new LeagueMember("ash", LeagueRole.USER, 0))));
+
+        assertThat(guard.sharesLeague("ash", "misty")).isFalse();
+    }
+
     private LeagueEntity leagueWithMembers(LeagueMember... members) {
         LeagueEntity league = new LeagueEntity();
         league.setId("league-1");

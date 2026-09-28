@@ -10,6 +10,7 @@ import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Component;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 
@@ -57,6 +58,24 @@ public class UserRepositoryImpl implements UserRepository {
                 .with(Sort.by("nameLower"))
                 .limit(20);
         return mongoTemplate.find(query, UserEntity.class);
+    }
+
+    @Override
+    public List<UserEntity> findByUsernames(Collection<String> usernames) {
+        if (usernames.isEmpty()) {
+            return List.of();
+        }
+        Query query = new Query(Criteria.where("name").in(usernames));
+        query.fields().include("name", "avatarVersion");
+        return mongoTemplate.find(query, UserEntity.class);
+    }
+
+    @Override
+    public void setAvatarVersion(String username, Long avatarVersion) {
+        Query query = new Query(Criteria.where("name").is(username));
+        // Incrementa version, como addFcmToken: un save() posterior con el usuario desactualizado no la pisa.
+        Update update = new Update().set("avatarVersion", avatarVersion).inc("version", 1);
+        mongoTemplate.updateFirst(query, update, UserEntity.class);
     }
 
     @Override

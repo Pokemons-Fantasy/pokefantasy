@@ -6,9 +6,12 @@ import com.villu.pokefantasy.dto.LeagueStatus;
 import com.villu.pokefantasy.league.CurrentDraftService;
 import com.villu.pokefantasy.league.LeagueMembershipGuard;
 import com.villu.pokefantasy.repository.LeagueRepository;
+import com.villu.pokefantasy.repository.UserRepository;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import com.villu.pokefantasy.repository.entity.LeagueMember;
+import com.villu.pokefantasy.repository.entity.UserEntity;
 import com.villu.pokefantasy.response.LeagueDetailResponse;
+import com.villu.pokefantasy.response.LeagueMemberResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -28,12 +31,14 @@ class GetLeagueDetailCommandHandlerTest {
     @Mock private LeagueRepository leagueRepository;
     @Mock private LeagueMembershipGuard leagueMembershipGuard;
     @Mock private CurrentDraftService currentDraftService;
+    @Mock private UserRepository userRepository;
 
     private GetLeagueDetailCommandHandler handler;
 
     @BeforeEach
     void setUp() {
-        handler = new GetLeagueDetailCommandHandler(leagueRepository, leagueMembershipGuard, currentDraftService);
+        handler = new GetLeagueDetailCommandHandler(
+                leagueRepository, leagueMembershipGuard, currentDraftService, userRepository);
     }
 
     @Test
@@ -68,6 +73,27 @@ class GetLeagueDetailCommandHandlerTest {
         assertThat(result.getMembers()).hasSize(2);
         assertThat(result.getMembers().get(0).getUsername()).isEqualTo("ash");
         assertThat(result.getMembers().get(0).getLeagueRole()).isEqualTo(LeagueRole.ADMIN);
+    }
+
+    @Test
+    void handle_includesEachMembersAvatarVersion() {
+        LeagueEntity league = new LeagueEntity();
+        league.setId("l1");
+        league.setMembers(List.of(
+                new LeagueMember("ash", LeagueRole.ADMIN, 0),
+                new LeagueMember("brock", LeagueRole.USER, 0)));
+        when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
+        UserEntity ash = new UserEntity();
+        ash.setName("ash");
+        ash.setAvatarVersion(1700000000000L);
+        UserEntity brock = new UserEntity();
+        brock.setName("brock");
+        when(userRepository.findByUsernames(List.of("ash", "brock"))).thenReturn(List.of(ash, brock));
+
+        LeagueDetailResponse result = handler.handle(new GetLeagueDetailCommand("l1", "ash"));
+
+        assertThat(result.getMembers()).extracting(LeagueMemberResponse::getAvatarVersion)
+                .containsExactly(1700000000000L, null);
     }
 
     @Test
