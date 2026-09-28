@@ -1,6 +1,8 @@
 package com.villu.pokefantasy.security;
 
 import jakarta.servlet.DispatcherType;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -9,6 +11,7 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.context.RequestAttributeSecurityContextRepository;
@@ -17,6 +20,7 @@ import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.web.servlet.HandlerExceptionResolver;
 
 import java.util.List;
 import java.util.Set;
@@ -32,7 +36,9 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http, JwtAuthFilter jwtAuthFilter,
-                                           SecurityContextRepository securityContextRepository) throws Exception {
+                                           SecurityContextRepository securityContextRepository,
+                                           @Qualifier("handlerExceptionResolver") HandlerExceptionResolver resolver)
+            throws Exception {
         RequestMatcher publicPaths = request -> PUBLIC_PATHS.contains(request.getServletPath())
                 || isApiDocs(request.getServletPath());
 
@@ -50,7 +56,21 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                .exceptionHandling(e -> e.authenticationEntryPoint(problemDetailEntryPoint(resolver)))
                 .build();
+    }
+
+    /**
+     * Sin sesión: 401 con el mismo ProblemDetail que el resto de errores ({@code ApiExceptionHandler},
+     * código {@code UNAUTHENTICATED}). Sin esto Spring Security responde 403 y el front no distingue
+     * "no has iniciado sesión" de "no tienes permiso".
+     */
+    static AuthenticationEntryPoint problemDetailEntryPoint(HandlerExceptionResolver resolver) {
+        return (request, response, exception) -> {
+            if (resolver.resolveException(request, response, null, exception) == null) {
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+            }
+        };
     }
 
     /**

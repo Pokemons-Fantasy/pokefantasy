@@ -19,8 +19,10 @@ class SessionIntegrationTest extends IntegrationTest {
     }
 
     @Test
-    void withoutSession_protectedEndpointsAreRejected() throws Exception {
-        assertThat(client().get("/v1/leagues/my").statusCode()).isIn(401, 403);
+    void withoutSession_protectedEndpointsAre401Unauthenticated() throws Exception {
+        HttpResponse<String> response = client().get("/v1/leagues/my");
+        assertThat(response.statusCode()).isEqualTo(401);
+        assertThat(response.body()).contains("\"code\":\"UNAUTHENTICATED\"");
     }
 
     @Test
