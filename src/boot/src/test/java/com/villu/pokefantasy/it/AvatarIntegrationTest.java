@@ -85,6 +85,20 @@ class AvatarIntegrationTest extends IntegrationTest {
     }
 
     @Test
+    void avatar_isOnlyVisibleToLeagueMates() throws Exception {
+        ApiClient ash = client().loggedInAs("ash", "pikachu123");
+        ApiClient misty = client().loggedInAs("misty", "pikachu123");
+        ash.putMultipart("/v1/user/avatar", "file", "a.jpg", "image/jpeg", image(256, 256, Color.RED, "jpg"));
+
+        assertThat(misty.getBytes("/v1/users/ash/avatar").statusCode()).isEqualTo(404);
+
+        String leagueId = ash.post("/v1/leagues", "{\"name\":\"Kanto\"}").body().replace("\"", "");
+        ash.post("/v1/leagues/" + leagueId + "/members", "{\"username\":\"misty\"}");
+
+        assertThat(misty.getBytes("/v1/users/ash/avatar").statusCode()).isEqualTo(200);
+    }
+
+    @Test
     void avatar_requiresSession() throws Exception {
         assertThat(client().getBytes("/v1/users/ash/avatar").statusCode()).isEqualTo(401);
     }

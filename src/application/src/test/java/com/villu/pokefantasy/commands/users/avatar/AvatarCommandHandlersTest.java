@@ -1,5 +1,6 @@
 package com.villu.pokefantasy.commands.users.avatar;
 
+import com.villu.pokefantasy.league.LeagueMembershipGuard;
 import com.villu.pokefantasy.repository.AvatarRepository;
 import com.villu.pokefantasy.repository.UserRepository;
 import com.villu.pokefantasy.repository.entity.AvatarEntity;
@@ -27,6 +28,7 @@ class AvatarCommandHandlersTest {
 
     @Mock private AvatarRepository avatarRepository;
     @Mock private UserRepository userRepository;
+    @Mock private LeagueMembershipGuard leagueMembershipGuard;
 
     @Test
     void upload_savesAvatarAndSetsVersionToItsTimestamp() {
@@ -63,13 +65,14 @@ class AvatarCommandHandlersTest {
     }
 
     @Test
-    void get_found_returnsBytesAndContentType() {
+    void get_leagueMate_returnsBytesAndContentType() {
         byte[] data = {1, 2, 3};
+        when(leagueMembershipGuard.sharesLeague("misty", "ash")).thenReturn(true);
         when(avatarRepository.findByUsername("ash"))
                 .thenReturn(Optional.of(new AvatarEntity("ash", data, "image/jpeg", Instant.EPOCH)));
 
-        Optional<AvatarImageResponse> result = new GetAvatarCommandHandler(avatarRepository)
-                .handle(new GetAvatarCommand("ash"));
+        Optional<AvatarImageResponse> result = new GetAvatarCommandHandler(avatarRepository, leagueMembershipGuard)
+                .handle(new GetAvatarCommand("ash", "misty"));
 
         assertThat(result).get().satisfies(r -> {
             assertThat(r.data()).isSameAs(data);
@@ -79,9 +82,20 @@ class AvatarCommandHandlersTest {
 
     @Test
     void get_missing_isEmpty() {
+        when(leagueMembershipGuard.sharesLeague("ash", "misty")).thenReturn(true);
         when(avatarRepository.findByUsername("misty")).thenReturn(Optional.empty());
 
-        assertThat(new GetAvatarCommandHandler(avatarRepository).handle(new GetAvatarCommand("misty"))).isEmpty();
+        assertThat(new GetAvatarCommandHandler(avatarRepository, leagueMembershipGuard)
+                .handle(new GetAvatarCommand("misty", "ash"))).isEmpty();
+    }
+
+    @Test
+    void get_notALeagueMate_isEmptyWithoutReadingTheAvatar() {
+        when(leagueMembershipGuard.sharesLeague("gary", "ash")).thenReturn(false);
+
+        assertThat(new GetAvatarCommandHandler(avatarRepository, leagueMembershipGuard)
+                .handle(new GetAvatarCommand("ash", "gary"))).isEmpty();
+        verify(avatarRepository, never()).findByUsername(anyString());
     }
 
     @Test
@@ -90,7 +104,7 @@ class AvatarCommandHandlersTest {
                 .isEqualTo(UploadAvatarCommand.class);
         assertThat(new DeleteAvatarCommandHandler(avatarRepository, userRepository).commandType())
                 .isEqualTo(DeleteAvatarCommand.class);
-        assertThat(new GetAvatarCommandHandler(avatarRepository).commandType())
+        assertThat(new GetAvatarCommandHandler(avatarRepository, leagueMembershipGuard).commandType())
                 .isEqualTo(GetAvatarCommand.class);
     }
 }

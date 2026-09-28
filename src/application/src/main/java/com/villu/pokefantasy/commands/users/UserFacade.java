@@ -66,8 +66,8 @@ public class UserFacade {
         mediator.send(new DeleteAvatarCommand(username));
     }
 
-    public Optional<AvatarImageResponse> getAvatar(String username) throws Exception {
-        return mediator.send(new GetAvatarCommand(username));
+    public Optional<AvatarImageResponse> getAvatar(String username, String requestingUsername) throws Exception {
+        return mediator.send(new GetAvatarCommand(username, requestingUsername));
     }
 
     public CurrentUserResponse me(String username) throws Exception {

@@ -142,12 +142,13 @@ public class UserController {
     }
 
     /**
-     * Foto de perfil. El front la pide con {@code ?v=<avatarVersion>}: cada versión es una URL distinta,
-     * así que se cachea un año como inmutable.
+     * Foto de perfil (solo para el propio usuario y sus compañeros de liga; si no, 404). El front la pide
+     * con {@code ?v=<avatarVersion>}: cada versión es una URL distinta, así que se cachea un año como inmutable.
      */
     @GetMapping("/users/{username}/avatar")
-    public ResponseEntity<byte[]> getAvatar(@PathVariable String username) throws Exception {
-        return userFacade.getAvatar(username)
+    public ResponseEntity<byte[]> getAvatar(@PathVariable String username,
+                                            @AuthenticationPrincipal UserDetails userDetails) throws Exception {
+        return userFacade.getAvatar(username, userDetails.getUsername())
                 .map(UserController::avatarResponse)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }

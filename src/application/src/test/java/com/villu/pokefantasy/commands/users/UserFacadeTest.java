@@ -114,9 +114,9 @@ class UserFacadeTest {
     @Test
     void getAvatar_sendsCommandAndReturnsImage() throws Exception {
         Optional<AvatarImageResponse> image = Optional.of(new AvatarImageResponse(new byte[]{1}, "image/jpeg"));
-        when(mediator.send(new GetAvatarCommand("misty"))).thenReturn(image);
+        when(mediator.send(new GetAvatarCommand("misty", "ash"))).thenReturn(image);
 
-        assertThat(facade.getAvatar("misty")).isSameAs(image);
+        assertThat(facade.getAvatar("misty", "ash")).isSameAs(image);
     }
 
     @Test

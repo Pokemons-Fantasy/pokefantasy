@@ -275,7 +275,7 @@ class DraftScheduleUserControllersTest extends ControllerTestSupport {
     @Test
     void getAvatar_servesJpegWithImmutableCache() throws Exception {
         byte[] data = {1, 2, 3};
-        when(userFacade.getAvatar("misty")).thenReturn(Optional.of(new AvatarImageResponse(data, "image/jpeg")));
+        when(userFacade.getAvatar("misty", ME)).thenReturn(Optional.of(new AvatarImageResponse(data, "image/jpeg")));
 
         MvcResult result = mvc.perform(get("/v1/users/misty/avatar").param("v", "42"))
                 .andExpect(status().isOk()).andReturn();
@@ -288,7 +288,7 @@ class DraftScheduleUserControllersTest extends ControllerTestSupport {
 
     @Test
     void getAvatar_missing_404() throws Exception {
-        when(userFacade.getAvatar("misty")).thenReturn(Optional.empty());
+        when(userFacade.getAvatar("misty", ME)).thenReturn(Optional.empty());
 
         mvc.perform(get("/v1/users/misty/avatar")).andExpect(status().isNotFound());
     }
