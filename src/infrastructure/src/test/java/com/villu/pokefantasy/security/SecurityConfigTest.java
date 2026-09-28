@@ -3,9 +3,14 @@ package com.villu.pokefantasy.security;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.Test;
+import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.security.authentication.InsufficientAuthenticationException;
+import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.servlet.HandlerExceptionResolver;
 import org.springframework.web.servlet.ModelAndView;
+
+import java.util.Arrays;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -53,5 +58,47 @@ class SecurityConfigTest {
                 .commence(mock(HttpServletRequest.class), response, new InsufficientAuthenticationException("x"));
 
         verify(response).sendError(401);
+    }
+
+    @Test
+    void cors_allowsTheWebItsDeployPreviewsTheAndroidAppAndLocalDevelopment() {
+        CorsConfiguration cors = corsConfiguration();
+
+        assertThat(List.of(
+                "https://pokefantasy.netlify.app",
+                "https://deploy-preview-89--pokefantasy.netlify.app",
+                "https://localhost",
+                "capacitor://localhost",
+                "http://localhost:5173",
+                "http://127.0.0.1:8080"))
+                .allSatisfy(origin -> assertThat(cors.checkOrigin(origin)).isEqualTo(origin));
+    }
+
+    @Test
+    void cors_rejectsOtherNetlifySitesAndLookalikes() {
+        // Cualquiera publica gratis en *.netlify.app: con credenciales, leería la API con la sesión de la víctima.
+        CorsConfiguration cors = corsConfiguration();
+
+        assertThat(Arrays.asList(
+                "https://atacante.netlify.app",
+                "https://deploy-preview-1--otro.netlify.app",
+                "https://deploy-preview-x--pokefantasy.netlify.app",
+                "https://deploy-preview-1--pokefantasy.netlify.app.evil.com",
+                "https://evil.com/https://deploy-preview-1--pokefantasy.netlify.app",
+                "http://pokefantasy.netlify.app",
+                "https://pokefantasy.onrender.com",
+                "",
+                null))
+                .allSatisfy(origin -> assertThat(cors.checkOrigin(origin)).isNull());
+    }
+
+    @Test
+    void cors_sendsCredentials() {
+        assertThat(corsConfiguration().getAllowCredentials()).isTrue();
+    }
+
+    private static CorsConfiguration corsConfiguration() {
+        return new SecurityConfig().corsConfigurationSource()
+                .getCorsConfiguration(new MockHttpServletRequest("GET", "/v1/leagues/my"));
     }
 }

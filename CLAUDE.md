@@ -196,7 +196,7 @@ También parar ante: cambios de contrato de la API que rompan al front actual, m
 | `TooManyAttemptsException` | 429 | `TOO_MANY_ATTEMPTS` |
 | `Exception` | 500 | `INTERNAL_ERROR` |
 
-**Seguridad**: sesión por cookies httpOnly (JWT 15 min + refresh en Redis). Públicos solo los de `SecurityConfig.PUBLIC_PATHS` + OpenAPI. CORS en `SecurityConfig.corsConfigurationSource()`: si se añade un dominio propio, actualizarlo. Detalle en `vault/20 Arquitectura/Seguridad y auth.md`.
+**Seguridad**: sesión por cookies httpOnly (JWT 15 min + refresh en Redis). Públicos solo los de `SecurityConfig.PUBLIC_PATHS` + OpenAPI. CORS en `SecurityConfig.corsConfigurationSource()`: orígenes exactos (web, deploy previews por regex, Android, localhost); nunca comodines de hosting compartido como `*.netlify.app` (con credenciales, cualquier sitio de ahí usaría la sesión de la víctima). Si se añade un dominio propio, actualizarlo. Detalle en `vault/20 Arquitectura/Seguridad y auth.md`.
 
 ## Tests
 
