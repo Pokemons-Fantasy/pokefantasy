@@ -54,6 +54,12 @@ class LeagueControllersTest extends ControllerTestSupport {
     }
 
     @Test
+    void promoteToAdmin_returns204() throws Exception {
+        mvc.perform(put("/v1/leagues/l1/members/misty/admin")).andExpect(status().isNoContent());
+        verify(leagueFacade).promoteToAdmin("l1", "misty", ME);
+    }
+
+    @Test
     void readEndpoints_passTheRequester() throws Exception {
         when(leagueFacade.getMyLeagues(ME)).thenReturn(List.of());
         when(leagueFacade.getMyCoinBalance("l1", ME)).thenReturn(250);

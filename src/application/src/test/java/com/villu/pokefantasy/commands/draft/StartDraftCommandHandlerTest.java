@@ -48,10 +48,15 @@ class StartDraftCommandHandlerTest {
                 draftTurnNotifier);
     }
 
-    private void allowAdmin() {
+    private void allowAdmin(String... players) {
         LeagueEntity league = new LeagueEntity();
         league.setId(LEAGUE_ID);
-        league.setMembers(List.of(new LeagueMember(ADMIN, LeagueRole.ADMIN, 0)));
+        List<LeagueMember> members = new java.util.ArrayList<>();
+        members.add(new LeagueMember(ADMIN, LeagueRole.ADMIN, 0));
+        for (String player : players) {
+            members.add(new LeagueMember(player, LeagueRole.USER, 0));
+        }
+        league.setMembers(members);
         when(leagueAdminGuard.requireLeagueAdmin(LEAGUE_ID, ADMIN)).thenReturn(league);
         when(draftRepository.findActiveByLeagueId(LEAGUE_ID)).thenReturn(Optional.empty());
     }
@@ -133,7 +138,7 @@ class StartDraftCommandHandlerTest {
 
     @Test
     void handle_validCommand_savesDraftWithCorrectState() {
-        allowAdmin();
+        allowAdmin("Brock", "Misty");
 
         handler.handle(new StartDraftCommand(List.of("ash", "Brock", " Misty "), LEAGUE_ID, ADMIN));
 
@@ -154,11 +159,52 @@ class StartDraftCommandHandlerTest {
     void handle_trimsTurnOrderUsernames() {
         allowAdmin();
 
-        handler.handle(new StartDraftCommand(List.of(" pikachu "), LEAGUE_ID, ADMIN));
+        handler.handle(new StartDraftCommand(List.of(" ash "), LEAGUE_ID, ADMIN));
 
         ArgumentCaptor<DraftEntity> captor = ArgumentCaptor.forClass(DraftEntity.class);
         verify(draftRepository).save(captor.capture());
-        assertThat(captor.getValue().getTurnOrder()).containsExactly("pikachu");
+        assertThat(captor.getValue().getTurnOrder()).containsExactly("ash");
+    }
+
+    @Test
+    void handle_usesMemberNamesAsStoredInLeague() {
+        allowAdmin("Brock");
+
+        handler.handle(new StartDraftCommand(List.of("brock", "ASH"), LEAGUE_ID, ADMIN));
+
+        ArgumentCaptor<DraftEntity> captor = ArgumentCaptor.forClass(DraftEntity.class);
+        verify(draftRepository).save(captor.capture());
+        assertThat(captor.getValue().getTurnOrder()).containsExactly("Brock", "ash");
+    }
+
+    @Test
+    void handle_turnOrderMissingAMember_throwsAndSavesNothing() {
+        allowAdmin("Brock", "Misty");
+
+        assertThatThrownBy(() -> handler.handle(new StartDraftCommand(List.of("ash", "Brock"), LEAGUE_ID, ADMIN)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Faltan en el orden de turnos: Misty");
+        verify(draftRepository, never()).save(any());
+    }
+
+    @Test
+    void handle_turnOrderWithNonMember_throwsAndSavesNothing() {
+        allowAdmin("Brock");
+
+        assertThatThrownBy(() -> handler.handle(new StartDraftCommand(List.of("ash", "Brock", "gary"), LEAGUE_ID, ADMIN)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("No son miembros de la liga: gary");
+        verify(draftRepository, never()).save(any());
+    }
+
+    @Test
+    void handle_leagueWithoutMembers_rejectsAnyTurnOrder() {
+        when(leagueAdminGuard.requireLeagueAdmin(LEAGUE_ID, ADMIN)).thenReturn(new LeagueEntity());
+        when(draftRepository.findActiveByLeagueId(LEAGUE_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> handler.handle(new StartDraftCommand(List.of("ash"), LEAGUE_ID, ADMIN)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("No son miembros");
     }
 
     @Test

@@ -107,4 +107,13 @@ class LeagueFacadeTest {
         assertThat(captor.getValue().targetUsername()).isEqualTo("brock");
         assertThat(captor.getValue().requestingUsername()).isEqualTo("ash");
     }
+
+    @Test
+    void promoteToAdmin_sendsPromoteMemberCommand() throws Exception {
+        facade.promoteToAdmin("l1", "brock", "ash");
+
+        ArgumentCaptor<PromoteMemberToAdminCommand> captor = ArgumentCaptor.forClass(PromoteMemberToAdminCommand.class);
+        verify(mediator).send(captor.capture());
+        assertThat(captor.getValue()).isEqualTo(new PromoteMemberToAdminCommand("l1", "brock", "ash"));
+    }
 }
