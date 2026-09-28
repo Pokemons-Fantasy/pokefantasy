@@ -105,7 +105,7 @@ class NominatePokemonCommandHandlerTest {
         when(closedListRepository.existsByPokemonNameAndLeagueId("pikachu", "l1")).thenReturn(false);
         when(closedListRepository.countByNominatedByAndLeagueId("ash", "l1")).thenReturn(0L);
         when(cachePort.getPokemon("pokemons")).thenReturn(List.of(
-                new PokemonCacheDto("url", "bulbasaur", 1)));
+                new PokemonCacheDto("url", "bulbasaur", 1, null)));
 
         assertThatThrownBy(() -> handler.handle(new NominatePokemonCommand("ash", "pikachu", "l1")))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -131,7 +131,7 @@ class NominatePokemonCommandHandlerTest {
         when(closedListRepository.existsByPokemonNameAndLeagueId("pikachu", "l1")).thenReturn(false);
         when(closedListRepository.countByNominatedByAndLeagueId("ash", "l1")).thenReturn(0L);
         when(cachePort.getPokemon("pokemons")).thenReturn(List.of(
-                new PokemonCacheDto("https://pokeapi.co/api/v2/pokemon/25/", "pikachu", 25)));
+                new PokemonCacheDto("https://pokeapi.co/api/v2/pokemon/25/", "pikachu", 25, null)));
         Pokemons poke = new Pokemons(25, "pikachu", null, null, null, null, null, null);
         when(pokemonApiPort.fetchPokemonById("https://pokeapi.co/api/v2/pokemon/25/", "pikachu")).thenReturn(poke);
 
