@@ -95,7 +95,8 @@ api-rest ─► application ─► domain ◄─ infrastructure ─► MongoDB A
 | Calendario round-robin | `RoundRobinScheduler` |
 | Turnos vencidos del draft (cliente y job) | `DraftTurnTimeoutService` |
 | Push de turno / de cierre de ventana | `DraftTurnNotifier` / `WindowReminderService` |
-| Admin de liga / pertenencia a liga | `LeagueAdminGuard` / `LeagueMemberService` |
+| Admin de liga / pertenencia a liga | `LeagueAdminGuard` / `LeagueMemberService`, `LeagueMembershipGuard` (incl. `sharesLeague`) |
+| Qué foto de perfil se acepta (JPEG, tamaño, dimensiones) | `AvatarImagePolicy` (ADR-014) |
 | Emitir SSE (vía Redis Pub/Sub) | `RealtimeNotifier` (api-rest) |
 | Enviar push | `PushNotificationPort` |
 | Sesión (JWT + refresh), límite de login | `JwtAuthFilter` + `AuthCookies` + `RefreshTokenPort`, `LoginAttemptPort` |
