@@ -21,7 +21,7 @@ public class CancelTradeCommandHandler implements CommandHandler<CancelTradeComm
     @Override
     public Void handle(CancelTradeCommand command) {
         TradeEntity trade = tradeRepository.findById(command.tradeId())
-                .orElseThrow(() -> new IllegalArgumentException("Trade not found: " + command.tradeId()));
+                .orElseThrow(() -> new IllegalArgumentException("Propuesta no encontrada"));
 
         if (trade.getStatus() != TradeStatus.PENDING) {
             throw new IllegalStateException("Solo se pueden cancelar propuestas pendientes");

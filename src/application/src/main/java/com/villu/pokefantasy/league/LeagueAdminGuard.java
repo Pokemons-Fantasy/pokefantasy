@@ -17,13 +17,13 @@ public class LeagueAdminGuard {
 
     public LeagueEntity requireLeagueAdmin(String leagueId, String username) {
         LeagueEntity league = leagueRepository.findById(leagueId)
-                .orElseThrow(() -> new IllegalArgumentException("League not found: " + leagueId));
+                .orElseThrow(() -> new IllegalArgumentException("Liga no encontrada"));
 
         boolean isAdmin = league.getMembers().stream()
                 .anyMatch(m -> m.getUsername().equals(username) && m.getLeagueRole() == LeagueRole.ADMIN);
 
         if (!isAdmin) {
-            throw new ForbiddenOperationException("User '" + username + "' is not an admin of league: " + leagueId);
+            throw new ForbiddenOperationException("Solo el admin de la liga puede hacer esto");
         }
         return league;
     }

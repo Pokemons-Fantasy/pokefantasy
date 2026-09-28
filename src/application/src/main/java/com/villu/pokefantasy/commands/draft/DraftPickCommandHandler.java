@@ -51,7 +51,7 @@ public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand,
     public Void handle(DraftPickCommand command) {
         if (command == null || command.username() == null || command.pokemonName() == null
                 || command.username().isBlank() || command.pokemonName().isBlank()) {
-            throw new IllegalArgumentException("Username and pokemonName are required");
+            throw new IllegalArgumentException("Indica el Pokémon.");
         }
 
         String username = command.username().trim();
@@ -59,20 +59,20 @@ public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand,
         String leagueId = command.leagueId();
 
         DraftEntity draft = draftRepository.findActiveByLeagueId(leagueId)
-                .orElseThrow(() -> new IllegalStateException("No active draft found for league: " + leagueId));
+                .orElseThrow(() -> new IllegalStateException("No hay ningún draft activo en esta liga"));
 
         if (draft.getStatus() != DraftStatus.IN_PROGRESS) {
-            throw new IllegalStateException("Draft is not in progress");
+            throw new IllegalStateException("El draft no está en curso");
         }
 
         String currentTurn = draft.getTurnOrder().get(draft.getCurrentTurnIndex());
         if (!currentTurn.equals(username)) {
-            throw new IllegalStateException("It's not your turn. Current turn: " + currentTurn);
+            throw new IllegalStateException("No es tu turno: le toca a " + currentTurn);
         }
 
         UserEntity user = userRepository.findByUsername(username);
         if (user == null) {
-            throw new IllegalArgumentException("User not found: " + username);
+            throw new IllegalArgumentException("No existe el usuario '" + username + "'");
         }
 
         // Read maxTeamSize from league settings (falls back to DEFAULT_MAX_TEAM_SIZE for existing leagues)
@@ -83,7 +83,7 @@ public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand,
                 .filter(p -> username.equals(p.getUsername()))
                 .count();
         if (picksInDraft >= maxTeamSize) {
-            throw new IllegalStateException("User already has the maximum of " + maxTeamSize + " Pokémon in this league");
+            throw new IllegalStateException("Ya tienes el máximo de " + maxTeamSize + " Pokémon en esta liga");
         }
 
         if (draft.getPicks() == null) {
@@ -93,11 +93,11 @@ public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand,
         boolean alreadyPicked = draft.getPicks().stream()
                 .anyMatch(p -> p.getPokemonName().equalsIgnoreCase(pokemonName));
         if (alreadyPicked) {
-            throw new IllegalArgumentException("Pokémon '" + pokemonName + "' has already been picked");
+            throw new IllegalArgumentException("'" + pokemonName + "' ya lo ha elegido otro jugador");
         }
 
         ClosedListEntity entry = closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(pokemonName, leagueId)
-                .orElseThrow(() -> new IllegalArgumentException("Pokémon '" + pokemonName + "' is not in the closed list for this league"));
+                .orElseThrow(() -> new IllegalArgumentException("'" + pokemonName + "' no está en el pool de esta liga"));
 
         DraftPick pick = new DraftPick(username, entry.getPokemonName(),
                 entry.getPokemonId(), draft.getCurrentRound(), Instant.now(), null, null);

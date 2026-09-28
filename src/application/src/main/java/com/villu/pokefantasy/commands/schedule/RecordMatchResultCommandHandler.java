@@ -29,13 +29,13 @@ public class RecordMatchResultCommandHandler implements CommandHandler<RecordMat
 
         ScheduleEntity schedule = scheduleRepository.findByLeagueId(command.leagueId())
                 .orElseThrow(() -> new IllegalStateException(
-                        "No schedule found for league. Generate the schedule first by completing the draft."));
+                        "Esta liga aún no tiene calendario: se genera al completar el draft."));
 
         ScheduleEntity.Match match = matchResultService.findMatch(schedule, command.matchId());
 
         if (match.getStatus() == MatchStatus.COMPLETED) {
             throw new IllegalStateException(
-                    "El resultado de este partido ya fue registrado. Para cambiarlo, corrígelo o deshazlo.");
+                    "El resultado de este partido ya se ha registrado. Para cambiarlo, corrígelo o deshazlo.");
         }
 
         String loserUsername = matchResultService.requireParticipant(match, command.winnerUsername());

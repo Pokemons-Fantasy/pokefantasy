@@ -37,7 +37,7 @@ public class GetDraftStatusCommandHandler implements CommandHandler<GetDraftStat
 
         DraftEntity draft = draftRepository.findActiveByLeagueId(command.leagueId())
                 .or(() -> draftRepository.findLatestByLeagueId(command.leagueId()))
-                .orElseThrow(() -> new IllegalStateException("No draft found for league: " + command.leagueId()));
+                .orElseThrow(() -> new IllegalStateException("Esta liga no tiene draft"));
 
         String currentTurn = draft.getStatus() == DraftStatus.COMPLETED ? null
                 : draft.getTurnOrder().get(draft.getCurrentTurnIndex());

@@ -36,7 +36,7 @@ class LeagueMembershipGuardTest {
 
         assertThatThrownBy(() -> guard.requireMember("league-1", "ash"))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("League not found");
+                .hasMessageContaining("Liga no encontrada");
     }
 
     @Test

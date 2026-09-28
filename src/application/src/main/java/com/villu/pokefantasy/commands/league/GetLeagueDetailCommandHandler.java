@@ -34,7 +34,7 @@ public class GetLeagueDetailCommandHandler implements CommandHandler<GetLeagueDe
         leagueMembershipGuard.requireMember(command.leagueId(), command.requestingUsername());
 
         var league = leagueRepository.findById(command.leagueId())
-                .orElseThrow(() -> new IllegalArgumentException("League not found: " + command.leagueId()));
+                .orElseThrow(() -> new IllegalArgumentException("Liga no encontrada"));
 
         // HashMap y no Collectors.toMap: la versión es null para quien no tiene foto.
         Map<String, Long> avatarVersions = new HashMap<>();

@@ -11,6 +11,6 @@ public class LeagueMemberService {
         return league.getMembers().stream()
                 .filter(m -> username.equals(m.getUsername()))
                 .findFirst()
-                .orElseThrow(() -> new IllegalStateException("Member not found: " + username));
+                .orElseThrow(() -> new IllegalStateException("'" + username + "' no es miembro de esta liga"));
     }
 }

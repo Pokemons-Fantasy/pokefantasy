@@ -98,7 +98,7 @@ class StartDraftCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new StartDraftCommand(List.of("ash", "  "), LEAGUE_ID, ADMIN)))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("blank");
+                .hasMessageContaining("sin nombre");
     }
 
     @Test
@@ -107,7 +107,7 @@ class StartDraftCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new StartDraftCommand(List.of("ash", "ASH"), LEAGUE_ID, ADMIN)))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("duplicate");
+                .hasMessageContaining("repetidos");
     }
 
     @Test
@@ -119,7 +119,7 @@ class StartDraftCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new StartDraftCommand(List.of("ash"), LEAGUE_ID, ADMIN)))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("already active");
+                .hasMessageContaining("Ya hay un draft en marcha");
     }
 
     @Test

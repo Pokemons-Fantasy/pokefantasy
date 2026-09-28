@@ -37,16 +37,16 @@ public class AssignTierCommandHandler implements CommandHandler<AssignTierComman
     @Override
     public TierAdjustmentResponse handle(AssignTierCommand command) {
         if (command.entryId() == null || command.tier() == null) {
-            throw new IllegalArgumentException("entryId and tier are required");
+            throw new IllegalArgumentException("Indica el Pokémon y el tier.");
         }
 
         leagueAdminGuard.requireLeagueAdmin(command.leagueId(), command.requestingUsername());
 
         ClosedListEntity entry = closedListRepository.findById(command.entryId())
-                .orElseThrow(() -> new IllegalArgumentException("Closed list entry not found: " + command.entryId()));
+                .orElseThrow(() -> new IllegalArgumentException("Ese Pokémon no está en el pool"));
 
         if (!command.leagueId().equals(entry.getLeagueId())) {
-            throw new IllegalArgumentException("Entry does not belong to league: " + command.leagueId());
+            throw new IllegalArgumentException("Ese Pokémon no es del pool de esta liga");
         }
 
         Tier fromTier = entry.getTier();

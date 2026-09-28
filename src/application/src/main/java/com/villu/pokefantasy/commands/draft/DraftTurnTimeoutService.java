@@ -55,25 +55,25 @@ public class DraftTurnTimeoutService {
     public void autoPickExpiredTurn(LeagueEntity league) throws Exception {
         String leagueId = league.getId();
         DraftEntity draft = draftRepository.findActiveByLeagueId(leagueId)
-                .orElseThrow(() -> new IllegalStateException("No active draft found for league: " + leagueId));
+                .orElseThrow(() -> new IllegalStateException("No hay ningún draft activo en esta liga"));
 
         if (draft.getStatus() != DraftStatus.IN_PROGRESS) {
-            throw new IllegalStateException("Draft is not in progress");
+            throw new IllegalStateException("El draft no está en curso");
         }
 
         LeagueSettings settings = league.getSettings() != null ? league.getSettings() : LeagueSettings.defaults();
         Integer timer = settings.getTurnTimerSeconds();
         if (timer == null || timer <= 0) {
-            throw new IllegalStateException("Turn timer is not enabled for this league");
+            throw new IllegalStateException("Esta liga no tiene tiempo por turno");
         }
 
         if (draft.getCurrentTurnStartedAt() == null) {
-            throw new IllegalStateException("Turn start time not recorded");
+            throw new IllegalStateException("No consta cuándo empezó el turno");
         }
 
         Instant deadline = draft.getCurrentTurnStartedAt().plusSeconds(timer);
         if (Instant.now().isBefore(deadline)) {
-            throw new IllegalStateException("Turn timer has not expired yet");
+            throw new IllegalStateException("El tiempo del turno aún no se ha agotado");
         }
 
         String currentPlayer = draft.getTurnOrder().get(draft.getCurrentTurnIndex());
@@ -88,7 +88,7 @@ public class DraftTurnTimeoutService {
                 .collect(Collectors.toList());
 
         if (available.isEmpty()) {
-            throw new IllegalStateException("No Pokémon available for auto-pick");
+            throw new IllegalStateException("No quedan Pokémon para elegir automáticamente");
         }
 
         String randomPokemon = available.get(random.nextInt(available.size())).getPokemonName();

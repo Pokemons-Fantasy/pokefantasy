@@ -23,20 +23,20 @@ public class RemoveMemberFromLeagueCommandHandler implements CommandHandler<Remo
     @Override
     public Void handle(RemoveMemberFromLeagueCommand command) {
         LeagueEntity league = leagueRepository.findById(command.leagueId())
-                .orElseThrow(() -> new IllegalArgumentException("League not found: " + command.leagueId()));
+                .orElseThrow(() -> new IllegalArgumentException("Liga no encontrada"));
 
         boolean isSelfLeave = command.requestingUsername().equals(command.targetUsername());
         boolean requesterIsAdmin = league.getMembers().stream()
                 .anyMatch(m -> m.getUsername().equals(command.requestingUsername()) && m.getLeagueRole() == LeagueRole.ADMIN);
 
         if (!isSelfLeave && !requesterIsAdmin) {
-            throw new ForbiddenOperationException("Only admins can remove other members");
+            throw new ForbiddenOperationException("Solo un admin puede expulsar a otros miembros");
         }
 
         boolean targetExists = league.getMembers().stream()
                 .anyMatch(m -> m.getUsername().equals(command.targetUsername()));
         if (!targetExists) {
-            throw new IllegalArgumentException("User '" + command.targetUsername() + "' is not a member of this league");
+            throw new IllegalArgumentException("'" + command.targetUsername() + "' no es miembro de esta liga");
         }
 
         boolean targetIsAdmin = league.getMembers().stream()
@@ -44,7 +44,7 @@ public class RemoveMemberFromLeagueCommandHandler implements CommandHandler<Remo
         if (targetIsAdmin) {
             long adminCount = league.getMembers().stream().filter(m -> m.getLeagueRole() == LeagueRole.ADMIN).count();
             if (adminCount <= 1) {
-                throw new IllegalStateException("Cannot remove the last admin of the league");
+                throw new IllegalStateException("La liga no puede quedarse sin admin");
             }
         }
 

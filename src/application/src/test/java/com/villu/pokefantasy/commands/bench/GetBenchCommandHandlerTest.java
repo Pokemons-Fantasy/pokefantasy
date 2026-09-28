@@ -51,7 +51,7 @@ class GetBenchCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new GetBenchCommand("l1", "ash")))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("League not found");
+                .hasMessageContaining("Liga no encontrada");
     }
 
     @Test

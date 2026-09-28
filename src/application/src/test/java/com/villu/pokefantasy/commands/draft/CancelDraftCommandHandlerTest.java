@@ -36,7 +36,7 @@ class CancelDraftCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new CancelDraftCommand("l1", "ash")))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("No active draft");
+                .hasMessageContaining("No hay ningún draft activo");
     }
 
     @Test

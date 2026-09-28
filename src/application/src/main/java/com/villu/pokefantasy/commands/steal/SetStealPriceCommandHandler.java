@@ -60,7 +60,7 @@ public class SetStealPriceCommandHandler implements CommandHandler<SetStealPrice
                         "'" + pokemonName + "' no está en tu equipo en esta liga"));
 
         LeagueEntity league = leagueRepository.findById(leagueId)
-                .orElseThrow(() -> new IllegalArgumentException("League not found: " + leagueId));
+                .orElseThrow(() -> new IllegalArgumentException("Liga no encontrada"));
 
         // Compute current effective price
         LeagueSettings settings = league.getSettings();

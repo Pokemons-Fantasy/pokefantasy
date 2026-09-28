@@ -58,7 +58,7 @@ class RedeemInviteCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new RedeemInviteCommand("bad-token", "ash")))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Invalid or expired");
+                .hasMessageContaining("no válido o caducado");
         verify(leagueRepository, never()).addMember(anyString(), any());
     }
 
@@ -69,7 +69,7 @@ class RedeemInviteCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new RedeemInviteCommand("tok", "ash")))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("League not found");
+                .hasMessageContaining("Liga no encontrada");
     }
 
     @Test

@@ -62,10 +62,10 @@ public class SwapWithBenchCommandHandler implements CommandHandler<SwapWithBench
                 .filter(p -> username.equals(p.getUsername()) && pokemonToGive.equalsIgnoreCase(p.getPokemonName()))
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException(
-                        "'" + pokemonToGive + "' is not in your team for this league"));
+                        "'" + pokemonToGive + "' no está en tu equipo en esta liga"));
 
         ClosedListEntity benchEntry = closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(pokemonToTake, leagueId)
-                .orElseThrow(() -> new IllegalArgumentException("'" + pokemonToTake + "' is not in the pool for this league"));
+                .orElseThrow(() -> new IllegalArgumentException("'" + pokemonToTake + "' no está en el pool de esta liga"));
 
         teamTransferService.requireOnBench(draft, pokemonToTake);
 
@@ -77,9 +77,9 @@ public class SwapWithBenchCommandHandler implements CommandHandler<SwapWithBench
         Tier giveTier = giveEntry != null ? giveEntry.getTier() : null;
         if (tierRank(giveTier) > tierRank(benchEntry.getTier())) {
             throw new IllegalStateException(
-                    "No puedes intercambiar un pokémon de tier " + giveEntry.getTier() +
+                    "No puedes intercambiar un Pokémon de tier " + giveEntry.getTier() +
                     " por uno de tier " + benchEntry.getTier() +
-                    ". Debes entregar un pokémon de igual o mejor tier.");
+                    ". Debes entregar un Pokémon de igual o mejor tier.");
         }
 
         LeagueSettings settings = league.getSettings();

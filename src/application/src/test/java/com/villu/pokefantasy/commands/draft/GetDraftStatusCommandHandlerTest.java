@@ -44,7 +44,7 @@ class GetDraftStatusCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new GetDraftStatusCommand(LEAGUE_ID, "ash")))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("No draft found");
+                .hasMessageContaining("no tiene draft");
     }
 
     @Test

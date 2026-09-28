@@ -47,14 +47,14 @@ class AssignTierCommandHandlerTest {
     void handle_nullEntryId_throwsIllegalArgument() {
         assertThatThrownBy(() -> handler.handle(new AssignTierCommand(null, Tier.S, LEAGUE, ADMIN)))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("entryId and tier are required");
+                .hasMessageContaining("Indica el Pokémon y el tier");
     }
 
     @Test
     void handle_nullTier_throwsIllegalArgument() {
         assertThatThrownBy(() -> handler.handle(new AssignTierCommand("e1", null, LEAGUE, ADMIN)))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("entryId and tier are required");
+                .hasMessageContaining("Indica el Pokémon y el tier");
     }
 
     @Test
@@ -63,7 +63,7 @@ class AssignTierCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new AssignTierCommand("e1", Tier.A, LEAGUE, ADMIN)))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("not found");
+                .hasMessageContaining("no está en el pool");
     }
 
     @Test
@@ -73,7 +73,7 @@ class AssignTierCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new AssignTierCommand("e1", Tier.B, LEAGUE, ADMIN)))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("does not belong");
+                .hasMessageContaining("no es del pool de esta liga");
     }
 
     // ── same tier → no changes ────────────────────────────────────────────────

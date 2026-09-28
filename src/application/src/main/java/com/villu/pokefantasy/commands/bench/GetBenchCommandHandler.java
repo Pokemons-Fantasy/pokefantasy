@@ -43,7 +43,7 @@ public class GetBenchCommandHandler implements CommandHandler<GetBenchCommand, L
         leagueMembershipGuard.requireMember(leagueId, command.requestingUsername());
 
         LeagueEntity league = leagueRepository.findById(leagueId)
-                .orElseThrow(() -> new IllegalArgumentException("League not found: " + leagueId));
+                .orElseThrow(() -> new IllegalArgumentException("Liga no encontrada"));
 
         // Los picks del último draft son la única fuente de verdad de los equipos;
         // un draft cancelado no deja a nadie con Pokémon.

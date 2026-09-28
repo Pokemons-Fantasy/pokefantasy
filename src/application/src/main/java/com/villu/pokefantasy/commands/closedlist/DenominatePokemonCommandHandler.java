@@ -28,7 +28,7 @@ public class DenominatePokemonCommandHandler implements CommandHandler<Denominat
 
         draftRepository.findLatestByLeagueId(command.leagueId()).ifPresent(draft -> {
             if (draft.getStatus() != DraftStatus.PENDING) {
-                throw new IllegalStateException("Cannot remove nominations: draft is already " + draft.getStatus());
+                throw new IllegalStateException("Ya no se pueden quitar nominaciones: el draft ya ha empezado");
             }
         });
 

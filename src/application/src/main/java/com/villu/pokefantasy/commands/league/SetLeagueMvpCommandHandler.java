@@ -26,7 +26,7 @@ public class SetLeagueMvpCommandHandler implements CommandHandler<SetLeagueMvpCo
         }
 
         LeagueEntity league = leagueRepository.findById(command.leagueId())
-                .orElseThrow(() -> new IllegalArgumentException("League not found: " + command.leagueId()));
+                .orElseThrow(() -> new IllegalArgumentException("Liga no encontrada"));
 
         // Draft must be COMPLETED
         var draft = draftRepository.findLatestByLeagueId(command.leagueId())
@@ -52,7 +52,7 @@ public class SetLeagueMvpCommandHandler implements CommandHandler<SetLeagueMvpCo
         LeagueMember member = league.getMembers().stream()
                 .filter(m -> command.username().equals(m.getUsername()))
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Member not found: " + command.username()));
+                .orElseThrow(() -> new IllegalArgumentException("'" + command.username() + "' no es miembro de esta liga"));
 
         member.setCustomMvpPokemon(command.pokemonName());
         leagueRepository.save(league);

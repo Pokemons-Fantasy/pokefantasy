@@ -32,7 +32,7 @@ public class CreateUserCommandHandler implements CommandHandler<CreateUserComman
     public Void handle(CreateUserCommand command) {
         if (command == null || command.username() == null || command.password() == null
                 || command.username().isEmpty() || command.password().isEmpty()) {
-            throw new IllegalArgumentException("CreateUserCommand cannot be null or have values empty");
+            throw new IllegalArgumentException("Indica usuario y contraseña.");
         }
         if (!USERNAME_PATTERN.matcher(command.username()).matches()) {
             throw new IllegalArgumentException(

@@ -23,7 +23,7 @@ public class CancelDraftCommandHandler implements CommandHandler<CancelDraftComm
         leagueAdminGuard.requireLeagueAdmin(command.leagueId(), command.requestingUsername());
 
         DraftEntity draft = draftRepository.findActiveByLeagueId(command.leagueId())
-                .orElseThrow(() -> new IllegalStateException("No active draft found for league: " + command.leagueId()));
+                .orElseThrow(() -> new IllegalStateException("No hay ningún draft activo en esta liga"));
 
         draft.setStatus(DraftStatus.CANCELLED);
         draftRepository.save(draft);
