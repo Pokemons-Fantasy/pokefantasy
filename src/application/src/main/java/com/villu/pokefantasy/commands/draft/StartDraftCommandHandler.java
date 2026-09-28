@@ -8,13 +8,16 @@ import com.villu.pokefantasy.mediator.CommandHandler;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
+import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 @Service
@@ -44,7 +47,7 @@ public class StartDraftCommandHandler implements CommandHandler<StartDraftComman
             throw new IllegalArgumentException("El orden de turnos debe tener al menos un jugador");
         }
 
-        leagueAdminGuard.requireLeagueAdmin(command.leagueId(), command.requestingUsername());
+        LeagueEntity league = leagueAdminGuard.requireLeagueAdmin(command.leagueId(), command.requestingUsername());
 
         List<String> sanitizedTurnOrder = new ArrayList<>();
         Set<String> seenUsers = new HashSet<>();
@@ -67,7 +70,7 @@ public class StartDraftCommandHandler implements CommandHandler<StartDraftComman
 
         DraftEntity draft = new DraftEntity();
         draft.setStatus(DraftStatus.IN_PROGRESS);
-        draft.setTurnOrder(sanitizedTurnOrder);
+        draft.setTurnOrder(matchLeagueMembers(sanitizedTurnOrder, league));
         draft.setCurrentTurnIndex(0);
         draft.setCurrentRound(1);
         draft.setPicks(new ArrayList<>());
@@ -78,6 +81,36 @@ public class StartDraftCommandHandler implements CommandHandler<StartDraftComman
         assignTiersToPool(command.leagueId());
         draftTurnNotifier.notifyCurrentTurn(draft, leagueRepository.findById(command.leagueId()).orElse(null));
         return null;
+    }
+
+    /**
+     * El orden de turnos tiene que ser exactamente la lista de miembros: si falta alguien, se queda sin equipo;
+     * si sobra alguien, recibe picks sin estar en la liga. Devuelve los nombres tal como están en la liga.
+     */
+    private List<String> matchLeagueMembers(List<String> turnOrder, LeagueEntity league) {
+        Map<String, String> membersByKey = new LinkedHashMap<>();
+        if (league.getMembers() != null) {
+            league.getMembers().forEach(m -> membersByKey.put(m.getUsername().toLowerCase(Locale.ROOT), m.getUsername()));
+        }
+
+        List<String> canonical = new ArrayList<>();
+        List<String> strangers = new ArrayList<>();
+        for (String username : turnOrder) {
+            String member = membersByKey.remove(username.toLowerCase(Locale.ROOT));
+            if (member == null) {
+                strangers.add(username);
+            } else {
+                canonical.add(member);
+            }
+        }
+
+        if (!strangers.isEmpty()) {
+            throw new IllegalArgumentException("No son miembros de la liga: " + String.join(", ", strangers));
+        }
+        if (!membersByKey.isEmpty()) {
+            throw new IllegalArgumentException("Faltan en el orden de turnos: " + String.join(", ", membersByKey.values()));
+        }
+        return canonical;
     }
 
     private void assignTiersToPool(String leagueId) {
