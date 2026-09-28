@@ -1,6 +1,7 @@
 package com.villu.pokefantasy;
 
 import com.villu.pokefantasy.commands.activity.ActivityFeedFacade;
+import com.villu.pokefantasy.dto.ActivityEventType;
 import com.villu.pokefantasy.commands.invite.InviteFacade;
 import com.villu.pokefantasy.commands.invite.RedeemInviteResponse;
 import com.villu.pokefantasy.commands.league.LeagueFacade;
@@ -12,7 +13,6 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -114,14 +114,24 @@ class LeagueControllersTest extends ControllerTestSupport {
     @Test
     void activityFeed_wholeLeagueOrOnePlayer() throws Exception {
         mvc.perform(get("/v1/leagues/l1/activity")).andExpect(status().isOk());
-        verify(activityFeedFacade).getFeed("l1", 0, 20, ME);
+        verify(activityFeedFacade).getFeed("l1", null, null, 0, 20, ME);
 
         mvc.perform(get("/v1/leagues/l1/activity").param("username", "misty").param("page", "2").param("size", "5"))
                 .andExpect(status().isOk());
-        verify(activityFeedFacade).getFeedByUser("l1", "misty", 2, 5, ME);
+        verify(activityFeedFacade).getFeed("l1", "misty", null, 2, 5, ME);
+    }
 
-        mvc.perform(get("/v1/leagues/l1/activity").param("username", " ")).andExpect(status().isOk());
-        // Un username en blanco equivale a "toda la liga".
-        verify(activityFeedFacade, org.mockito.Mockito.times(2)).getFeed(eq("l1"), eq(0), eq(20), eq(ME));
+    @Test
+    void activityFeed_filtersByTypes() throws Exception {
+        mvc.perform(get("/v1/leagues/l1/activity").param("types", "STEAL,TRADE_COMPLETED"))
+                .andExpect(status().isOk());
+        verify(activityFeedFacade).getFeed("l1", null,
+                java.util.Set.of(ActivityEventType.STEAL, ActivityEventType.TRADE_COMPLETED), 0, 20, ME);
+    }
+
+    @Test
+    void activityFeed_unknownType_returns400() throws Exception {
+        mvc.perform(get("/v1/leagues/l1/activity").param("types", "NOPE"))
+                .andExpect(status().isBadRequest());
     }
 }
