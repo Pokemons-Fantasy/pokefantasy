@@ -32,7 +32,7 @@ public class UserRepositoryImpl implements UserRepository {
             mongoTemplate.save(userEntity);
         } catch (DuplicateKeyException e) {
             log.warn("Intento de registro con nombre duplicado: {}", userEntity.getName());
-            throw new DuplicateKeyException("Ya existe un usuario con name=" + userEntity.getName());
+            throw new DuplicateKeyException("Ya existe el usuario '" + userEntity.getName() + "'");
         } catch (Exception e) {
             log.error(e.getMessage(), e);
             throw e;

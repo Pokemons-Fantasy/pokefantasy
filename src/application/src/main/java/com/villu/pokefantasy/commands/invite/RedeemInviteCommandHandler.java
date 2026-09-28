@@ -37,10 +37,10 @@ public class RedeemInviteCommandHandler
     @Override
     public RedeemInviteResponse handle(RedeemInviteCommand command) {
         String leagueId = inviteRepository.findLeagueId(command.token());
-        if (leagueId == null) throw new IllegalArgumentException("Invalid or expired invite token");
+        if (leagueId == null) throw new IllegalArgumentException("Enlace de invitación no válido o caducado");
 
         LeagueEntity league = leagueRepository.findById(leagueId)
-                .orElseThrow(() -> new IllegalArgumentException("League not found"));
+                .orElseThrow(() -> new IllegalArgumentException("Liga no encontrada"));
 
         boolean alreadyMember = league.getMembers().stream()
                 .anyMatch(m -> m.getUsername().equals(command.username()));

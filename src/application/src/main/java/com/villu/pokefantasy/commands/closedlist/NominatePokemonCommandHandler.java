@@ -42,24 +42,24 @@ public class NominatePokemonCommandHandler implements CommandHandler<NominatePok
     public Void handle(NominatePokemonCommand command) throws Exception {
         if (command.username() == null || command.pokemonName() == null || command.leagueId() == null
                 || command.username().isBlank() || command.pokemonName().isBlank() || command.leagueId().isBlank()) {
-            throw new IllegalArgumentException("Username, pokemonName and leagueId are required");
+            throw new IllegalArgumentException("Faltan datos de la nominación.");
         }
 
         leagueMembershipGuard.requireMember(command.leagueId(), command.username());
 
         draftRepository.findLatestByLeagueId(command.leagueId()).ifPresent(draft -> {
             if (draft.getStatus() != DraftStatus.PENDING) {
-                throw new IllegalStateException("Nominations are closed: draft is already " + draft.getStatus());
+                throw new IllegalStateException("Las nominaciones están cerradas: el draft ya ha empezado");
             }
         });
 
         if (closedListRepository.existsByPokemonNameAndLeagueId(command.pokemonName().toLowerCase(), command.leagueId())) {
-            throw new IllegalArgumentException("Pokemon '" + command.pokemonName() + "' is already in the closed list");
+            throw new IllegalArgumentException("'" + command.pokemonName() + "' ya está nominado");
         }
 
         long nominations = closedListRepository.countByNominatedByAndLeagueId(command.username(), command.leagueId());
         if (nominations >= MAX_NOMINATIONS_PER_USER) {
-            throw new IllegalArgumentException("User has reached the maximum of " + MAX_NOMINATIONS_PER_USER + " nominations");
+            throw new IllegalArgumentException("Ya has nominado el máximo de " + MAX_NOMINATIONS_PER_USER + " Pokémon");
         }
 
         List<PokemonCacheDto> cachedList = cachePort.getPokemon("pokemons");
@@ -70,7 +70,7 @@ public class NominatePokemonCommandHandler implements CommandHandler<NominatePok
         PokemonCacheDto cached = cachedList.stream()
                 .filter(p -> p.getName().equalsIgnoreCase(command.pokemonName()))
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Pokemon '" + command.pokemonName() + "' not found"));
+                .orElseThrow(() -> new IllegalArgumentException("No existe ningún Pokémon llamado '" + command.pokemonName() + "'"));
 
         Pokemons pokemon = pokemonApiPort.fetchPokemonById(cached.getUrl(), cached.getName());
 

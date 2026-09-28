@@ -104,12 +104,12 @@ class TeamTransferServiceTest {
     void openMarket_missingScheduleOrLeague() {
         when(draftRepository.findLatestByLeagueId(LEAGUE)).thenReturn(Optional.of(draft));
         when(scheduleRepository.findByLeagueId(LEAGUE)).thenReturn(Optional.empty());
-        assertThatThrownBy(() -> service.openMarket(LEAGUE, TeamOperation.SWAP)).hasMessageContaining("No schedule");
+        assertThatThrownBy(() -> service.openMarket(LEAGUE, TeamOperation.SWAP)).hasMessageContaining("aún no tiene calendario");
 
         when(scheduleRepository.findByLeagueId(LEAGUE)).thenReturn(Optional.of(new ScheduleEntity()));
         when(leagueRepository.findById(LEAGUE)).thenReturn(Optional.empty());
         assertThatThrownBy(() -> service.openMarket(LEAGUE, TeamOperation.SWAP))
-                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("League not found");
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("Liga no encontrada");
     }
 
     // ── reglas ───────────────────────────────────────────────────────────────
@@ -148,7 +148,7 @@ class TeamTransferServiceTest {
     void requireOnBench() {
         assertThatCode(() -> service.requireOnBench(draft, "eevee")).doesNotThrowAnyException();
         assertThatThrownBy(() -> service.requireOnBench(draft, "Pikachu"))
-                .isInstanceOf(IllegalStateException.class).hasMessageContaining("not available on the bench");
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("no está en el banquillo");
     }
 
     // ── movimientos ──────────────────────────────────────────────────────────

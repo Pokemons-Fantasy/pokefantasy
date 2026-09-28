@@ -107,7 +107,7 @@ class ProposeTradeCommandHandlerTest {
         assertThatThrownBy(() -> handler.handle(
                 new ProposeTradeCommand("l1", "ash", "brock", "pikachu", "onix", -1)))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining(">= 0");
+                .hasMessageContaining("negativ");
     }
 
     @Test
@@ -119,7 +119,7 @@ class ProposeTradeCommandHandlerTest {
         assertThatThrownBy(() -> handler.handle(
                 new ProposeTradeCommand("l1", "ash", "brock", "pikachu", "onix", 0)))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("draft is completed");
+                .hasMessageContaining("con el draft completado");
     }
 
     @Test
@@ -144,7 +144,7 @@ class ProposeTradeCommandHandlerTest {
         assertThatThrownBy(() -> handler.handle(
                 new ProposeTradeCommand("l1", "ash", "brock", "pikachu", "onix", 0)))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("League not found");
+                .hasMessageContaining("Liga no encontrada");
     }
 
     @Test
@@ -288,7 +288,7 @@ class ProposeTradeCommandHandlerTest {
 
         verify(pushNotificationPort).send(
                 eq(List.of("token-brock-android")),
-                eq("Trade propuesto"),
+                eq("Propuesta de intercambio"),
                 anyString());
     }
 

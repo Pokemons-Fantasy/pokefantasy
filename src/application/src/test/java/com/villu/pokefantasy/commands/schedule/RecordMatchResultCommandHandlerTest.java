@@ -79,7 +79,7 @@ class RecordMatchResultCommandHandlerTest {
         assertThatThrownBy(() -> handler.handle(
                 new RecordMatchResultCommand(LEAGUE_ID, MATCH_ID, PLAYER1, ADMIN)))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("schedule");
+                .hasMessageContaining("aún no tiene calendario");
     }
 
     @Test
@@ -90,7 +90,7 @@ class RecordMatchResultCommandHandlerTest {
         assertThatThrownBy(() -> handler.handle(
                 new RecordMatchResultCommand(LEAGUE_ID, MATCH_ID, PLAYER1, ADMIN)))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Match not found");
+                .hasMessageContaining("Partido no encontrado");
     }
 
     @Test
@@ -104,7 +104,7 @@ class RecordMatchResultCommandHandlerTest {
         assertThatThrownBy(() -> handler.handle(
                 new RecordMatchResultCommand(LEAGUE_ID, MATCH_ID, PLAYER2, ADMIN)))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("ya fue registrado");
+                .hasMessageContaining("ya se ha registrado");
 
         verify(scheduleRepository, never()).save(any());
         verify(leagueRepository, never()).save(any());
@@ -118,7 +118,7 @@ class RecordMatchResultCommandHandlerTest {
         assertThatThrownBy(() -> handler.handle(
                 new RecordMatchResultCommand(LEAGUE_ID, MATCH_ID, "misty", ADMIN)))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("not a participant");
+                .hasMessageContaining("no juega este partido");
     }
 
     @Test

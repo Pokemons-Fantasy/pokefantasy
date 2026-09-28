@@ -19,7 +19,7 @@ import java.util.Objects;
 
 /**
  * Aviso por push a todos los miembros de una liga cuando faltan menos de {@link #LEAD} para que cierre la
- * ventana de robos o la de swaps de la jornada. Se avisa una vez por cierre: la jornada apunta de qué
+ * ventana de robos o la de intercambios de la jornada. Se avisa una vez por cierre: la jornada apunta de qué
  * cierre ya avisó ({@code stealReminderSentFor} / {@code swapReminderSentFor}).
  */
 @Service
@@ -30,7 +30,7 @@ public class WindowReminderService {
 
     enum Window {
         STEAL("robos", "robar"),
-        SWAP("swaps", "hacer swaps o comprar en la banca");
+        SWAP("intercambios", "hacer intercambios o comprar en el banquillo");
 
         final String name;
         final String action;

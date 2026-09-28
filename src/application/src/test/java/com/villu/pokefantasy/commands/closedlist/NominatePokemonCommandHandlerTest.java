@@ -75,7 +75,7 @@ class NominatePokemonCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new NominatePokemonCommand("ash", "pikachu", "l1")))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("Nominations are closed");
+                .hasMessageContaining("Las nominaciones están cerradas");
     }
 
     @Test
@@ -85,7 +85,7 @@ class NominatePokemonCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new NominatePokemonCommand("ash", "pikachu", "l1")))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("already in the closed list");
+                .hasMessageContaining("ya está nominado");
     }
 
     @Test
@@ -96,7 +96,7 @@ class NominatePokemonCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new NominatePokemonCommand("ash", "pikachu", "l1")))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("maximum");
+                .hasMessageContaining("el máximo de");
     }
 
     @Test
@@ -109,7 +109,7 @@ class NominatePokemonCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new NominatePokemonCommand("ash", "pikachu", "l1")))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("not found");
+                .hasMessageContaining("No existe ningún Pokémon");
     }
 
     @Test

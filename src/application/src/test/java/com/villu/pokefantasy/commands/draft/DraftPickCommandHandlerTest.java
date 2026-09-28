@@ -71,7 +71,7 @@ class DraftPickCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new DraftPickCommand(USERNAME, POKEMON, LEAGUE_ID)))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("No active draft");
+                .hasMessageContaining("No hay ningún draft activo");
     }
 
     @Test
@@ -81,7 +81,7 @@ class DraftPickCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new DraftPickCommand(USERNAME, POKEMON, LEAGUE_ID)))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("not your turn");
+                .hasMessageContaining("No es tu turno");
     }
 
     @Test
@@ -92,7 +92,7 @@ class DraftPickCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new DraftPickCommand(USERNAME, POKEMON, LEAGUE_ID)))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("User not found");
+                .hasMessageContaining("No existe el usuario");
     }
 
     @Test
@@ -109,7 +109,7 @@ class DraftPickCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new DraftPickCommand(USERNAME, POKEMON, LEAGUE_ID)))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("maximum");
+                .hasMessageContaining("el máximo de");
     }
 
     @Test
@@ -150,7 +150,7 @@ class DraftPickCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new DraftPickCommand(USERNAME, POKEMON, LEAGUE_ID)))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("already been picked");
+                .hasMessageContaining("ya lo ha elegido otro jugador");
     }
 
     @Test
@@ -164,7 +164,7 @@ class DraftPickCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new DraftPickCommand(USERNAME, POKEMON, LEAGUE_ID)))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("not in the closed list");
+                .hasMessageContaining("no está en el pool");
     }
 
     @Test

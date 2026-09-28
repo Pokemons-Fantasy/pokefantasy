@@ -48,7 +48,7 @@ class RemoveMemberFromLeagueCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new RemoveMemberFromLeagueCommand("l1", "brock", "ash")))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("League not found");
+                .hasMessageContaining("Liga no encontrada");
     }
 
     @Test
@@ -71,7 +71,7 @@ class RemoveMemberFromLeagueCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new RemoveMemberFromLeagueCommand("l1", "brock", "ash")))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("not a member");
+                .hasMessageContaining("miembro de esta liga");
     }
 
     @Test
@@ -83,7 +83,7 @@ class RemoveMemberFromLeagueCommandHandlerTest {
         // ash trying to leave (self-leave of last admin)
         assertThatThrownBy(() -> handler.handle(new RemoveMemberFromLeagueCommand("l1", "ash", "ash")))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("last admin");
+                .hasMessageContaining("sin admin");
     }
 
     @Test

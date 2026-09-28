@@ -41,7 +41,7 @@ public class StartDraftCommandHandler implements CommandHandler<StartDraftComman
     @Override
     public Void handle(StartDraftCommand command) {
         if (command == null || command.turnOrder() == null || command.turnOrder().isEmpty()) {
-            throw new IllegalArgumentException("Turn order must have at least one player");
+            throw new IllegalArgumentException("El orden de turnos debe tener al menos un jugador");
         }
 
         leagueAdminGuard.requireLeagueAdmin(command.leagueId(), command.requestingUsername());
@@ -50,19 +50,19 @@ public class StartDraftCommandHandler implements CommandHandler<StartDraftComman
         Set<String> seenUsers = new HashSet<>();
         for (String username : command.turnOrder()) {
             if (username == null || username.isBlank()) {
-                throw new IllegalArgumentException("Turn order cannot contain blank usernames");
+                throw new IllegalArgumentException("El orden de turnos tiene un jugador sin nombre");
             }
 
             String normalizedUsername = username.trim().toLowerCase(Locale.ROOT);
             if (!seenUsers.add(normalizedUsername)) {
-                throw new IllegalArgumentException("Turn order cannot contain duplicate usernames");
+                throw new IllegalArgumentException("El orden de turnos tiene jugadores repetidos");
             }
 
             sanitizedTurnOrder.add(username.trim());
         }
 
         draftRepository.findActiveByLeagueId(command.leagueId()).ifPresent(d -> {
-            throw new IllegalStateException("A draft is already active with status: " + d.getStatus());
+            throw new IllegalStateException("Ya hay un draft en marcha en esta liga");
         });
 
         DraftEntity draft = new DraftEntity();

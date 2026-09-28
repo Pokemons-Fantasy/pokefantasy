@@ -23,10 +23,10 @@ public class CreateLeagueCommandHandler implements CommandHandler<CreateLeagueCo
     @Override
     public String handle(CreateLeagueCommand command) {
         if (command.name() == null || command.name().isBlank()) {
-            throw new IllegalArgumentException("League name is required");
+            throw new IllegalArgumentException("Indica el nombre de la liga.");
         }
         if (command.creatorUsername() == null || command.creatorUsername().isBlank()) {
-            throw new IllegalArgumentException("Creator username is required");
+            throw new IllegalArgumentException("Falta el usuario que crea la liga.");
         }
 
         LeagueEntity league = new LeagueEntity();

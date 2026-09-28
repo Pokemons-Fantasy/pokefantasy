@@ -25,7 +25,7 @@ public class GetLeagueSettingsCommandHandler
         leagueMembershipGuard.requireMember(command.leagueId(), command.requestingUsername());
 
         LeagueEntity league = leagueRepository.findById(command.leagueId())
-                .orElseThrow(() -> new IllegalArgumentException("League not found: " + command.leagueId()));
+                .orElseThrow(() -> new IllegalArgumentException("Liga no encontrada"));
 
         LeagueSettings settings = league.getSettings();
         if (settings == null) {

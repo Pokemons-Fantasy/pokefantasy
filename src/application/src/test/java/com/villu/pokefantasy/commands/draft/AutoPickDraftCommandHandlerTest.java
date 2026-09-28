@@ -98,7 +98,7 @@ class AutoPickDraftCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new AutoPickDraftCommand(LEAGUE_ID, "brock")))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("not enabled");
+                .hasMessageContaining("no tiene tiempo por turno");
     }
 
     @Test
@@ -110,7 +110,7 @@ class AutoPickDraftCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new AutoPickDraftCommand(LEAGUE_ID, "brock")))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("not expired");
+                .hasMessageContaining("aún no se ha agotado");
     }
 
     @Test

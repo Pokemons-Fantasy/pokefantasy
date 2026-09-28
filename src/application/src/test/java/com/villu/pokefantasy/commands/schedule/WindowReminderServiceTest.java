@@ -142,7 +142,7 @@ class WindowReminderServiceTest {
     void swapReminder_usesSwapText() {
         serviceAt(FRIDAY_NOON).sendDue(schedule, league);
 
-        verify(pushNotificationPort).send(anyList(), contains("swaps"), contains("hasta las 16:00"));
+        verify(pushNotificationPort).send(anyList(), contains("intercambios"), contains("hasta las 16:00"));
         assertThat(jornada.getSwapReminderSentFor()).isEqualTo("2026-06-05T16:00");
     }
 

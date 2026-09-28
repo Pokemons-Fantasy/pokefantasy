@@ -79,7 +79,7 @@ class SwapWithBenchCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new SwapWithBenchCommand(LEAGUE_ID, USERNAME, GIVE, TAKE)))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("only allowed after the draft is completed");
+                .hasMessageContaining("con el draft completado");
     }
 
     @Test
@@ -99,7 +99,7 @@ class SwapWithBenchCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new SwapWithBenchCommand(LEAGUE_ID, USERNAME, GIVE, TAKE)))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("League not found");
+                .hasMessageContaining("Liga no encontrada");
     }
 
     @Test
@@ -111,7 +111,7 @@ class SwapWithBenchCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new SwapWithBenchCommand(LEAGUE_ID, USERNAME, GIVE, TAKE)))
                 .isInstanceOf(ForbiddenOperationException.class)
-                .hasMessageContaining("not a member");
+                .hasMessageContaining("miembro de esta liga");
     }
 
     @Test
@@ -124,7 +124,7 @@ class SwapWithBenchCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new SwapWithBenchCommand(LEAGUE_ID, USERNAME, GIVE, TAKE)))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("not in your team");
+                .hasMessageContaining("no está en tu equipo");
     }
 
     @Test
@@ -139,7 +139,7 @@ class SwapWithBenchCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new SwapWithBenchCommand(LEAGUE_ID, USERNAME, GIVE, TAKE)))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("not in the pool");
+                .hasMessageContaining("no está en el pool");
     }
 
     @Test
@@ -161,7 +161,7 @@ class SwapWithBenchCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new SwapWithBenchCommand(LEAGUE_ID, USERNAME, GIVE, TAKE)))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("not available on the bench");
+                .hasMessageContaining("no está en el banquillo");
     }
 
     @Test
@@ -211,7 +211,7 @@ class SwapWithBenchCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new SwapWithBenchCommand(LEAGUE_ID, USERNAME, GIVE, TAKE)))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("No schedule found");
+                .hasMessageContaining("aún no tiene calendario");
     }
 
     // ── Tier parity + net coin change ─────────────────────────────────────────

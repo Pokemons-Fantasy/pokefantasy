@@ -50,7 +50,7 @@ class DenominatePokemonCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new DenominatePokemonCommand("ash", "pikachu", "l1")))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("Cannot remove nominations");
+                .hasMessageContaining("Ya no se pueden quitar nominaciones");
     }
 
     @Test

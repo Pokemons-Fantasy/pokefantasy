@@ -20,7 +20,7 @@ public class GetCurrentUserCommandHandler implements CommandHandler<GetCurrentUs
     public CurrentUserResponse handle(GetCurrentUserCommand command) {
         UserEntity user = userRepository.findByUsername(command.username());
         if (user == null) {
-            throw new IllegalArgumentException("User not found: " + command.username());
+            throw new IllegalArgumentException("No existe el usuario '" + command.username() + "'");
         }
         return CurrentUserResponse.builder()
                 .username(user.getName())
