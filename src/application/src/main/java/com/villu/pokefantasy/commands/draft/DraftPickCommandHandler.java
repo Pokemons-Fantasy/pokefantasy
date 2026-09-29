@@ -1,18 +1,22 @@
 package com.villu.pokefantasy.commands.draft;
 
 import com.villu.pokefantasy.commands.schedule.RoundRobinScheduler;
+import com.villu.pokefantasy.dto.ActivityEventType;
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueSettings;
 import com.villu.pokefantasy.mediator.CommandHandler;
+import com.villu.pokefantasy.repository.ActivityEventRepository;
 import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.ScheduleRepository;
 import com.villu.pokefantasy.repository.UserRepository;
+import com.villu.pokefantasy.repository.entity.ActivityEventEntity;
 import com.villu.pokefantasy.repository.entity.ClosedListEntity;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
 import com.villu.pokefantasy.repository.entity.DraftPick;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
+import com.villu.pokefantasy.repository.entity.LeagueMember;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity;
 import com.villu.pokefantasy.repository.entity.UserEntity;
 import org.springframework.stereotype.Service;
@@ -24,27 +28,31 @@ import java.util.List;
 @Service
 public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand, Void> {
 
-    private static final int DEFAULT_MAX_TEAM_SIZE = 10;
-
     private final DraftRepository draftRepository;
     private final ClosedListRepository closedListRepository;
     private final UserRepository userRepository;
     private final LeagueRepository leagueRepository;
     private final ScheduleRepository scheduleRepository;
     private final DraftTurnNotifier draftTurnNotifier;
+    private final DraftTurnService draftTurnService;
+    private final ActivityEventRepository activityEventRepository;
 
     public DraftPickCommandHandler(DraftRepository draftRepository,
                                    ClosedListRepository closedListRepository,
                                    UserRepository userRepository,
                                    LeagueRepository leagueRepository,
                                    ScheduleRepository scheduleRepository,
-                                   DraftTurnNotifier draftTurnNotifier) {
+                                   DraftTurnNotifier draftTurnNotifier,
+                                   DraftTurnService draftTurnService,
+                                   ActivityEventRepository activityEventRepository) {
         this.draftRepository = draftRepository;
         this.closedListRepository = closedListRepository;
         this.userRepository = userRepository;
         this.leagueRepository = leagueRepository;
         this.scheduleRepository = scheduleRepository;
         this.draftTurnNotifier = draftTurnNotifier;
+        this.draftTurnService = draftTurnService;
+        this.activityEventRepository = activityEventRepository;
     }
 
     @Override
@@ -75,9 +83,8 @@ public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand,
             throw new IllegalArgumentException("No existe el usuario '" + username + "'");
         }
 
-        // Read maxTeamSize from league settings (falls back to DEFAULT_MAX_TEAM_SIZE for existing leagues)
         LeagueEntity league = leagueRepository.findById(leagueId).orElse(null);
-        int maxTeamSize = resolveMaxTeamSize(league);
+        int maxTeamSize = draftTurnService.maxTeamSize(league);
 
         long picksInDraft = draft.getPicks().stream()
                 .filter(p -> username.equals(p.getUsername()))
@@ -99,27 +106,44 @@ public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand,
         ClosedListEntity entry = closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(pokemonName, leagueId)
                 .orElseThrow(() -> new IllegalArgumentException("'" + pokemonName + "' no está en el pool de esta liga"));
 
+        int price = draftTurnService.priceOf(draft, entry);
+        Integer remaining = draftTurnService.remainingBudget(draft, username);
+        if (remaining != null && price > remaining) {
+            throw new IllegalArgumentException("No te llega: " + entry.getPokemonName() + " cuesta " + price
+                    + " y te quedan " + remaining);
+        }
+        Integer paid = draft.getConfig() == null ? null : price;
+
         DraftPick pick = new DraftPick(username, entry.getPokemonName(),
                 entry.getPokemonId(), draft.getCurrentRound(), Instant.now(), null, null);
+        pick.setPrice(paid);
         draft.getPicks().add(pick);
 
         // Registro inmutable del draft original: una copia que robos/swaps/trades nunca tocan.
         if (draft.getDraftHistory() == null) {
             draft.setDraftHistory(new ArrayList<>());
         }
-        draft.getDraftHistory().add(new DraftPick(pick.getUsername(), pick.getPokemonName(),
+        DraftPick historyPick = new DraftPick(pick.getUsername(), pick.getPokemonName(),
                 pick.getPokemonId(), pick.getRound(), pick.getPickedAt(),
-                pick.getCustomStealPrice(), pick.getLockedUntil()));
+                pick.getCustomStealPrice(), pick.getLockedUntil());
+        historyPick.setPrice(paid);
+        draft.getDraftHistory().add(historyPick);
 
-        advanceTurn(draft, maxTeamSize);
+        // Sin presupuesto (drafts anteriores) solo cuenta el tamaño del equipo: no hace falta el pool.
+        List<ClosedListEntity> available = draft.getConfig() == null ? List.of()
+                : draftTurnService.available(draft, closedListRepository.findAllByLeagueId(leagueId));
+        draftTurnService.advance(draft, available, maxTeamSize);
         draft.setCurrentTurnStartedAt(Instant.now());
         draftRepository.save(draft);
 
-        // When this pick completes the draft:
-        // 1. Lazily initialize league settings with defaults.
-        // 2. Generate the round-robin match schedule (primera + segunda vuelta).
+        // Al completar el draft: ajustes por defecto si faltan, sobrante del presupuesto al saldo y calendario
+        // round-robin (primera + segunda vuelta).
         if (draft.getStatus() == DraftStatus.COMPLETED) {
-            initLeagueSettingsIfNeeded(league);
+            boolean settingsCreated = initLeagueSettingsIfNeeded(league);
+            boolean leftoverPaid = payLeftoverBudgets(league, draft);
+            if (settingsCreated || leftoverPaid) {
+                leagueRepository.save(league);
+            }
             generateLeagueSchedule(leagueId, draft.getTurnOrder());
         } else {
             draftTurnNotifier.notifyCurrentTurn(draft, league);
@@ -134,34 +158,34 @@ public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand,
         scheduleRepository.save(schedule);
     }
 
-    private int resolveMaxTeamSize(LeagueEntity league) {
-        if (league != null && league.getSettings() != null) {
-            Integer max = league.getSettings().getMaxTeamSize();
-            if (max != null && max > 0) return max;
-        }
-        return DEFAULT_MAX_TEAM_SIZE;
-    }
-
-    private void initLeagueSettingsIfNeeded(LeagueEntity league) {
+    private boolean initLeagueSettingsIfNeeded(LeagueEntity league) {
         if (league != null && league.getSettings() == null) {
             league.setSettings(LeagueSettings.defaults());
-            leagueRepository.save(league);
+            return true;
         }
+        return false;
     }
 
-    private void advanceTurn(DraftEntity draft, int maxRounds) {
-        int nextIndex = draft.getCurrentTurnIndex() + 1;
-        if (nextIndex >= draft.getTurnOrder().size()) {
-            int nextRound = draft.getCurrentRound() + 1;
-            if (nextRound > maxRounds) {
-                draft.setStatus(DraftStatus.COMPLETED);
-            } else {
-                draft.setCurrentRound(nextRound);
-                draft.setCurrentTurnIndex(0);
-            }
-        } else {
-            draft.setCurrentTurnIndex(nextIndex);
+    /** Lo que le sobra a cada jugador del presupuesto del draft pasa a su saldo de la liga. */
+    private boolean payLeftoverBudgets(LeagueEntity league, DraftEntity draft) {
+        if (league == null || draft.getConfig() == null) return false;
+        Instant now = Instant.now();
+        boolean paid = false;
+        for (LeagueMember member : league.getMembers()) {
+            if (!draft.getTurnOrder().contains(member.getUsername())) continue;
+            Integer leftover = draftTurnService.remainingBudget(draft, member.getUsername());
+            if (leftover == null || leftover <= 0) continue;
+            member.setCoinBalance(member.getCoinBalance() + leftover);
+            activityEventRepository.save(ActivityEventEntity.builder()
+                    .leagueId(league.getId())
+                    .type(ActivityEventType.DRAFT_COINS)
+                    .actorUsername(member.getUsername())
+                    .coinsAmount(leftover)
+                    .createdAt(now)
+                    .build());
+            paid = true;
         }
+        return paid;
     }
 
     @Override
