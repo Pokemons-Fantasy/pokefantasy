@@ -91,6 +91,7 @@ api-rest ─► application ─► domain ◄─ infrastructure ─► MongoDB A
 | Ventanas de robo / swap (hora de Madrid) | `JornadaWindowService` |
 | Registrar / corregir / deshacer resultados, monedas por partido y sus eventos | `MatchResultService` |
 | Precio de un tier | `TierPricingService` |
+| Cláusula de robo (valor actual, coste de subirla: cada moneda suma ×2) | `StealClauseService` |
 | Reparto de tiers del pool | `TierAssignmentService` |
 | Calendario round-robin | `RoundRobinScheduler` |
 | Turnos vencidos del draft (cliente y job) | `DraftTurnTimeoutService` |

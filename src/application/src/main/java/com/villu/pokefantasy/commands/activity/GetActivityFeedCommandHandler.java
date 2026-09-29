@@ -65,6 +65,7 @@ public class GetActivityFeedCommandHandler implements CommandHandler<GetActivity
                 .pokemonName(entity.getPokemonName())
                 .pokemonName2(entity.getPokemonName2())
                 .coinsAmount(entity.getCoinsAmount())
+                .targetCoinsAmount(entity.getTargetCoinsAmount())
                 .fromTier(entity.getFromTier())
                 .toTier(entity.getToTier())
                 .roundNumber(entity.getRoundNumber())
