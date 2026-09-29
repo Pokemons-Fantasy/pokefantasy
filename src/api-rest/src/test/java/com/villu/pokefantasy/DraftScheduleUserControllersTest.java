@@ -5,6 +5,8 @@ import com.villu.pokefantasy.commands.schedule.MatchScore;
 import com.villu.pokefantasy.commands.schedule.ScheduleFacade;
 import com.villu.pokefantasy.commands.users.UserFacade;
 import com.villu.pokefantasy.commands.users.login.LoginResult;
+import com.villu.pokefantasy.dto.DraftConfig;
+import com.villu.pokefantasy.dto.Tier;
 import com.villu.pokefantasy.exception.ForbiddenOperationException;
 import com.villu.pokefantasy.response.AvatarImageResponse;
 import com.villu.pokefantasy.response.CurrentUserResponse;
@@ -70,6 +72,34 @@ class DraftScheduleUserControllersTest extends ControllerTestSupport {
         verify(draftFacade).autoPick("l1", ME);
 
         verify(notifier, org.mockito.Mockito.times(4)).draftUpdated("l1");
+    }
+
+    @Test
+    void draftSetupActions_notifyWatchers() throws Exception {
+        mvc.perform(post("/v1/leagues/l1/draft/prepare")).andExpect(status().isOk());
+        verify(draftFacade).prepareDraft("l1", ME);
+
+        mvc.perform(json(put("/v1/leagues/l1/draft/config"),
+                "{\"budget\":900,\"priceS\":200,\"priceA\":150,\"priceB\":100,\"priceC\":60,\"priceD\":0,\"snake\":true,\"turnOrder\":[\"misty\",\"ash\"]}"))
+                .andExpect(status().isOk());
+        verify(draftFacade).updateConfig("l1", ME,
+                DraftConfig.builder().budget(900).priceS(200).priceA(150).priceB(100).priceC(60).priceD(0).snake(true).build(),
+                List.of("misty", "ash"));
+
+        mvc.perform(json(put("/v1/leagues/l1/draft/pool/tiers"), "{\"entryIds\":[\"e1\",\"e2\"],\"tier\":\"A\"}"))
+                .andExpect(status().isOk());
+        verify(draftFacade).setPoolTiers("l1", ME, List.of("e1", "e2"), Tier.A);
+
+        mvc.perform(post("/v1/leagues/l1/draft/pool/reset-tiers")).andExpect(status().isOk());
+        verify(draftFacade).resetPoolTiers("l1", ME);
+
+        verify(notifier, org.mockito.Mockito.times(4)).draftUpdated("l1");
+    }
+
+    @Test
+    void startWithoutBody_startsPreparedDraft() throws Exception {
+        mvc.perform(post("/v1/leagues/l1/draft/start")).andExpect(status().isOk());
+        verify(draftFacade).startDraft(null, "l1", ME);
     }
 
     @Test
