@@ -1,5 +1,7 @@
 package com.villu.pokefantasy.commands.draft;
 
+import com.villu.pokefantasy.dto.DraftConfig;
+import com.villu.pokefantasy.dto.Tier;
 import com.villu.pokefantasy.mediator.Mediator;
 import com.villu.pokefantasy.response.DraftStatusResponse;
 import org.springframework.stereotype.Service;
@@ -21,6 +23,20 @@ public class DraftFacade {
 
     public void prepareDraft(String leagueId, String requestingUsername) throws Exception {
         mediator.send(new PrepareDraftCommand(leagueId, requestingUsername));
+    }
+
+    public void updateConfig(String leagueId, String requestingUsername, DraftConfig config,
+                             List<String> turnOrder) throws Exception {
+        mediator.send(new UpdateDraftConfigCommand(leagueId, requestingUsername, config, turnOrder));
+    }
+
+    public void setPoolTiers(String leagueId, String requestingUsername, List<String> entryIds, Tier tier)
+            throws Exception {
+        mediator.send(new SetDraftPoolTiersCommand(leagueId, requestingUsername, entryIds, tier));
+    }
+
+    public void resetPoolTiers(String leagueId, String requestingUsername) throws Exception {
+        mediator.send(new ResetDraftPoolTiersCommand(leagueId, requestingUsername));
     }
 
     public void pick(String username, String pokemonName, String leagueId) throws Exception {

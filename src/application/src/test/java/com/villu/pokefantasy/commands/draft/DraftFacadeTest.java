@@ -1,5 +1,7 @@
 package com.villu.pokefantasy.commands.draft;
 
+import com.villu.pokefantasy.dto.DraftConfig;
+import com.villu.pokefantasy.dto.Tier;
 import com.villu.pokefantasy.mediator.Mediator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,6 +44,18 @@ class DraftFacadeTest {
     void prepareDraft_sendsPrepareDraftCommand() throws Exception {
         facade.prepareDraft("l1", "ash");
         verify(mediator).send(new PrepareDraftCommand("l1", "ash"));
+    }
+
+    @Test
+    void setupMethods_sendTheirCommands() throws Exception {
+        DraftConfig config = DraftConfig.defaults();
+        facade.updateConfig("l1", "ash", config, List.of("ash"));
+        facade.setPoolTiers("l1", "ash", List.of("e1"), Tier.B);
+        facade.resetPoolTiers("l1", "ash");
+
+        verify(mediator).send(new UpdateDraftConfigCommand("l1", "ash", config, List.of("ash")));
+        verify(mediator).send(new SetDraftPoolTiersCommand("l1", "ash", List.of("e1"), Tier.B));
+        verify(mediator).send(new ResetDraftPoolTiersCommand("l1", "ash"));
     }
 
     @Test
