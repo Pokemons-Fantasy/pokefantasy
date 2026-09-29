@@ -1,5 +1,7 @@
 package com.villu.pokefantasy.commands.draft;
 
+import static org.mockito.Mockito.never;
+import static org.mockito.ArgumentMatchers.any;
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.league.LeagueAdminGuard;
 import com.villu.pokefantasy.repository.DraftRepository;
@@ -49,6 +51,18 @@ class CancelDraftCommandHandlerTest {
 
         assertThat(draft.getStatus()).isEqualTo(DraftStatus.CANCELLED);
         verify(draftRepository).save(draft);
+    }
+
+    @Test
+    void handle_draftInSetup_deletesIt() {
+        DraftEntity draft = new DraftEntity();
+        draft.setStatus(DraftStatus.PENDING);
+        when(draftRepository.findActiveByLeagueId("l1")).thenReturn(Optional.of(draft));
+
+        handler.handle(new CancelDraftCommand("l1", "ash"));
+
+        verify(draftRepository).delete(draft);
+        verify(draftRepository, never()).save(any());
     }
 
     @Test

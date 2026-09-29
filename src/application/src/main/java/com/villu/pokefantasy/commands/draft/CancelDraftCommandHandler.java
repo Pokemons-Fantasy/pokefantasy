@@ -25,6 +25,11 @@ public class CancelDraftCommandHandler implements CommandHandler<CancelDraftComm
         DraftEntity draft = draftRepository.findActiveByLeagueId(command.leagueId())
                 .orElseThrow(() -> new IllegalStateException("No hay ningún draft activo en esta liga"));
 
+        if (draft.getStatus() == DraftStatus.PENDING) {
+            // Volver a nominaciones: el draft en preparación no tiene picks, se borra y se reabren las nominaciones.
+            draftRepository.delete(draft);
+            return null;
+        }
         draft.setStatus(DraftStatus.CANCELLED);
         draftRepository.save(draft);
         return null;

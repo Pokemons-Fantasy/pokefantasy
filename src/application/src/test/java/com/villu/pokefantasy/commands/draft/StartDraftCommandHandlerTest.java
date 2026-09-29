@@ -1,5 +1,10 @@
 package com.villu.pokefantasy.commands.draft;
 
+import com.villu.pokefantasy.dto.DraftConfig;
+import com.villu.pokefantasy.dto.Tier;
+import com.villu.pokefantasy.repository.ClosedListRepository;
+import com.villu.pokefantasy.repository.entity.ClosedListEntity;
+import java.util.ArrayList;
 import com.villu.pokefantasy.commands.closedlist.TierAssignmentService;
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueRole;
@@ -37,6 +42,8 @@ class StartDraftCommandHandlerTest {
     @Mock private TierAssignmentService tierAssignmentService;
     @Mock private DraftTurnNotifier draftTurnNotifier;
 
+    @Mock private ClosedListRepository closedListRepository;
+
     private StartDraftCommandHandler handler;
 
     private static final String LEAGUE_ID = "league-1";
@@ -45,7 +52,7 @@ class StartDraftCommandHandlerTest {
     @BeforeEach
     void setUp() {
         handler = new StartDraftCommandHandler(draftRepository, leagueAdminGuard, leagueRepository, tierAssignmentService,
-                draftTurnNotifier, new TurnOrderPolicy());
+                draftTurnNotifier, new TurnOrderPolicy(), closedListRepository, new DraftTurnService());
     }
 
     private void allowAdmin(String... players) {
@@ -205,6 +212,100 @@ class StartDraftCommandHandlerTest {
         assertThatThrownBy(() -> handler.handle(new StartDraftCommand(List.of("ash"), LEAGUE_ID, ADMIN)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("No son miembros");
+    }
+
+    private DraftEntity pendingDraft(DraftConfig config) {
+        DraftEntity draft = new DraftEntity();
+        draft.setStatus(DraftStatus.PENDING);
+        draft.setLeagueId(LEAGUE_ID);
+        draft.setTurnOrder(new ArrayList<>(List.of(ADMIN, "misty")));
+        draft.setPicks(new ArrayList<>());
+        draft.setDraftHistory(new ArrayList<>());
+        draft.setConfig(config);
+        return draft;
+    }
+
+    private static ClosedListEntity tiered(String name, Tier tier) {
+        ClosedListEntity e = new ClosedListEntity();
+        e.setPokemonName(name);
+        e.setTier(tier);
+        return e;
+    }
+
+    private static LeagueEntity leagueWith(String... members) {
+        LeagueEntity league = new LeagueEntity();
+        List<LeagueMember> list = new ArrayList<>();
+        for (String m : members) list.add(new LeagueMember(m, LeagueRole.USER, 0));
+        league.setMembers(list);
+        return league;
+    }
+
+    @Test
+    void handle_preparedDraftWithOutdatedTurnOrder_throws() {
+        // brock entró en la liga después de preparar el draft y el admin no ha guardado el orden
+        DraftEntity draft = pendingDraft(DraftConfig.defaults());
+        when(leagueAdminGuard.requireLeagueAdmin(LEAGUE_ID, ADMIN)).thenReturn(leagueWith(ADMIN, "misty", "brock"));
+        when(draftRepository.findActiveByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+
+        assertThatThrownBy(() -> handler.handle(new StartDraftCommand(null, LEAGUE_ID, ADMIN)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Faltan en el orden de turnos: brock");
+        verify(draftRepository, never()).save(any());
+    }
+
+    @Test
+    void handle_preparedDraft_startsWithoutRetieringOrTurnOrder() {
+        DraftEntity draft = pendingDraft(DraftConfig.defaults());
+        when(leagueAdminGuard.requireLeagueAdmin(LEAGUE_ID, ADMIN)).thenReturn(leagueWith(ADMIN, "misty"));
+        when(draftRepository.findActiveByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+        when(closedListRepository.findAllByLeagueId(LEAGUE_ID)).thenReturn(List.of(tiered("abra", Tier.D)));
+
+        handler.handle(new StartDraftCommand(null, LEAGUE_ID, ADMIN));
+
+        verify(draftRepository).save(draft);
+        assertThat(draft.getStatus()).isEqualTo(DraftStatus.IN_PROGRESS);
+        assertThat(draft.getCurrentTurnIndex()).isZero();
+        assertThat(draft.getCurrentRound()).isEqualTo(1);
+        assertThat(draft.getCurrentTurnStartedAt()).isNotNull();
+        verify(tierAssignmentService, never()).assignTiersToPool(any(), any());
+        verify(draftTurnNotifier).notifyCurrentTurn(eq(draft), any());
+    }
+
+    @Test
+    void handle_preparedDraftNobodyCanPay_throwsAndSavesNothing() {
+        DraftEntity draft = pendingDraft(DraftConfig.defaults().toBuilder().budget(10).build());
+        when(leagueAdminGuard.requireLeagueAdmin(LEAGUE_ID, ADMIN)).thenReturn(leagueWith(ADMIN, "misty"));
+        when(draftRepository.findActiveByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+        when(closedListRepository.findAllByLeagueId(LEAGUE_ID)).thenReturn(List.of(tiered("abra", Tier.D)));
+
+        assertThatThrownBy(() -> handler.handle(new StartDraftCommand(null, LEAGUE_ID, ADMIN)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Con este presupuesto nadie puede elegir ningún Pokémon");
+        verify(draftRepository, never()).save(any());
+    }
+
+    @Test
+    void handle_preparedDraftWithUntieredPokemon_throws() {
+        DraftEntity draft = pendingDraft(DraftConfig.defaults());
+        when(leagueAdminGuard.requireLeagueAdmin(LEAGUE_ID, ADMIN)).thenReturn(leagueWith(ADMIN, "misty"));
+        when(draftRepository.findActiveByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+        when(closedListRepository.findAllByLeagueId(LEAGUE_ID)).thenReturn(List.of(tiered("abra", null)));
+
+        assertThatThrownBy(() -> handler.handle(new StartDraftCommand(null, LEAGUE_ID, ADMIN)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Hay Pokémon sin tier: recalcula los tiers antes de empezar");
+    }
+
+    @Test
+    void handle_preparedDraftWithEmptyPool_throws() {
+        DraftEntity draft = pendingDraft(DraftConfig.defaults());
+        when(leagueAdminGuard.requireLeagueAdmin(LEAGUE_ID, ADMIN)).thenReturn(leagueWith(ADMIN, "misty"));
+        when(draftRepository.findActiveByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+        when(closedListRepository.findAllByLeagueId(LEAGUE_ID)).thenReturn(List.of());
+
+        assertThatThrownBy(() -> handler.handle(new StartDraftCommand(null, LEAGUE_ID, ADMIN)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("El pool está vacío: nominad Pokémon antes de empezar");
     }
 
     @Test
