@@ -1,11 +1,13 @@
 package com.villu.pokefantasy.commands.closedlist;
 
 import com.villu.pokefantasy.dto.ActivityEventType;
+import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.Tier;
 import com.villu.pokefantasy.league.LeagueAdminGuard;
 import com.villu.pokefantasy.mediator.CommandHandler;
 import com.villu.pokefantasy.repository.ActivityEventRepository;
 import com.villu.pokefantasy.repository.ClosedListRepository;
+import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.entity.ActivityEventEntity;
 import com.villu.pokefantasy.repository.entity.ClosedListEntity;
 import com.villu.pokefantasy.response.TierAdjustmentResponse;
@@ -25,13 +27,16 @@ public class AssignTierCommandHandler implements CommandHandler<AssignTierComman
     private final ClosedListRepository closedListRepository;
     private final LeagueAdminGuard leagueAdminGuard;
     private final ActivityEventRepository activityEventRepository;
+    private final DraftRepository draftRepository;
 
     public AssignTierCommandHandler(ClosedListRepository closedListRepository,
                                     LeagueAdminGuard leagueAdminGuard,
-                                    ActivityEventRepository activityEventRepository) {
+                                    ActivityEventRepository activityEventRepository,
+                                    DraftRepository draftRepository) {
         this.closedListRepository = closedListRepository;
         this.leagueAdminGuard = leagueAdminGuard;
         this.activityEventRepository = activityEventRepository;
+        this.draftRepository = draftRepository;
     }
 
     @Override
@@ -41,6 +46,14 @@ public class AssignTierCommandHandler implements CommandHandler<AssignTierComman
         }
 
         leagueAdminGuard.requireLeagueAdmin(command.leagueId(), command.requestingUsername());
+
+        // En preparación y durante el draft el tier fija el precio de cada pick: se mueve desde la preparación
+        // (sin cascada) y no se toca con el draft en curso.
+        draftRepository.findLatestByLeagueId(command.leagueId())
+                .filter(d -> d.getStatus() == DraftStatus.PENDING || d.getStatus() == DraftStatus.IN_PROGRESS)
+                .ifPresent(d -> {
+                    throw new IllegalStateException("Los tiers solo se ajustan aquí con el draft terminado");
+                });
 
         ClosedListEntity entry = closedListRepository.findById(command.entryId())
                 .orElseThrow(() -> new IllegalArgumentException("Ese Pokémon no está en el pool"));
