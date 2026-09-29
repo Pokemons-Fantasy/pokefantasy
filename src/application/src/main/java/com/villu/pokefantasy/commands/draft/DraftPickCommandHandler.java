@@ -1,23 +1,15 @@
 package com.villu.pokefantasy.commands.draft;
 
-import com.villu.pokefantasy.commands.schedule.RoundRobinScheduler;
-import com.villu.pokefantasy.dto.ActivityEventType;
 import com.villu.pokefantasy.dto.DraftStatus;
-import com.villu.pokefantasy.dto.LeagueSettings;
 import com.villu.pokefantasy.mediator.CommandHandler;
-import com.villu.pokefantasy.repository.ActivityEventRepository;
 import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
-import com.villu.pokefantasy.repository.ScheduleRepository;
 import com.villu.pokefantasy.repository.UserRepository;
-import com.villu.pokefantasy.repository.entity.ActivityEventEntity;
 import com.villu.pokefantasy.repository.entity.ClosedListEntity;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
 import com.villu.pokefantasy.repository.entity.DraftPick;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
-import com.villu.pokefantasy.repository.entity.LeagueMember;
-import com.villu.pokefantasy.repository.entity.ScheduleEntity;
 import com.villu.pokefantasy.repository.entity.UserEntity;
 import org.springframework.stereotype.Service;
 
@@ -32,27 +24,24 @@ public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand,
     private final ClosedListRepository closedListRepository;
     private final UserRepository userRepository;
     private final LeagueRepository leagueRepository;
-    private final ScheduleRepository scheduleRepository;
     private final DraftTurnNotifier draftTurnNotifier;
     private final DraftTurnService draftTurnService;
-    private final ActivityEventRepository activityEventRepository;
+    private final DraftCompletionService draftCompletionService;
 
     public DraftPickCommandHandler(DraftRepository draftRepository,
                                    ClosedListRepository closedListRepository,
                                    UserRepository userRepository,
                                    LeagueRepository leagueRepository,
-                                   ScheduleRepository scheduleRepository,
                                    DraftTurnNotifier draftTurnNotifier,
                                    DraftTurnService draftTurnService,
-                                   ActivityEventRepository activityEventRepository) {
+                                   DraftCompletionService draftCompletionService) {
         this.draftRepository = draftRepository;
         this.closedListRepository = closedListRepository;
         this.userRepository = userRepository;
         this.leagueRepository = leagueRepository;
-        this.scheduleRepository = scheduleRepository;
         this.draftTurnNotifier = draftTurnNotifier;
         this.draftTurnService = draftTurnService;
-        this.activityEventRepository = activityEventRepository;
+        this.draftCompletionService = draftCompletionService;
     }
 
     @Override
@@ -136,56 +125,12 @@ public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand,
         draft.setCurrentTurnStartedAt(Instant.now());
         draftRepository.save(draft);
 
-        // Al completar el draft: ajustes por defecto si faltan, sobrante del presupuesto al saldo y calendario
-        // round-robin (primera + segunda vuelta).
         if (draft.getStatus() == DraftStatus.COMPLETED) {
-            boolean settingsCreated = initLeagueSettingsIfNeeded(league);
-            boolean leftoverPaid = payLeftoverBudgets(league, draft);
-            if (settingsCreated || leftoverPaid) {
-                leagueRepository.save(league);
-            }
-            generateLeagueSchedule(leagueId, draft.getTurnOrder());
+            draftCompletionService.complete(leagueId, league, draft);
         } else {
             draftTurnNotifier.notifyCurrentTurn(draft, league);
         }
         return null;
-    }
-
-    private void generateLeagueSchedule(String leagueId, List<String> players) {
-        ScheduleEntity schedule = new ScheduleEntity();
-        schedule.setLeagueId(leagueId);
-        schedule.setJornadas(RoundRobinScheduler.generate(players));
-        scheduleRepository.save(schedule);
-    }
-
-    private boolean initLeagueSettingsIfNeeded(LeagueEntity league) {
-        if (league != null && league.getSettings() == null) {
-            league.setSettings(LeagueSettings.defaults());
-            return true;
-        }
-        return false;
-    }
-
-    /** Lo que le sobra a cada jugador del presupuesto del draft pasa a su saldo de la liga. */
-    private boolean payLeftoverBudgets(LeagueEntity league, DraftEntity draft) {
-        if (league == null || draft.getConfig() == null) return false;
-        Instant now = Instant.now();
-        boolean paid = false;
-        for (LeagueMember member : league.getMembers()) {
-            if (!draft.getTurnOrder().contains(member.getUsername())) continue;
-            Integer leftover = draftTurnService.remainingBudget(draft, member.getUsername());
-            if (leftover == null || leftover <= 0) continue;
-            member.setCoinBalance(member.getCoinBalance() + leftover);
-            activityEventRepository.save(ActivityEventEntity.builder()
-                    .leagueId(league.getId())
-                    .type(ActivityEventType.DRAFT_COINS)
-                    .actorUsername(member.getUsername())
-                    .coinsAmount(leftover)
-                    .createdAt(now)
-                    .build());
-            paid = true;
-        }
-        return paid;
     }
 
     @Override

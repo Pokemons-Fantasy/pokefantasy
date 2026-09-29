@@ -58,9 +58,10 @@ class DraftPickCommandHandlerTest {
 
     @BeforeEach
     void setUp() {
+        DraftTurnService draftTurnService = new DraftTurnService();
         handler = new DraftPickCommandHandler(draftRepository, closedListRepository, userRepository,
-                leagueRepository, scheduleRepository, draftTurnNotifier, new DraftTurnService(),
-                activityEventRepository);
+                leagueRepository, draftTurnNotifier, draftTurnService,
+                new DraftCompletionService(leagueRepository, scheduleRepository, activityEventRepository, draftTurnService));
     }
 
     @Test

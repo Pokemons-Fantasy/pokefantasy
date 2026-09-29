@@ -96,6 +96,7 @@ api-rest ─► application ─► domain ◄─ infrastructure ─► MongoDB A
 | Turnos vencidos del draft (cliente y job) | `DraftTurnTimeoutService` |
 | Turnos y presupuesto del draft (precio, restante, quién puede elegir, avance lineal/snake) | `DraftTurnService` |
 | Preparación del draft (admin + draft en `PENDING`) / orden de turnos válido | `DraftSetupGuard` / `TurnOrderPolicy` |
+| Cierre del draft (ajustes por defecto, sobrante del presupuesto al saldo, calendario) | `DraftCompletionService` |
 | Push de turno / de cierre de ventana | `DraftTurnNotifier` / `WindowReminderService` |
 | Admin de liga / pertenencia a liga | `LeagueAdminGuard` / `LeagueMemberService`, `LeagueMembershipGuard` (incl. `sharesLeague`) |
 | Qué foto de perfil se acepta (JPEG, tamaño, dimensiones) | `AvatarImagePolicy` (ADR-014) |

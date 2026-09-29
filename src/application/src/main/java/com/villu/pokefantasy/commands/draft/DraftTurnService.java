@@ -8,6 +8,7 @@ import com.villu.pokefantasy.repository.entity.DraftPick;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Set;
 
@@ -102,6 +103,34 @@ public class DraftTurnService {
         draft.setCurrentTurnIndex(0);
         if (!canPick(draft, draft.getTurnOrder().get(0), available, maxTeamSize)) {
             advance(draft, available, maxTeamSize);
+        }
+    }
+
+    /**
+     * Quita a un jugador del orden de turnos (expulsado o que se va) y recoloca el turno. Si le tocaba y el draft
+     * está en curso, el turno pasa a quien le seguía en el sentido de la ronda y que pueda elegir (o el draft
+     * termina si ya nadie puede). {@code available} debe incluir los Pokémon que el jugador deja libres.
+     */
+    public void removePlayer(DraftEntity draft, String username, List<ClosedListEntity> available, int maxTeamSize) {
+        int removedIndex = draft.getTurnOrder().indexOf(username);
+        if (removedIndex == -1) return;
+
+        draft.getTurnOrder().remove(removedIndex);
+
+        if (draft.getTurnOrder().isEmpty()) return;
+
+        int currentIndex = draft.getCurrentTurnIndex();
+        if (removedIndex < currentIndex) {
+            draft.setCurrentTurnIndex(currentIndex - 1);
+        } else if (removedIndex == currentIndex) {
+            if (draft.getStatus() != DraftStatus.IN_PROGRESS) {
+                draft.setCurrentTurnIndex(currentIndex % draft.getTurnOrder().size());
+                return;
+            }
+            // Se coloca justo antes del hueco en el sentido de la ronda y avanza desde ahí como tras un pick.
+            draft.setCurrentTurnIndex(isForward(draft, draft.getCurrentRound()) ? removedIndex - 1 : removedIndex);
+            advance(draft, available, maxTeamSize);
+            draft.setCurrentTurnStartedAt(Instant.now());
         }
     }
 

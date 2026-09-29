@@ -190,6 +190,47 @@ class DraftTurnServiceTest {
     }
 
     @Test
+    void removePlayer_currentPlayerInBudgetDraft_turnGoesToNextWhoCanPay() {
+        DraftEntity d = draft(CONFIG, new ArrayList<>(List.of("ash", "misty", "brock", "gary")),
+                List.of(pick("brock", "mew", 290)));
+        d.setCurrentTurnIndex(1); // misty
+        service.removePlayer(d, "misty", List.of(entry("abra", Tier.D)), 10);
+        assertThat(d.getTurnOrder()).containsExactly("ash", "brock", "gary");
+        assertThat(d.getCurrentTurnIndex()).isEqualTo(2); // brock (10 monedas) se salta: gary
+        assertThat(d.getCurrentRound()).isEqualTo(1);
+        assertThat(d.getCurrentTurnStartedAt()).isNotNull();
+    }
+
+    @Test
+    void removePlayer_currentPlayerInSnakeBackwardRound_turnGoesToPrevious() {
+        DraftEntity d = draft(CONFIG.toBuilder().snake(true).build(), new ArrayList<>(List.of("ash", "misty", "brock")),
+                List.of());
+        d.setCurrentRound(2);
+        d.setCurrentTurnIndex(1); // misty, ronda inversa: después va ash, no brock
+        service.removePlayer(d, "misty", List.of(entry("abra", Tier.D)), 10);
+        assertThat(d.getCurrentTurnIndex()).isZero();
+        assertThat(d.getCurrentRound()).isEqualTo(2);
+    }
+
+    @Test
+    void removePlayer_currentPlayerAndNobodyElseCanPay_completes() {
+        DraftEntity d = draft(CONFIG, new ArrayList<>(List.of("ash", "misty")), List.of(pick("ash", "mew", 290)));
+        d.setCurrentTurnIndex(1);
+        service.removePlayer(d, "misty", List.of(entry("abra", Tier.D)), 10);
+        assertThat(d.getStatus()).isEqualTo(DraftStatus.COMPLETED);
+    }
+
+    @Test
+    void removePlayer_beforeCurrentShiftsIndex_unknownPlayerChangesNothing() {
+        DraftEntity d = draft(CONFIG, new ArrayList<>(List.of("ash", "misty", "brock")), List.of());
+        d.setCurrentTurnIndex(2);
+        service.removePlayer(d, "ash", List.of(), 10);
+        assertThat(d.getCurrentTurnIndex()).isEqualTo(1);
+        service.removePlayer(d, "gary", List.of(), 10);
+        assertThat(d.getTurnOrder()).containsExactly("misty", "brock");
+    }
+
+    @Test
     void placeFirstTurn_startsWithFirstPlayerWhoCanPay() {
         DraftEntity d = draft(CONFIG.toBuilder().budget(50).build(), List.of("ash", "misty"),
                 List.of(pick("ash", "abra", 30)));
