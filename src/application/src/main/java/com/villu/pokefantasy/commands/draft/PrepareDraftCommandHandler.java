@@ -8,6 +8,7 @@ import com.villu.pokefantasy.league.LeagueAdminGuard;
 import com.villu.pokefantasy.mediator.CommandHandler;
 import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
+import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import com.villu.pokefantasy.repository.entity.LeagueMember;
@@ -27,15 +28,18 @@ public class PrepareDraftCommandHandler implements CommandHandler<PrepareDraftCo
     private final LeagueAdminGuard leagueAdminGuard;
     private final ClosedListRepository closedListRepository;
     private final TierAssignmentService tierAssignmentService;
+    private final LeagueRepository leagueRepository;
 
     public PrepareDraftCommandHandler(DraftRepository draftRepository,
                                       LeagueAdminGuard leagueAdminGuard,
                                       ClosedListRepository closedListRepository,
-                                      TierAssignmentService tierAssignmentService) {
+                                      TierAssignmentService tierAssignmentService,
+                                      LeagueRepository leagueRepository) {
         this.draftRepository = draftRepository;
         this.leagueAdminGuard = leagueAdminGuard;
         this.closedListRepository = closedListRepository;
         this.tierAssignmentService = tierAssignmentService;
+        this.leagueRepository = leagueRepository;
     }
 
     @Override
@@ -67,8 +71,13 @@ public class PrepareDraftCommandHandler implements CommandHandler<PrepareDraftCo
         draft.setConfig(DraftConfig.defaults());
         draftRepository.save(draft);
 
-        tierAssignmentService.assignTiersToPool(command.leagueId(),
-                league.getSettings() != null ? league.getSettings() : LeagueSettings.defaults());
+        // Sin ajustes guardados, GET settings enseña los de por defecto (20 rondas) pero el draft contaría 10:
+        // se guardan ya para que las rondas del draft sean las mismas en el front y en el back.
+        if (league.getSettings() == null) {
+            league.setSettings(LeagueSettings.defaults());
+            leagueRepository.save(league);
+        }
+        tierAssignmentService.assignTiersToPool(command.leagueId(), league.getSettings());
         return null;
     }
 

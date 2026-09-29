@@ -8,6 +8,7 @@ import com.villu.pokefantasy.dto.LeagueSettings;
 import com.villu.pokefantasy.league.LeagueAdminGuard;
 import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
+import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.entity.ClosedListEntity;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
@@ -40,6 +41,7 @@ class PrepareDraftCommandHandlerTest {
     @Mock private LeagueAdminGuard leagueAdminGuard;
     @Mock private ClosedListRepository closedListRepository;
     @Mock private TierAssignmentService tierAssignmentService;
+    @Mock private LeagueRepository leagueRepository;
 
     private PrepareDraftCommandHandler handler;
     private final LeagueEntity league = new LeagueEntity();
@@ -47,7 +49,7 @@ class PrepareDraftCommandHandlerTest {
     @BeforeEach
     void setUp() {
         handler = new PrepareDraftCommandHandler(draftRepository, leagueAdminGuard, closedListRepository,
-                tierAssignmentService);
+                tierAssignmentService, leagueRepository);
         league.setMembers(new ArrayList<>(List.of(new LeagueMember("ash", LeagueRole.ADMIN, 0),
                 new LeagueMember("misty", LeagueRole.USER, 0))));
     }
@@ -80,6 +82,32 @@ class PrepareDraftCommandHandlerTest {
         assertThat(saved.getDraftHistory()).isEmpty();
         assertThat(saved.getCurrentRound()).isEqualTo(1);
         verify(tierAssignmentService).assignTiersToPool(eq("l1"), any(LeagueSettings.class));
+    }
+
+    // Sin ajustes guardados, GET settings devuelve los de por defecto (20 rondas) y el draft usaría 10:
+    // al preparar se guardan para que front y back cuenten las mismas rondas.
+    @Test
+    void handle_leagueWithoutSettings_savesDefaultSettings() {
+        admin();
+        when(closedListRepository.findAllByLeagueId("l1")).thenReturn(List.of(new ClosedListEntity()));
+
+        handler.handle(new PrepareDraftCommand("l1", "ash"));
+
+        assertThat(league.getSettings()).isEqualTo(LeagueSettings.defaults());
+        verify(leagueRepository).save(league);
+    }
+
+    @Test
+    void handle_leagueWithSettings_keepsThem() {
+        LeagueSettings settings = LeagueSettings.builder().maxTeamSize(12).build();
+        league.setSettings(settings);
+        admin();
+        when(closedListRepository.findAllByLeagueId("l1")).thenReturn(List.of(new ClosedListEntity()));
+
+        handler.handle(new PrepareDraftCommand("l1", "ash"));
+
+        assertThat(league.getSettings()).isSameAs(settings);
+        verify(leagueRepository, never()).save(any());
     }
 
     @Test
