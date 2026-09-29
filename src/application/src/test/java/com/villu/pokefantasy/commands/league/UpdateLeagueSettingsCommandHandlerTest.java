@@ -1,5 +1,6 @@
 package com.villu.pokefantasy.commands.league;
 
+import static org.mockito.Mockito.never;
 import com.villu.pokefantasy.commands.closedlist.TierAssignmentService;
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueRole;
@@ -152,7 +153,7 @@ class UpdateLeagueSettingsCommandHandlerTest {
     }
 
     @Test
-    void handle_draftPending_savesSettings() {
+    void handle_draftInSetup_savesSettingsWithoutRetiering() {
         LeagueEntity league = leagueWithAdmin("ash");
         when(leagueAdminGuard.requireLeagueAdmin("l1", "ash")).thenReturn(league);
 
@@ -163,6 +164,7 @@ class UpdateLeagueSettingsCommandHandlerTest {
         handler.handle(validCmd());
 
         verify(leagueRepository).save(league);
+        verify(tierAssignmentService, never()).assignTiersToPool(any(), any());
     }
 
     @Test

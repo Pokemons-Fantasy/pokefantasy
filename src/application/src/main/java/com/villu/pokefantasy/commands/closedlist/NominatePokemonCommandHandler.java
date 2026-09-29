@@ -47,10 +47,11 @@ public class NominatePokemonCommandHandler implements CommandHandler<NominatePok
 
         leagueMembershipGuard.requireMember(command.leagueId(), command.username());
 
+        // Solo se nomina mientras la liga no tiene draft: al prepararlo se cierran las nominaciones.
         draftRepository.findLatestByLeagueId(command.leagueId()).ifPresent(draft -> {
-            if (draft.getStatus() != DraftStatus.PENDING) {
-                throw new IllegalStateException("Las nominaciones están cerradas: el draft ya ha empezado");
-            }
+            throw new IllegalStateException(draft.getStatus() == DraftStatus.PENDING
+                    ? "Las nominaciones están cerradas: se está preparando el draft"
+                    : "Las nominaciones están cerradas: el draft ya ha empezado");
         });
 
         if (closedListRepository.existsByPokemonNameAndLeagueId(command.pokemonName().toLowerCase(), command.leagueId())) {
