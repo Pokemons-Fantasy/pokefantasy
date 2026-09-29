@@ -39,6 +39,12 @@ class DraftFacadeTest {
     }
 
     @Test
+    void prepareDraft_sendsPrepareDraftCommand() throws Exception {
+        facade.prepareDraft("l1", "ash");
+        verify(mediator).send(new PrepareDraftCommand("l1", "ash"));
+    }
+
+    @Test
     void pick_sendsDraftPickCommand() throws Exception {
         facade.pick("ash", "pikachu", "l1");
 

@@ -19,6 +19,10 @@ public class DraftFacade {
         mediator.send(new StartDraftCommand(turnOrder, leagueId, requestingUsername));
     }
 
+    public void prepareDraft(String leagueId, String requestingUsername) throws Exception {
+        mediator.send(new PrepareDraftCommand(leagueId, requestingUsername));
+    }
+
     public void pick(String username, String pokemonName, String leagueId) throws Exception {
         mediator.send(new DraftPickCommand(username, pokemonName, leagueId));
     }

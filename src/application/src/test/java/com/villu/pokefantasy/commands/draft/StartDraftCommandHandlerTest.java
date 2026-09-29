@@ -45,7 +45,7 @@ class StartDraftCommandHandlerTest {
     @BeforeEach
     void setUp() {
         handler = new StartDraftCommandHandler(draftRepository, leagueAdminGuard, leagueRepository, tierAssignmentService,
-                draftTurnNotifier);
+                draftTurnNotifier, new TurnOrderPolicy());
     }
 
     private void allowAdmin(String... players) {
