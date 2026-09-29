@@ -21,6 +21,8 @@ public class ActivityEventResponse {
     private String pokemonName;
     private String pokemonName2;
     private Integer coinsAmount;
+    /** STEAL: monedas que cobró la víctima. Null en robos antiguos (cobraba 2 × {@code coinsAmount}). */
+    private Integer targetCoinsAmount;
     private String fromTier;
     private String toTier;
     private Integer roundNumber;

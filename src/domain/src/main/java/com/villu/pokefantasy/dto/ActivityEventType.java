@@ -13,5 +13,7 @@ public enum ActivityEventType {
     /** Monedas retiradas al anular un resultado; {@code coinsAmount} es lo retirado (positivo). */
     COIN_REVOKED,
     /** Presupuesto del draft que le sobró al jugador y pasó a su saldo; {@code coinsAmount} es lo sumado. */
-    DRAFT_COINS
+    DRAFT_COINS,
+    /** El dueño subió la cláusula de robo de un Pokémon; {@code coinsAmount} es lo invertido (la cláusula sube el doble). */
+    CLAUSE_RAISED
 }

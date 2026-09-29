@@ -112,6 +112,7 @@ class GetActivityFeedCommandHandlerTest {
                 .pokemonName("charizard")
                 .pokemonName2(null)
                 .coinsAmount(300)
+                .targetCoinsAmount(300)
                 .fromTier(null)
                 .toTier(null)
                 .roundNumber(null)
@@ -133,6 +134,7 @@ class GetActivityFeedCommandHandlerTest {
         assertThat(response.getTargetUsername()).isEqualTo("brock");
         assertThat(response.getPokemonName()).isEqualTo("charizard");
         assertThat(response.getCoinsAmount()).isEqualTo(300);
+        assertThat(response.getTargetCoinsAmount()).isEqualTo(300);
         assertThat(response.getCreatedAt()).isEqualTo(createdAt);
     }
 
