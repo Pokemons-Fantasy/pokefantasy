@@ -6,7 +6,6 @@ import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.entity.ClosedListEntity;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
-import com.villu.pokefantasy.repository.entity.DraftPick;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import org.springframework.stereotype.Service;
 
@@ -14,8 +13,6 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * Turno vencido del draft → pick aleatorio en nombre del jugador. Lo usan el auto-pick que lanza el
@@ -28,14 +25,17 @@ public class DraftTurnTimeoutService {
     private final DraftRepository draftRepository;
     private final ClosedListRepository closedListRepository;
     private final DraftPickCommandHandler draftPickCommandHandler;
+    private final DraftTurnService draftTurnService;
     private final Random random = new Random();
 
     public DraftTurnTimeoutService(DraftRepository draftRepository,
                                    ClosedListRepository closedListRepository,
-                                   DraftPickCommandHandler draftPickCommandHandler) {
+                                   DraftPickCommandHandler draftPickCommandHandler,
+                                   DraftTurnService draftTurnService) {
         this.draftRepository = draftRepository;
         this.closedListRepository = closedListRepository;
         this.draftPickCommandHandler = draftPickCommandHandler;
+        this.draftTurnService = draftTurnService;
     }
 
     /** Fin del turno actual, o vacío si la liga no tiene temporizador o no consta cuándo empezó. */
@@ -78,20 +78,18 @@ public class DraftTurnTimeoutService {
 
         String currentPlayer = draft.getTurnOrder().get(draft.getCurrentTurnIndex());
 
-        Set<String> pickedNames = draft.getPicks().stream()
-                .map(DraftPick::getPokemonName)
-                .collect(Collectors.toSet());
+        List<ClosedListEntity> available = draftTurnService.available(draft,
+                closedListRepository.findAllByLeagueId(leagueId));
+        Integer remaining = draftTurnService.remainingBudget(draft, currentPlayer);
+        List<ClosedListEntity> affordable = available.stream()
+                .filter(e -> remaining == null || draftTurnService.priceOf(draft, e) <= remaining)
+                .toList();
 
-        List<ClosedListEntity> available = closedListRepository.findAllByLeagueId(leagueId)
-                .stream()
-                .filter(p -> !pickedNames.contains(p.getPokemonName()))
-                .collect(Collectors.toList());
-
-        if (available.isEmpty()) {
+        if (affordable.isEmpty()) {
             throw new IllegalStateException("No quedan Pokémon para elegir automáticamente");
         }
 
-        String randomPokemon = available.get(random.nextInt(available.size())).getPokemonName();
+        String randomPokemon = affordable.get(random.nextInt(affordable.size())).getPokemonName();
 
         // Delegate to the standard pick flow (validates, records, advances turn, generates schedule if completed)
         draftPickCommandHandler.handle(new DraftPickCommand(currentPlayer, randomPokemon, leagueId));
