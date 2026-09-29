@@ -1,6 +1,8 @@
 package com.villu.pokefantasy.commands.draft;
 
+import com.villu.pokefantasy.dto.DraftConfig;
 import com.villu.pokefantasy.dto.DraftStatus;
+import com.villu.pokefantasy.dto.Tier;
 import com.villu.pokefantasy.dto.LeagueRole;
 import com.villu.pokefantasy.dto.LeagueSettings;
 import com.villu.pokefantasy.exception.ForbiddenOperationException;
@@ -44,7 +46,8 @@ class AutoPickDraftCommandHandlerTest {
     @BeforeEach
     void setUp() {
         handler = new AutoPickDraftCommandHandler(new LeagueMembershipGuard(leagueRepository),
-                new DraftTurnTimeoutService(draftRepository, closedListRepository, draftPickCommandHandler));
+                new DraftTurnTimeoutService(draftRepository, closedListRepository, draftPickCommandHandler,
+                        new DraftTurnService()));
     }
 
     private DraftEntity inProgressDraft(Instant turnStartedAt) {
@@ -73,6 +76,24 @@ class AutoPickDraftCommandHandlerTest {
                 new LeagueMember("ash", LeagueRole.ADMIN, 0),
                 new LeagueMember("brock", LeagueRole.USER, 0))));
         return league;
+    }
+
+    @Test
+    void handle_budgetDraft_picksOnlyAffordablePokemon() throws Exception {
+        DraftEntity draft = inProgressDraft(Instant.now().minusSeconds(120));
+        draft.setConfig(DraftConfig.builder().budget(50).priceS(200).priceA(150).priceB(100).priceC(60).priceD(30)
+                .snake(false).build());
+        when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(leagueWithTimer(60)));
+        when(draftRepository.findActiveByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+        ClosedListEntity mew = closedListEntry("mew");
+        mew.setTier(Tier.S);
+        ClosedListEntity abra = closedListEntry("abra");
+        abra.setTier(Tier.D);
+        when(closedListRepository.findAllByLeagueId(LEAGUE_ID)).thenReturn(List.of(mew, abra));
+
+        handler.handle(new AutoPickDraftCommand(LEAGUE_ID, "ash"));
+
+        verify(draftPickCommandHandler).handle(new DraftPickCommand("ash", "abra", LEAGUE_ID));
     }
 
     private ClosedListEntity closedListEntry(String pokemonName) {

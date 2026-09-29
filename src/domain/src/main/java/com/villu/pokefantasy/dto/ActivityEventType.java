@@ -11,5 +11,7 @@ public enum ActivityEventType {
     TIER_CHANGE,
     COIN_EARNED,
     /** Monedas retiradas al anular un resultado; {@code coinsAmount} es lo retirado (positivo). */
-    COIN_REVOKED
+    COIN_REVOKED,
+    /** Presupuesto del draft que le sobró al jugador y pasó a su saldo; {@code coinsAmount} es lo sumado. */
+    DRAFT_COINS
 }

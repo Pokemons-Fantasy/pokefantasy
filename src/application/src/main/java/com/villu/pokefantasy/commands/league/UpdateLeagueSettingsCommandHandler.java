@@ -13,6 +13,7 @@ import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.util.Optional;
 
 @Service
 public class UpdateLeagueSettingsCommandHandler
@@ -70,12 +71,10 @@ public class UpdateLeagueSettingsCommandHandler
 
         LeagueEntity league = leagueAdminGuard.requireLeagueAdmin(command.leagueId(), command.requestingUsername());
 
-        draftRepository.findLatestByLeagueId(command.leagueId()).ifPresent(draft -> {
-            if (draft.getStatus() == DraftStatus.IN_PROGRESS) {
-                throw new IllegalStateException(
-                        "No se pueden cambiar los ajustes con un draft en curso");
-            }
-        });
+        Optional<DraftEntity> latestDraft = draftRepository.findLatestByLeagueId(command.leagueId());
+        if (latestDraft.map(d -> d.getStatus() == DraftStatus.IN_PROGRESS).orElse(false)) {
+            throw new IllegalStateException("No se pueden cambiar los ajustes con un draft en curso");
+        }
 
         if (command.maxTeamSize() != null && command.maxTeamSize() < 10) {
             throw new IllegalArgumentException("El tamaño máximo del equipo debe ser al menos 10.");
@@ -105,8 +104,12 @@ public class UpdateLeagueSettingsCommandHandler
 
         leagueRepository.save(league);
 
-        // Recalculate pool tiers using the new percentages (no-ops if pool is empty)
-        tierAssignmentService.assignTiersToPool(command.leagueId(), league.getSettings());
+        // Recalcular los tiers del pool con los nuevos porcentajes (no hace nada si el pool está vacío).
+        // En preparación los tiers los reparte el admin a mano: no se pisan.
+        boolean draftInSetup = latestDraft.map(d -> d.getStatus() == DraftStatus.PENDING).orElse(false);
+        if (!draftInSetup) {
+            tierAssignmentService.assignTiersToPool(command.leagueId(), league.getSettings());
+        }
 
         // If seasonStartDate was set, retroactively assign weekly dates to all jornadas
         if (command.seasonStartDate() != null) {

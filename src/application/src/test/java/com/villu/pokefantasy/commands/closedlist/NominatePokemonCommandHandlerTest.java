@@ -79,6 +79,17 @@ class NominatePokemonCommandHandlerTest {
     }
 
     @Test
+    void handle_draftInSetup_throwsIllegalState() {
+        DraftEntity draft = new DraftEntity();
+        draft.setStatus(DraftStatus.PENDING);
+        when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.of(draft));
+
+        assertThatThrownBy(() -> handler.handle(new NominatePokemonCommand("ash", "pikachu", "l1")))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Las nominaciones están cerradas: se está preparando el draft");
+    }
+
+    @Test
     void handle_pokemonAlreadyInClosedList_throwsIllegalArgument() {
         when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.empty());
         when(closedListRepository.existsByPokemonNameAndLeagueId("pikachu", "l1")).thenReturn(true);

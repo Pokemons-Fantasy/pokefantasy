@@ -5,20 +5,18 @@ import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueSettings;
 import com.villu.pokefantasy.league.LeagueAdminGuard;
 import com.villu.pokefantasy.mediator.CommandHandler;
+import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
+import com.villu.pokefantasy.repository.entity.ClosedListEntity;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
+import java.util.Optional;
 
 @Service
 public class StartDraftCommandHandler implements CommandHandler<StartDraftCommand, Void> {
@@ -28,49 +26,51 @@ public class StartDraftCommandHandler implements CommandHandler<StartDraftComman
     private final LeagueRepository leagueRepository;
     private final TierAssignmentService tierAssignmentService;
     private final DraftTurnNotifier draftTurnNotifier;
+    private final TurnOrderPolicy turnOrderPolicy;
+    private final ClosedListRepository closedListRepository;
+    private final DraftTurnService draftTurnService;
 
     public StartDraftCommandHandler(DraftRepository draftRepository,
                                     LeagueAdminGuard leagueAdminGuard,
                                     LeagueRepository leagueRepository,
                                     TierAssignmentService tierAssignmentService,
-                                    DraftTurnNotifier draftTurnNotifier) {
+                                    DraftTurnNotifier draftTurnNotifier,
+                                    TurnOrderPolicy turnOrderPolicy,
+                                    ClosedListRepository closedListRepository,
+                                    DraftTurnService draftTurnService) {
         this.draftRepository = draftRepository;
         this.leagueAdminGuard = leagueAdminGuard;
         this.leagueRepository = leagueRepository;
         this.tierAssignmentService = tierAssignmentService;
         this.draftTurnNotifier = draftTurnNotifier;
+        this.turnOrderPolicy = turnOrderPolicy;
+        this.closedListRepository = closedListRepository;
+        this.draftTurnService = draftTurnService;
     }
 
     @Override
     public Void handle(StartDraftCommand command) {
-        if (command == null || command.turnOrder() == null || command.turnOrder().isEmpty()) {
+        if (command == null) {
             throw new IllegalArgumentException("El orden de turnos debe tener al menos un jugador");
         }
 
         LeagueEntity league = leagueAdminGuard.requireLeagueAdmin(command.leagueId(), command.requestingUsername());
 
-        List<String> sanitizedTurnOrder = new ArrayList<>();
-        Set<String> seenUsers = new HashSet<>();
-        for (String username : command.turnOrder()) {
-            if (username == null || username.isBlank()) {
-                throw new IllegalArgumentException("El orden de turnos tiene un jugador sin nombre");
+        Optional<DraftEntity> active = draftRepository.findActiveByLeagueId(command.leagueId());
+        if (active.isPresent()) {
+            if (active.get().getStatus() == DraftStatus.PENDING) {
+                return startPrepared(active.get(), league, command.leagueId());
             }
-
-            String normalizedUsername = username.trim().toLowerCase(Locale.ROOT);
-            if (!seenUsers.add(normalizedUsername)) {
-                throw new IllegalArgumentException("El orden de turnos tiene jugadores repetidos");
-            }
-
-            sanitizedTurnOrder.add(username.trim());
+            throw new IllegalStateException("Ya hay un draft en marcha en esta liga");
         }
 
-        draftRepository.findActiveByLeagueId(command.leagueId()).ifPresent(d -> {
-            throw new IllegalStateException("Ya hay un draft en marcha en esta liga");
-        });
+        // Sin preparación: el front anterior a la configuración del draft manda el orden y arranca directamente
+        // (draft gratis y lineal). Quitar cuando no quede ningún cliente que lo use.
+        List<String> turnOrder = turnOrderPolicy.canonical(command.turnOrder(), league);
 
         DraftEntity draft = new DraftEntity();
         draft.setStatus(DraftStatus.IN_PROGRESS);
-        draft.setTurnOrder(matchLeagueMembers(sanitizedTurnOrder, league));
+        draft.setTurnOrder(turnOrder);
         draft.setCurrentTurnIndex(0);
         draft.setCurrentRound(1);
         draft.setPicks(new ArrayList<>());
@@ -83,34 +83,26 @@ public class StartDraftCommandHandler implements CommandHandler<StartDraftComman
         return null;
     }
 
-    /**
-     * El orden de turnos tiene que ser exactamente la lista de miembros: si falta alguien, se queda sin equipo;
-     * si sobra alguien, recibe picks sin estar en la liga. Devuelve los nombres tal como están en la liga.
-     */
-    private List<String> matchLeagueMembers(List<String> turnOrder, LeagueEntity league) {
-        Map<String, String> membersByKey = new LinkedHashMap<>();
-        if (league.getMembers() != null) {
-            league.getMembers().forEach(m -> membersByKey.put(m.getUsername().toLowerCase(Locale.ROOT), m.getUsername()));
+    private Void startPrepared(DraftEntity draft, LeagueEntity league, String leagueId) {
+        // Alguien pudo entrar o salir de la liga después de guardar el orden de turnos.
+        draft.setTurnOrder(turnOrderPolicy.canonical(draft.getTurnOrder(), league));
+        List<ClosedListEntity> pool = closedListRepository.findAllByLeagueId(leagueId);
+        if (pool.isEmpty()) {
+            throw new IllegalStateException("El pool está vacío: nominad Pokémon antes de empezar");
         }
-
-        List<String> canonical = new ArrayList<>();
-        List<String> strangers = new ArrayList<>();
-        for (String username : turnOrder) {
-            String member = membersByKey.remove(username.toLowerCase(Locale.ROOT));
-            if (member == null) {
-                strangers.add(username);
-            } else {
-                canonical.add(member);
-            }
+        if (pool.stream().anyMatch(e -> e.getTier() == null)) {
+            throw new IllegalStateException("Hay Pokémon sin tier: recalcula los tiers antes de empezar");
         }
-
-        if (!strangers.isEmpty()) {
-            throw new IllegalArgumentException("No son miembros de la liga: " + String.join(", ", strangers));
+        draft.setStatus(DraftStatus.IN_PROGRESS);
+        draftTurnService.placeFirstTurn(draft, draftTurnService.available(draft, pool),
+                draftTurnService.maxTeamSize(league));
+        if (draft.getStatus() == DraftStatus.COMPLETED) {
+            throw new IllegalArgumentException("Con este presupuesto nadie puede elegir ningún Pokémon");
         }
-        if (!membersByKey.isEmpty()) {
-            throw new IllegalArgumentException("Faltan en el orden de turnos: " + String.join(", ", membersByKey.values()));
-        }
-        return canonical;
+        draft.setCurrentTurnStartedAt(Instant.now());
+        draftRepository.save(draft);
+        draftTurnNotifier.notifyCurrentTurn(draft, league);
+        return null;
     }
 
     private void assignTiersToPool(String leagueId) {

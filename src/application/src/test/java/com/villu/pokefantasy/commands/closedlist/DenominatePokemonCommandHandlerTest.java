@@ -1,5 +1,7 @@
 package com.villu.pokefantasy.commands.closedlist;
 
+import static org.mockito.Mockito.never;
+import static org.mockito.ArgumentMatchers.any;
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.exception.ForbiddenOperationException;
 import com.villu.pokefantasy.league.LeagueMembershipGuard;
@@ -63,14 +65,15 @@ class DenominatePokemonCommandHandlerTest {
     }
 
     @Test
-    void handle_pendingDraft_deletesEntry() {
+    void handle_draftInSetup_throwsIllegalState() {
         DraftEntity draft = new DraftEntity();
         draft.setStatus(DraftStatus.PENDING);
         when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.of(draft));
 
-        handler.handle(new DenominatePokemonCommand("ash", "pikachu", "l1"));
-
-        verify(closedListRepository).deleteByPokemonNameAndNominatedByAndLeagueId("pikachu", "ash", "l1");
+        assertThatThrownBy(() -> handler.handle(new DenominatePokemonCommand("ash", "pikachu", "l1")))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Ya no se pueden quitar nominaciones: se está preparando el draft");
+        verify(closedListRepository, never()).deleteByPokemonNameAndNominatedByAndLeagueId(any(), any(), any());
     }
 
     @Test
