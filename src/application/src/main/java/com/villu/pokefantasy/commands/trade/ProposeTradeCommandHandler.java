@@ -1,5 +1,6 @@
 package com.villu.pokefantasy.commands.trade;
 
+import com.villu.pokefantasy.dto.PushMessage;
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.TradeStatus;
 import com.villu.pokefantasy.mediator.CommandHandler;
@@ -98,9 +99,9 @@ public class ProposeTradeCommandHandler implements CommandHandler<ProposeTradeCo
         if (responderUser != null && !responderUser.getFcmTokens().isEmpty()) {
             pushNotificationPort.send(
                     responderUser.getFcmTokens(),
-                    "Propuesta de intercambio",
-                    proposer + " quiere intercambiar " + trade.getProposerPokemonName()
-                            + " por tu " + trade.getResponderPokemonName());
+                    PushMessage.teams(leagueId, "Propuesta de intercambio",
+                            proposer + " quiere intercambiar " + trade.getProposerPokemonName()
+                                    + " por tu " + trade.getResponderPokemonName()));
         }
         return saved.getId();
     }

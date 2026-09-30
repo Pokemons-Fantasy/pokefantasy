@@ -1,5 +1,6 @@
 package com.villu.pokefantasy.commands.steal;
 
+import com.villu.pokefantasy.dto.PushMessage;
 import com.villu.pokefantasy.commands.schedule.JornadaWindowService;
 import com.villu.pokefantasy.dto.ActivityEventType;
 import com.villu.pokefantasy.dto.DraftStatus;
@@ -488,8 +489,8 @@ class StealPokemonCommandHandlerTest {
 
         verify(pushNotificationPort).send(
                 eq(List.of("token-brock")),
-                eq("Te han robado un Pokémon"),
-                eq(STEALER + " te ha robado a " + TARGET + " y recibes 300 monedas"));
+                eq(PushMessage.teams(LEAGUE_ID, "Te han robado un Pokémon",
+                        STEALER + " te ha robado a " + TARGET + " y recibes 300 monedas")));
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

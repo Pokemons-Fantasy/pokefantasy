@@ -1,5 +1,6 @@
 package com.villu.pokefantasy.commands.schedule;
 
+import com.villu.pokefantasy.dto.PushMessage;
 import com.villu.pokefantasy.dto.LeagueRole;
 import com.villu.pokefantasy.dto.MatchStatus;
 import com.villu.pokefantasy.repository.PushNotificationPort;
@@ -24,8 +25,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
@@ -117,7 +117,8 @@ class WindowReminderServiceTest {
 
         assertThat(sent).isTrue();
         verify(pushNotificationPort).send(eq(List.of("ash-phone", "brock-phone", "brock-tablet")),
-                contains("robos"), contains("Liga Kanto: tienes hasta las 23:59"));
+                argThat(m -> m.title().contains("robos") && m.body().contains("Liga Kanto: tienes hasta las 23:59")
+                        && m.path().equals("/leagues/l1/teams") && m.tag().equals("window-steal-l1")));
         assertThat(jornada.getStealReminderSentFor()).isEqualTo("2026-06-04T23:59");
         assertThat(jornada.getSwapReminderSentFor()).isNull();
     }
@@ -127,7 +128,7 @@ class WindowReminderServiceTest {
         jornada.setStealReminderSentFor("2026-06-04T23:59");
 
         assertThat(serviceAt(THURSDAY_NIGHT).sendDue(schedule, league)).isFalse();
-        verify(pushNotificationPort, never()).send(anyList(), anyString(), anyString());
+        verify(pushNotificationPort, never()).send(anyList(), any());
     }
 
     @Test
@@ -142,13 +143,15 @@ class WindowReminderServiceTest {
     void swapReminder_usesSwapText() {
         serviceAt(FRIDAY_NOON).sendDue(schedule, league);
 
-        verify(pushNotificationPort).send(anyList(), contains("intercambios"), contains("hasta las 16:00"));
+        verify(pushNotificationPort).send(anyList(),
+                argThat(m -> m.title().contains("intercambios") && m.body().contains("hasta las 16:00")
+                        && m.tag().equals("window-swap-l1")));
         assertThat(jornada.getSwapReminderSentFor()).isEqualTo("2026-06-05T16:00");
     }
 
     @Test
     void nothingDue_sendsNothing() {
         assertThat(serviceAt(LocalDateTime.of(2026, 6, 2, 10, 0)).sendDue(schedule, league)).isFalse();
-        verify(pushNotificationPort, never()).send(any(), any(), any());
+        verify(pushNotificationPort, never()).send(any(), any());
     }
 }

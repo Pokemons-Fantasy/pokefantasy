@@ -1,5 +1,6 @@
 package com.villu.pokefantasy.commands.draft;
 
+import com.villu.pokefantasy.dto.PushMessage;
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueSettings;
 import com.villu.pokefantasy.repository.PushNotificationPort;
@@ -38,6 +39,7 @@ class DraftTurnNotifierTest {
     void setUp() {
         notifier = new DraftTurnNotifier(userRepository, pushNotificationPort);
         draft = new DraftEntity();
+        draft.setLeagueId("l1");
         draft.setStatus(DraftStatus.IN_PROGRESS);
         draft.setTurnOrder(List.of("ash", "brock"));
         draft.setCurrentTurnIndex(1);
@@ -58,16 +60,16 @@ class DraftTurnNotifierTest {
 
         notifier.notifyCurrentTurn(draft, league);
 
-        verify(pushNotificationPort).send(List.of("brock-phone"), "¡Te toca en el draft!",
-                "Liga Kanto · ronda 3: elige tu Pokémon. Tienes 2 min.");
+        verify(pushNotificationPort).send(List.of("brock-phone"), PushMessage.draftTurn("l1", "¡Te toca en el draft!",
+                "Liga Kanto · ronda 3: elige tu Pokémon. Tienes 2 min."));
     }
 
     @Test
     void withoutTimerOrLeague_noTimeHint() {
         notifier.notifyCurrentTurn(draft, null);
 
-        verify(pushNotificationPort).send(List.of("brock-phone"), "¡Te toca en el draft!",
-                "Tu liga · ronda 3: elige tu Pokémon.");
+        verify(pushNotificationPort).send(List.of("brock-phone"), PushMessage.draftTurn("l1", "¡Te toca en el draft!",
+                "Tu liga · ronda 3: elige tu Pokémon."));
     }
 
     @Test
@@ -82,7 +84,7 @@ class DraftTurnNotifierTest {
         draft.setStatus(DraftStatus.IN_PROGRESS);
         notifier.notifyCurrentTurn(draft, league);
 
-        verify(pushNotificationPort, never()).send(any(), any(), any());
+        verify(pushNotificationPort, never()).send(any(), any());
     }
 
     @Test
