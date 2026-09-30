@@ -122,6 +122,15 @@ public class UserController {
         return ResponseEntity.ok().build();
     }
 
+    /** Da de baja este dispositivo: quita el token solo al usuario de la sesión. */
+    @DeleteMapping("/users/push-token")
+    public ResponseEntity<Void> unregisterPushToken(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestBody RegisterPushTokenRequest request) throws Exception {
+        userFacade.unregisterPushToken(userDetails.getUsername(), request.getToken());
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/user/me")
     public ResponseEntity<CurrentUserResponse> me(@AuthenticationPrincipal UserDetails userDetails) throws Exception {
         return ResponseEntity.ok(userFacade.me(userDetails.getUsername()));

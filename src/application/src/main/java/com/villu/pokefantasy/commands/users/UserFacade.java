@@ -10,6 +10,7 @@ import com.villu.pokefantasy.commands.users.logout.LogoutUserCommand;
 import com.villu.pokefantasy.commands.users.me.GetCurrentUserCommand;
 import com.villu.pokefantasy.commands.users.password.ChangePasswordCommand;
 import com.villu.pokefantasy.commands.users.pushtoken.RegisterPushTokenCommand;
+import com.villu.pokefantasy.commands.users.pushtoken.UnregisterPushTokenCommand;
 import com.villu.pokefantasy.commands.users.search.SearchUsersCommand;
 import com.villu.pokefantasy.mediator.Mediator;
 import com.villu.pokefantasy.response.AvatarImageResponse;
@@ -55,6 +56,10 @@ public class UserFacade {
 
     public void registerPushToken(String username, String token) throws Exception {
         mediator.send(new RegisterPushTokenCommand(username, token));
+    }
+
+    public void unregisterPushToken(String username, String token) throws Exception {
+        mediator.send(new UnregisterPushTokenCommand(username, token));
     }
 
     /** Guarda la foto de perfil (ya recortada por el cliente) y devuelve su versión. */
