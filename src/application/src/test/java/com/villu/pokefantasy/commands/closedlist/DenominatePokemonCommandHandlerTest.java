@@ -77,6 +77,28 @@ class DenominatePokemonCommandHandlerTest {
     }
 
     @Test
+    void handle_lastDraftCancelled_deletesEntry() {
+        DraftEntity draft = new DraftEntity();
+        draft.setStatus(DraftStatus.CANCELLED);
+        when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.of(draft));
+
+        handler.handle(new DenominatePokemonCommand("ash", "pikachu", "l1"));
+
+        verify(closedListRepository).deleteByPokemonNameAndNominatedByAndLeagueId("pikachu", "ash", "l1");
+    }
+
+    @Test
+    void handle_seasonStarted_throwsWithSeasonMessage() {
+        DraftEntity draft = new DraftEntity();
+        draft.setStatus(DraftStatus.COMPLETED);
+        when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.of(draft));
+
+        assertThatThrownBy(() -> handler.handle(new DenominatePokemonCommand("ash", "pikachu", "l1")))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Ya no se pueden quitar nominaciones: la temporada ya ha empezado");
+    }
+
+    @Test
     void commandType_returnsCorrectClass() {
         assertThat(handler.commandType()).isEqualTo(DenominatePokemonCommand.class);
     }

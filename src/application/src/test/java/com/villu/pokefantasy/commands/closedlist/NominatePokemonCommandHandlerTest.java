@@ -158,6 +158,30 @@ class NominatePokemonCommandHandlerTest {
     }
 
     @Test
+    void handle_lastDraftCancelled_nominationsAreOpenAgain() {
+        DraftEntity draft = new DraftEntity();
+        draft.setStatus(DraftStatus.CANCELLED);
+        when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.of(draft));
+        when(closedListRepository.existsByPokemonNameAndLeagueId("pikachu", "l1")).thenReturn(true);
+
+        // Pasa la comprobación del draft y llega a la siguiente (ya nominado)
+        assertThatThrownBy(() -> handler.handle(new NominatePokemonCommand("ash", "pikachu", "l1")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("ya está nominado");
+    }
+
+    @Test
+    void handle_seasonStarted_throwsWithSeasonMessage() {
+        DraftEntity draft = new DraftEntity();
+        draft.setStatus(DraftStatus.COMPLETED);
+        when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.of(draft));
+
+        assertThatThrownBy(() -> handler.handle(new NominatePokemonCommand("ash", "pikachu", "l1")))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Las nominaciones están cerradas: la temporada ya ha empezado");
+    }
+
+    @Test
     void commandType_returnsCorrectClass() {
         assertThat(handler.commandType()).isEqualTo(NominatePokemonCommand.class);
     }

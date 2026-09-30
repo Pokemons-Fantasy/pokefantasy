@@ -4,6 +4,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.ArgumentMatchers.any;
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.league.LeagueAdminGuard;
+import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
 import org.junit.jupiter.api.BeforeEach;
@@ -24,12 +25,13 @@ class CancelDraftCommandHandlerTest {
 
     @Mock private DraftRepository draftRepository;
     @Mock private LeagueAdminGuard leagueAdminGuard;
+    @Mock private ClosedListRepository closedListRepository;
 
     private CancelDraftCommandHandler handler;
 
     @BeforeEach
     void setUp() {
-        handler = new CancelDraftCommandHandler(draftRepository, leagueAdminGuard);
+        handler = new CancelDraftCommandHandler(draftRepository, leagueAdminGuard, closedListRepository);
     }
 
     @Test
@@ -39,6 +41,7 @@ class CancelDraftCommandHandlerTest {
         assertThatThrownBy(() -> handler.handle(new CancelDraftCommand("l1", "ash")))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("No hay ningún draft activo");
+        verify(closedListRepository, never()).clearTiers(any());
     }
 
     @Test
@@ -51,6 +54,7 @@ class CancelDraftCommandHandlerTest {
 
         assertThat(draft.getStatus()).isEqualTo(DraftStatus.CANCELLED);
         verify(draftRepository).save(draft);
+        verify(closedListRepository).clearTiers("l1");
     }
 
     @Test
@@ -63,6 +67,7 @@ class CancelDraftCommandHandlerTest {
 
         verify(draftRepository).delete(draft);
         verify(draftRepository, never()).save(any());
+        verify(closedListRepository).clearTiers("l1");
     }
 
     @Test
