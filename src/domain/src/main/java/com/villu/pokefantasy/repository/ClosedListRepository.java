@@ -10,6 +10,8 @@ public interface ClosedListRepository {
     void save(ClosedListEntity entry);
     Optional<ClosedListEntity> findById(String id);
     void updateTier(String id, Tier tier);
+    /** Deja todo el pool de la liga sin tier (vuelta a nominaciones). */
+    void clearTiers(String leagueId);
 
     List<ClosedListEntity> findAllByLeagueId(String leagueId);
     long countByNominatedByAndLeagueId(String username, String leagueId);

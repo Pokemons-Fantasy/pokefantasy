@@ -26,11 +26,13 @@ public class DenominatePokemonCommandHandler implements CommandHandler<Denominat
     public Void handle(DenominatePokemonCommand command) {
         leagueMembershipGuard.requireMember(command.leagueId(), command.username());
 
-        draftRepository.findLatestByLeagueId(command.leagueId()).ifPresent(draft -> {
-            throw new IllegalStateException(draft.getStatus() == DraftStatus.PENDING
-                    ? "Ya no se pueden quitar nominaciones: se está preparando el draft"
-                    : "Ya no se pueden quitar nominaciones: el draft ya ha empezado");
-        });
+        // Mismo criterio que al nominar: abierto sin draft o tras cancelarlo.
+        draftRepository.findLatestByLeagueId(command.leagueId())
+                .filter(draft -> draft.getStatus() != DraftStatus.CANCELLED)
+                .ifPresent(draft -> {
+                    throw new IllegalStateException("Ya no se pueden quitar nominaciones: "
+                            + NominatePokemonCommandHandler.closedReason(draft.getStatus()));
+                });
 
         closedListRepository.deleteByPokemonNameAndNominatedByAndLeagueId(
                 command.pokemonName(), command.username(), command.leagueId());
