@@ -15,4 +15,7 @@ public interface UserRepository {
     void setAvatarVersion(String username, Long avatarVersion);
     void addFcmToken(String username, String token);
     void removeFcmToken(String token);
+
+    /** Quita el token solo a ese usuario (dar de baja un navegador). */
+    void removeFcmToken(String username, String token);
 }

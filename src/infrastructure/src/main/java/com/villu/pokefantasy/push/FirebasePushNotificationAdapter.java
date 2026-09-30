@@ -10,10 +10,15 @@ import com.google.firebase.messaging.MessagingErrorCode;
 import com.google.firebase.messaging.MulticastMessage;
 import com.google.firebase.messaging.Notification;
 import com.google.firebase.messaging.SendResponse;
+import com.google.firebase.messaging.WebpushConfig;
+import com.google.firebase.messaging.WebpushFcmOptions;
+import com.google.firebase.messaging.WebpushNotification;
+import com.villu.pokefantasy.dto.PushMessage;
 import com.villu.pokefantasy.repository.PushNotificationPort;
 import com.villu.pokefantasy.repository.UserRepository;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -27,10 +32,14 @@ import java.util.List;
 public class FirebasePushNotificationAdapter implements PushNotificationPort {
 
     private final UserRepository userRepository;
+    /** Origen de la web (sin barra final) para los enlaces y el icono de los avisos en el navegador. */
+    private final String webUrl;
     private volatile boolean initialized = false;
 
-    public FirebasePushNotificationAdapter(UserRepository userRepository) {
+    public FirebasePushNotificationAdapter(UserRepository userRepository,
+                                           @Value("${pokefantasy.web-url:https://pokefantasy.netlify.app}") String webUrl) {
         this.userRepository = userRepository;
+        this.webUrl = webUrl;
     }
 
     @PostConstruct
@@ -60,7 +69,7 @@ public class FirebasePushNotificationAdapter implements PushNotificationPort {
     }
 
     @Override
-    public void send(List<String> fcmTokens, String title, String body) {
+    public void send(List<String> fcmTokens, PushMessage message) {
         if (!initialized || fcmTokens == null || fcmTokens.isEmpty()) return;
         List<String> tokens = List.copyOf(fcmTokens);
         // Dentro de un comando transaccional se envía tras el commit: si la transacción
@@ -69,25 +78,52 @@ public class FirebasePushNotificationAdapter implements PushNotificationPort {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    doSend(tokens, title, body);
+                    doSend(tokens, message);
                 }
             });
         } else {
-            doSend(tokens, title, body);
+            doSend(tokens, message);
         }
     }
 
-    private void doSend(List<String> fcmTokens, String title, String body) {
+    /**
+     * Mensaje para la app y los navegadores. Con ruta, añade la parte web: enlace absoluto (en
+     * {@code fcmOptions} si es HTTPS, que es lo que exige Firebase, y siempre en {@code data.link} para el
+     * service worker), etiqueta e icono.
+     */
+    static MulticastMessage buildMessage(List<String> tokens, PushMessage message, String webUrl) {
+        MulticastMessage.Builder builder = MulticastMessage.builder()
+                .setNotification(Notification.builder()
+                        .setTitle(message.title())
+                        .setBody(message.body())
+                        .build())
+                .addAllTokens(tokens);
+        if (message.path() == null) {
+            return builder.build();
+        }
+        String origin = webUrl.endsWith("/") ? webUrl.substring(0, webUrl.length() - 1) : webUrl;
+        String link = origin + message.path();
+        WebpushNotification.Builder notification = WebpushNotification.builder()
+                .setTitle(message.title())
+                .setBody(message.body())
+                .setIcon(origin + "/icons/icon-192.png");
+        WebpushConfig.Builder webpush = WebpushConfig.builder().putData("link", link);
+        if (message.tag() != null) {
+            // renotify: un aviso con la misma etiqueta sustituye al anterior y vuelve a sonar
+            notification.setTag(message.tag()).setRenotify(true);
+            webpush.putData("tag", message.tag());
+        }
+        if (link.startsWith("https://")) {
+            webpush.setFcmOptions(WebpushFcmOptions.withLink(link));
+        }
+        return builder.setWebpushConfig(webpush.setNotification(notification.build()).build()).build();
+    }
+
+    private void doSend(List<String> fcmTokens, PushMessage pushMessage) {
         try {
-            MulticastMessage message = MulticastMessage.builder()
-                    .setNotification(Notification.builder()
-                            .setTitle(title)
-                            .setBody(body)
-                            .build())
-                    .addAllTokens(fcmTokens)
-                    .build();
+            MulticastMessage message = buildMessage(fcmTokens, pushMessage, webUrl);
             BatchResponse response = FirebaseMessaging.getInstance().sendEachForMulticast(message);
-            log.info("Push sent: {}/{} successful for title='{}'", response.getSuccessCount(), fcmTokens.size(), title);
+            log.info("Push sent: {}/{} successful for title='{}'", response.getSuccessCount(), fcmTokens.size(), pushMessage.title());
             cleanupStaleTokens(fcmTokens, response);
         } catch (FirebaseMessagingException | RuntimeException e) {
             log.error("Failed to send push notification: {}", e.getMessage(), e);

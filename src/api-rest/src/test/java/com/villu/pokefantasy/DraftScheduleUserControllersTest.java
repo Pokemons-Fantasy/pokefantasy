@@ -267,6 +267,8 @@ class DraftScheduleUserControllersTest extends ControllerTestSupport {
 
         mvc.perform(json(post("/v1/users/push-token"), "{\"token\":\"fcm-1\"}")).andExpect(status().isOk());
         verify(userFacade).registerPushToken(ME, "fcm-1");
+        mvc.perform(json(delete("/v1/users/push-token"), "{\"token\":\"fcm-1\"}")).andExpect(status().isNoContent());
+        verify(userFacade).unregisterPushToken(ME, "fcm-1");
 
         mvc.perform(get("/v1/users/events")).andExpect(request().asyncStarted());
         assertThat(userRegistry.connectionCount(ME)).isEqualTo(1);

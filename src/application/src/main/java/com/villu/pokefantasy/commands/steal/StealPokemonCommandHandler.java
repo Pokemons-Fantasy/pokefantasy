@@ -1,5 +1,6 @@
 package com.villu.pokefantasy.commands.steal;
 
+import com.villu.pokefantasy.dto.PushMessage;
 import com.villu.pokefantasy.dto.ActivityEventType;
 import com.villu.pokefantasy.league.LeagueMemberService;
 import com.villu.pokefantasy.mediator.CommandHandler;
@@ -100,8 +101,8 @@ public class StealPokemonCommandHandler implements CommandHandler<StealPokemonCo
         if (victimUser != null && !victimUser.getFcmTokens().isEmpty()) {
             pushNotificationPort.send(
                     victimUser.getFcmTokens(),
-                    "Te han robado un Pokémon",
-                    stealer + " te ha robado a " + targetName + " y recibes " + stealPrice + " monedas");
+                    PushMessage.teams(leagueId, "Te han robado un Pokémon",
+                            stealer + " te ha robado a " + targetName + " y recibes " + stealPrice + " monedas"));
         }
 
         return victim;

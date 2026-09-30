@@ -19,6 +19,9 @@ public class RegisterPushTokenCommandHandler
         if (command.token() == null || command.token().isBlank()) {
             throw new IllegalArgumentException("Falta el token de notificaciones.");
         }
+        // Un token es de un dispositivo y de quien lo registra: si otra cuenta lo tenía (mismo navegador,
+        // sesión caducada sin cerrar), deja de recibir los avisos de esta.
+        userRepository.removeFcmToken(command.token());
         userRepository.addFcmToken(command.username(), command.token());
         return null;
     }

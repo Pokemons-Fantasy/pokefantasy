@@ -63,3 +63,7 @@ sentry:
   logging:
     minimum-event-level: error
     minimum-breadcrumb-level: info
+
+pokefantasy:
+  # Web (Netlify) a la que llevan los avisos push en el navegador. En local, WEB_URL=http://localhost:5173
+  web-url: ${WEB_URL:https://pokefantasy.netlify.app}

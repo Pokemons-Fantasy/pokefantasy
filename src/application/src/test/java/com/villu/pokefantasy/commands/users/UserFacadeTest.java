@@ -9,6 +9,8 @@ import com.villu.pokefantasy.commands.users.login.LoginUserCommand;
 import com.villu.pokefantasy.commands.users.logout.LogoutUserCommand;
 import com.villu.pokefantasy.commands.users.me.GetCurrentUserCommand;
 import com.villu.pokefantasy.commands.users.password.ChangePasswordCommand;
+import com.villu.pokefantasy.commands.users.pushtoken.RegisterPushTokenCommand;
+import com.villu.pokefantasy.commands.users.pushtoken.UnregisterPushTokenCommand;
 import com.villu.pokefantasy.commands.users.search.SearchUsersCommand;
 import com.villu.pokefantasy.mediator.Mediator;
 import com.villu.pokefantasy.response.AvatarImageResponse;
@@ -125,5 +127,19 @@ class UserFacadeTest {
         when(mediator.send(new GetCurrentUserCommand("ash"))).thenReturn(me);
 
         assertThat(facade.me("ash")).isSameAs(me);
+    }
+
+    @Test
+    void registerPushToken_sendsRegisterPushTokenCommand() throws Exception {
+        facade.registerPushToken("ash", "tok-1");
+
+        verify(mediator).send(new RegisterPushTokenCommand("ash", "tok-1"));
+    }
+
+    @Test
+    void unregisterPushToken_sendsUnregisterPushTokenCommand() throws Exception {
+        facade.unregisterPushToken("ash", "tok-1");
+
+        verify(mediator).send(new UnregisterPushTokenCommand("ash", "tok-1"));
     }
 }

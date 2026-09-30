@@ -57,4 +57,15 @@ class UserRepositoryImplAvatarTest {
                 .append("$set", new Document("avatarVersion", 42L))
                 .append("$inc", new Document("version", 1)));
     }
+
+    @Test
+    void removeFcmTokenOfUser_pullsOnlyFromThatUser() {
+        repository.removeFcmToken("ash", "tok-1");
+
+        ArgumentCaptor<Query> query = ArgumentCaptor.forClass(Query.class);
+        ArgumentCaptor<UpdateDefinition> update = ArgumentCaptor.forClass(UpdateDefinition.class);
+        verify(mongoTemplate).updateFirst(query.capture(), update.capture(), eq(UserEntity.class));
+        assertThat(query.getValue().getQueryObject()).isEqualTo(new Document("name", "ash").append("fcmTokens", "tok-1"));
+        assertThat(update.getValue().getUpdateObject().get("$pull", Document.class)).containsEntry("fcmTokens", "tok-1");
+    }
 }
