@@ -63,29 +63,25 @@ public class SwapWithBenchCommandHandler implements CommandHandler<SwapWithBench
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException(
                         "'" + pokemonToGive + "' no está en tu equipo en esta liga"));
+        // Como al liberarlo: un Pokémon recién robado o intercambiado no vuelve a la banca hasta que se desbloquea
+        teamTransferService.requireUnlocked(givenPick);
 
         ClosedListEntity benchEntry = closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(pokemonToTake, leagueId)
                 .orElseThrow(() -> new IllegalArgumentException("'" + pokemonToTake + "' no está en el pool de esta liga"));
 
         teamTransferService.requireOnBench(draft, pokemonToTake);
 
-        // Tier parity check + net coin change
+        // Diferencia de precio de mercado entre los dos tiers: bajar de tier la cobra el jugador; subir la paga
+        // (409 si no le llega). Equivale a liberar uno y comprar el otro, en un paso y sin hueco libre.
         ClosedListEntity giveEntry = closedListRepository
                 .findByPokemonNameIgnoreCaseAndLeagueId(pokemonToGive, leagueId)
-                .orElse(null); // null → treat as tier D (rank 4, price 0)
+                .orElse(null); // sin entrada en el pool: precio 0
 
         Tier giveTier = giveEntry != null ? giveEntry.getTier() : null;
-        if (tierRank(giveTier) > tierRank(benchEntry.getTier())) {
-            throw new IllegalStateException(
-                    "No puedes intercambiar un Pokémon de tier " + giveEntry.getTier() +
-                    " por uno de tier " + benchEntry.getTier() +
-                    ". Debes entregar un Pokémon de igual o mejor tier.");
-        }
-
         LeagueSettings settings = league.getSettings();
         int priceGive = tierPricingService.priceForTier(settings, giveTier);
         int priceTake = tierPricingService.priceForTier(settings, benchEntry.getTier());
-        int net = priceGive - priceTake; // positive = player receives coins; negative = player pays
+        int net = priceGive - priceTake; // positivo: recibe monedas; negativo: paga
 
         if (net < 0) {
             teamTransferService.charge(member, -net);
@@ -110,11 +106,6 @@ public class SwapWithBenchCommandHandler implements CommandHandler<SwapWithBench
                 .build());
 
         return null;
-    }
-
-    private int tierRank(Tier tier) {
-        if (tier == null) return 4;
-        return switch (tier) { case S -> 0; case A -> 1; case B -> 2; case C -> 3; case D -> 4; };
     }
 
     @Override
