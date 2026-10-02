@@ -49,4 +49,14 @@ class DraftRepositoryImplTest {
         assertThat(query.getValue().getFieldsObject()).containsOnlyKeys("leagueId", "status");
         assertThat(result).containsExactly(draft);
     }
+
+    @Test
+    void delete_removesTheDraftDocument() {
+        MongoTemplate mongoTemplate = mock(MongoTemplate.class);
+        DraftEntity draft = new DraftEntity();
+
+        new DraftRepositoryImpl(mongoTemplate).delete(draft);
+
+        verify(mongoTemplate).remove(draft);
+    }
 }

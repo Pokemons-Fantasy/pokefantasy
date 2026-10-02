@@ -1,18 +1,26 @@
 package com.villu.pokefantasy.commands.draft;
 
+import com.villu.pokefantasy.dto.ActivityEventType;
+import com.villu.pokefantasy.dto.DraftConfig;
 import com.villu.pokefantasy.dto.DraftStatus;
+import com.villu.pokefantasy.dto.LeagueRole;
 import com.villu.pokefantasy.dto.LeagueSettings;
+import com.villu.pokefantasy.dto.Tier;
+import com.villu.pokefantasy.repository.ActivityEventRepository;
 import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.ScheduleRepository;
 import com.villu.pokefantasy.repository.UserRepository;
+import com.villu.pokefantasy.repository.entity.ActivityEventEntity;
 import com.villu.pokefantasy.repository.entity.ClosedListEntity;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
 import com.villu.pokefantasy.repository.entity.DraftPick;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
+import com.villu.pokefantasy.repository.entity.LeagueMember;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity;
 import com.villu.pokefantasy.repository.entity.UserEntity;
+import org.assertj.core.groups.Tuple;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -40,6 +48,7 @@ class DraftPickCommandHandlerTest {
     @Mock private LeagueRepository leagueRepository;
     @Mock private ScheduleRepository scheduleRepository;
     @Mock private DraftTurnNotifier draftTurnNotifier;
+    @Mock private ActivityEventRepository activityEventRepository;
 
     private DraftPickCommandHandler handler;
 
@@ -49,8 +58,10 @@ class DraftPickCommandHandlerTest {
 
     @BeforeEach
     void setUp() {
+        DraftTurnService draftTurnService = new DraftTurnService();
         handler = new DraftPickCommandHandler(draftRepository, closedListRepository, userRepository,
-                leagueRepository, scheduleRepository, draftTurnNotifier);
+                leagueRepository, draftTurnNotifier, draftTurnService,
+                new DraftCompletionService(leagueRepository, scheduleRepository, activityEventRepository, draftTurnService));
     }
 
     @Test
@@ -71,7 +82,7 @@ class DraftPickCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new DraftPickCommand(USERNAME, POKEMON, LEAGUE_ID)))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("No active draft");
+                .hasMessageContaining("No hay ningún draft activo");
     }
 
     @Test
@@ -81,7 +92,7 @@ class DraftPickCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new DraftPickCommand(USERNAME, POKEMON, LEAGUE_ID)))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("not your turn");
+                .hasMessageContaining("No es tu turno");
     }
 
     @Test
@@ -92,7 +103,7 @@ class DraftPickCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new DraftPickCommand(USERNAME, POKEMON, LEAGUE_ID)))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("User not found");
+                .hasMessageContaining("No existe el usuario");
     }
 
     @Test
@@ -109,7 +120,7 @@ class DraftPickCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new DraftPickCommand(USERNAME, POKEMON, LEAGUE_ID)))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("maximum");
+                .hasMessageContaining("el máximo de");
     }
 
     @Test
@@ -150,7 +161,7 @@ class DraftPickCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new DraftPickCommand(USERNAME, POKEMON, LEAGUE_ID)))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("already been picked");
+                .hasMessageContaining("ya lo ha elegido otro jugador");
     }
 
     @Test
@@ -164,7 +175,7 @@ class DraftPickCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new DraftPickCommand(USERNAME, POKEMON, LEAGUE_ID)))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("not in the closed list");
+                .hasMessageContaining("no está en el pool");
     }
 
     @Test
@@ -349,6 +360,119 @@ class DraftPickCommandHandlerTest {
     }
 
     // --- helpers ---
+
+    private static final DraftConfig CONFIG = DraftConfig.builder()
+            .budget(300).priceS(200).priceA(150).priceB(100).priceC(60).priceD(30).snake(false).build();
+
+    private ClosedListEntity tiered(String name, int id, Tier tier) {
+        ClosedListEntity entry = closedListEntry(name, id);
+        entry.setTier(tier);
+        return entry;
+    }
+
+    private static DraftPick paid(String user, String name, int price) {
+        DraftPick p = new DraftPick(user, name, 1, 1, Instant.now(), null, null);
+        p.setPrice(price);
+        return p;
+    }
+
+    private DraftEntity budgetDraft(List<String> order, List<DraftPick> history) {
+        DraftEntity draft = activeDraft(order, 0, 1, new ArrayList<>(history));
+        draft.setDraftHistory(new ArrayList<>(history));
+        draft.setConfig(CONFIG);
+        return draft;
+    }
+
+    private LeagueEntity leagueOf(String... players) {
+        LeagueEntity league = new LeagueEntity();
+        league.setId(LEAGUE_ID);
+        league.setSettings(LeagueSettings.builder().maxTeamSize(10).build());
+        List<LeagueMember> members = new ArrayList<>();
+        for (String p : players) members.add(new LeagueMember(p, LeagueRole.USER, 0));
+        league.setMembers(members);
+        return league;
+    }
+
+    @Test
+    void handle_cannotAfford_throwsAndSavesNothing() {
+        DraftEntity draft = budgetDraft(List.of(USERNAME, "brock"), List.of(paid(USERNAME, "mew", 200)));
+        when(draftRepository.findActiveByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+        when(userRepository.findByUsername(USERNAME)).thenReturn(new UserEntity());
+        when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(leagueOf(USERNAME, "brock")));
+        when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(POKEMON, LEAGUE_ID))
+                .thenReturn(Optional.of(tiered(POKEMON, 25, Tier.A)));
+
+        assertThatThrownBy(() -> handler.handle(new DraftPickCommand(USERNAME, POKEMON, LEAGUE_ID)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("No te llega: pikachu cuesta 150 y te quedan 100");
+        verify(draftRepository, never()).save(any());
+    }
+
+    @Test
+    void handle_priceEqualsRemaining_allowedAndPriceRecorded() {
+        DraftEntity draft = budgetDraft(List.of(USERNAME, "brock"), List.of(paid(USERNAME, "mew", 200)));
+        when(draftRepository.findActiveByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+        when(userRepository.findByUsername(USERNAME)).thenReturn(new UserEntity());
+        when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(leagueOf(USERNAME, "brock")));
+        when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(POKEMON, LEAGUE_ID))
+                .thenReturn(Optional.of(tiered(POKEMON, 25, Tier.B)));
+        when(closedListRepository.findAllByLeagueId(LEAGUE_ID))
+                .thenReturn(List.of(tiered(POKEMON, 25, Tier.B), tiered("abra", 63, Tier.D)));
+
+        handler.handle(new DraftPickCommand(USERNAME, POKEMON, LEAGUE_ID));
+
+        ArgumentCaptor<DraftEntity> captor = ArgumentCaptor.forClass(DraftEntity.class);
+        verify(draftRepository).save(captor.capture());
+        DraftEntity saved = captor.getValue();
+        assertThat(saved.getDraftHistory()).last().extracting(DraftPick::getPrice).isEqualTo(100);
+        assertThat(saved.getPicks()).last().extracting(DraftPick::getPrice).isEqualTo(100);
+        assertThat(saved.getCurrentTurnIndex()).isEqualTo(1); // brock
+    }
+
+    @Test
+    void handle_nextPlayerCannotPay_isSkipped() {
+        DraftEntity draft = budgetDraft(List.of(USERNAME, "brock", "misty"), List.of(paid("brock", "mew", 290)));
+        when(draftRepository.findActiveByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+        when(userRepository.findByUsername(USERNAME)).thenReturn(new UserEntity());
+        when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(leagueOf(USERNAME, "brock", "misty")));
+        when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(POKEMON, LEAGUE_ID))
+                .thenReturn(Optional.of(tiered(POKEMON, 25, Tier.D)));
+        when(closedListRepository.findAllByLeagueId(LEAGUE_ID))
+                .thenReturn(List.of(tiered(POKEMON, 25, Tier.D), tiered("abra", 63, Tier.D)));
+
+        handler.handle(new DraftPickCommand(USERNAME, POKEMON, LEAGUE_ID));
+
+        ArgumentCaptor<DraftEntity> captor = ArgumentCaptor.forClass(DraftEntity.class);
+        verify(draftRepository).save(captor.capture());
+        assertThat(captor.getValue().getCurrentTurnIndex()).isEqualTo(2); // brock (10 monedas) se salta
+    }
+
+    @Test
+    void handle_lastPossiblePick_completesAndPaysLeftoverBudgets() {
+        DraftEntity draft = budgetDraft(List.of(USERNAME, "brock"), List.of(paid("brock", "mew", 200)));
+        LeagueEntity league = leagueOf(USERNAME, "brock");
+        when(draftRepository.findActiveByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+        when(userRepository.findByUsername(USERNAME)).thenReturn(new UserEntity());
+        when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
+        when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(POKEMON, LEAGUE_ID))
+                .thenReturn(Optional.of(tiered(POKEMON, 25, Tier.C)));
+        when(closedListRepository.findAllByLeagueId(LEAGUE_ID)).thenReturn(List.of(tiered(POKEMON, 25, Tier.C)));
+
+        handler.handle(new DraftPickCommand(USERNAME, POKEMON, LEAGUE_ID));
+
+        ArgumentCaptor<DraftEntity> captor = ArgumentCaptor.forClass(DraftEntity.class);
+        verify(draftRepository).save(captor.capture());
+        assertThat(captor.getValue().getStatus()).isEqualTo(DraftStatus.COMPLETED);
+        assertThat(league.getMembers()).extracting(LeagueMember::getCoinBalance).containsExactly(240, 100);
+        verify(leagueRepository).save(league);
+        ArgumentCaptor<ActivityEventEntity> events = ArgumentCaptor.forClass(ActivityEventEntity.class);
+        verify(activityEventRepository, times(2)).save(events.capture());
+        assertThat(events.getAllValues()).allMatch(e -> e.getType() == ActivityEventType.DRAFT_COINS);
+        assertThat(events.getAllValues())
+                .extracting(ActivityEventEntity::getActorUsername, ActivityEventEntity::getCoinsAmount)
+                .containsExactly(Tuple.tuple(USERNAME, 240), Tuple.tuple("brock", 100));
+        verify(scheduleRepository).save(any(ScheduleEntity.class));
+    }
 
     private DraftEntity activeDraft(List<String> turnOrder, int turnIndex, int round, List<DraftPick> picks) {
         DraftEntity draft = new DraftEntity();

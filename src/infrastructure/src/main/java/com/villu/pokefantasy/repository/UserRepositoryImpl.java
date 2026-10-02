@@ -10,6 +10,7 @@ import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Component;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 
@@ -31,7 +32,7 @@ public class UserRepositoryImpl implements UserRepository {
             mongoTemplate.save(userEntity);
         } catch (DuplicateKeyException e) {
             log.warn("Intento de registro con nombre duplicado: {}", userEntity.getName());
-            throw new DuplicateKeyException("Ya existe un usuario con name=" + userEntity.getName());
+            throw new DuplicateKeyException("Ya existe el usuario '" + userEntity.getName() + "'");
         } catch (Exception e) {
             log.error(e.getMessage(), e);
             throw e;
@@ -60,6 +61,24 @@ public class UserRepositoryImpl implements UserRepository {
     }
 
     @Override
+    public List<UserEntity> findByUsernames(Collection<String> usernames) {
+        if (usernames.isEmpty()) {
+            return List.of();
+        }
+        Query query = new Query(Criteria.where("name").in(usernames));
+        query.fields().include("name", "avatarVersion");
+        return mongoTemplate.find(query, UserEntity.class);
+    }
+
+    @Override
+    public void setAvatarVersion(String username, Long avatarVersion) {
+        Query query = new Query(Criteria.where("name").is(username));
+        // Incrementa version, como addFcmToken: un save() posterior con el usuario desactualizado no la pisa.
+        Update update = new Update().set("avatarVersion", avatarVersion).inc("version", 1);
+        mongoTemplate.updateFirst(query, update, UserEntity.class);
+    }
+
+    @Override
     public void addFcmToken(String username, String token) {
         Query query = new Query(Criteria.where("name").is(username));
         // Incrementa version para que un save() posterior con el usuario desactualizado no borre el token.
@@ -72,5 +91,12 @@ public class UserRepositoryImpl implements UserRepository {
         Query query = new Query(Criteria.where("fcmTokens").is(token));
         Update update = new Update().pull("fcmTokens", token).inc("version", 1);
         mongoTemplate.updateMulti(query, update, UserEntity.class);
+    }
+
+    @Override
+    public void removeFcmToken(String username, String token) {
+        Query query = new Query(Criteria.where("name").is(username).and("fcmTokens").is(token));
+        Update update = new Update().pull("fcmTokens", token).inc("version", 1);
+        mongoTemplate.updateFirst(query, update, UserEntity.class);
     }
 }

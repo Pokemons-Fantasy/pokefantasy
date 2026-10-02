@@ -8,11 +8,8 @@ public interface ActivityEventRepository {
 
     void save(ActivityEventEntity event);
 
-    List<ActivityEventEntity> findByLeagueIdOrderByCreatedAtDesc(String leagueId, int page, int size);
+    /** Eventos que cumplen el filtro, del más reciente al más antiguo. */
+    List<ActivityEventEntity> find(ActivityEventFilter filter, int page, int size);
 
-    long countByLeagueId(String leagueId);
-
-    List<ActivityEventEntity> findByLeagueIdAndUsernameOrderByCreatedAtDesc(String leagueId, String username, int page, int size);
-
-    long countByLeagueIdAndUsername(String leagueId, String username);
+    long count(ActivityEventFilter filter);
 }

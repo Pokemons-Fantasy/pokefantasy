@@ -38,8 +38,8 @@ class GetAvailablePokemonsCommandHandlerTest {
     @Test
     void handle_withCachedPokemons_mapsCorrectly() {
         when(cachePort.getPokemon("pokemons")).thenReturn(List.of(
-                new PokemonCacheDto("url", "pikachu", 25),
-                new PokemonCacheDto("url2", "bulbasaur", 1)
+                new PokemonCacheDto("url", "pikachu", 25, List.of("electric")),
+                new PokemonCacheDto("url2", "bulbasaur", 1, null)
         ));
 
         List<AvailablePokemonResponse> result = handler.handle(new GetAvailablePokemonsCommand());
@@ -48,8 +48,11 @@ class GetAvailablePokemonsCommandHandlerTest {
         assertThat(result.get(0).getId()).isEqualTo(25);
         assertThat(result.get(0).getName()).isEqualTo("pikachu");
         assertThat(result.get(0).getSpriteUrl()).contains("25");
+        assertThat(result.get(0).getTypes()).containsExactly("electric");
         assertThat(result.get(1).getId()).isEqualTo(1);
         assertThat(result.get(1).getName()).isEqualTo("bulbasaur");
+        // Caché antigua sin tipos: el campo va vacío y el front lo tolera
+        assertThat(result.get(1).getTypes()).isNull();
     }
 
     @Test

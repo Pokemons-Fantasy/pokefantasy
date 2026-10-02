@@ -79,7 +79,7 @@ class SwapWithBenchCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new SwapWithBenchCommand(LEAGUE_ID, USERNAME, GIVE, TAKE)))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("only allowed after the draft is completed");
+                .hasMessageContaining("con el draft completado");
     }
 
     @Test
@@ -99,7 +99,7 @@ class SwapWithBenchCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new SwapWithBenchCommand(LEAGUE_ID, USERNAME, GIVE, TAKE)))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("League not found");
+                .hasMessageContaining("Liga no encontrada");
     }
 
     @Test
@@ -111,7 +111,7 @@ class SwapWithBenchCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new SwapWithBenchCommand(LEAGUE_ID, USERNAME, GIVE, TAKE)))
                 .isInstanceOf(ForbiddenOperationException.class)
-                .hasMessageContaining("not a member");
+                .hasMessageContaining("miembro de esta liga");
     }
 
     @Test
@@ -124,7 +124,7 @@ class SwapWithBenchCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new SwapWithBenchCommand(LEAGUE_ID, USERNAME, GIVE, TAKE)))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("not in your team");
+                .hasMessageContaining("no está en tu equipo");
     }
 
     @Test
@@ -139,7 +139,7 @@ class SwapWithBenchCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new SwapWithBenchCommand(LEAGUE_ID, USERNAME, GIVE, TAKE)))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("not in the pool");
+                .hasMessageContaining("no está en el pool");
     }
 
     @Test
@@ -161,7 +161,7 @@ class SwapWithBenchCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new SwapWithBenchCommand(LEAGUE_ID, USERNAME, GIVE, TAKE)))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("not available on the bench");
+                .hasMessageContaining("no está en el banquillo");
     }
 
     @Test
@@ -211,16 +211,46 @@ class SwapWithBenchCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new SwapWithBenchCommand(LEAGUE_ID, USERNAME, GIVE, TAKE)))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("No schedule found");
+                .hasMessageContaining("aún no tiene calendario");
     }
 
     // ── Tier parity + net coin change ─────────────────────────────────────────
 
     @Test
-    void handle_giveLowerTierForHigher_throwsIllegalState() {
-        // D → S is blocked: can't trade up tier
+    void handle_giveLowerTierForHigher_paysTheDifference() {
+        // D (0) → S (500): sube de tier pagando la diferencia; queda registrada en negativo en la actividad
         DraftEntity draft = completedDraftWithPick(USERNAME, GIVE, 6);
-        LeagueEntity league = leagueWithMembers(new LeagueMember(USERNAME, LeagueRole.USER, 9999));
+        LeagueEntity league = leagueWithMembers(new LeagueMember(USERNAME, LeagueRole.USER, 700));
+        league.setSettings(LeagueSettings.builder().priceTierS(500).priceTierD(0).build());
+        ClosedListEntity giveEntry = closedListEntry(GIVE, 6);
+        giveEntry.setTier(Tier.D);
+        ClosedListEntity takeEntry = closedListEntry(TAKE, 25);
+        takeEntry.setTier(Tier.S);
+
+        when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+        when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
+        when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TAKE, LEAGUE_ID))
+                .thenReturn(Optional.of(takeEntry));
+        when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(GIVE, LEAGUE_ID))
+                .thenReturn(Optional.of(giveEntry));
+
+        handler.handle(new SwapWithBenchCommand(LEAGUE_ID, USERNAME, GIVE, TAKE));
+
+        assertThat(league.getMembers().get(0).getCoinBalance()).isEqualTo(200);
+        verify(leagueRepository).save(league);
+        assertThat(draft.getPicks()).singleElement().satisfies(p -> assertThat(p.getPokemonName()).isEqualTo(TAKE));
+        ArgumentCaptor<ActivityEventEntity> event = ArgumentCaptor.forClass(ActivityEventEntity.class);
+        verify(activityEventRepository).save(event.capture());
+        assertThat(event.getValue().getType()).isEqualTo(ActivityEventType.BENCH_SWAP);
+        assertThat(event.getValue().getCoinsAmount()).isEqualTo(-500);
+    }
+
+    @Test
+    void handle_giveLowerTierForHigher_withoutEnoughCoins_failsAndChangesNothing() {
+        // D (0) → S (500) con 100 monedas: 409 y ni el equipo ni el saldo cambian
+        DraftEntity draft = completedDraftWithPick(USERNAME, GIVE, 6);
+        LeagueEntity league = leagueWithMembers(new LeagueMember(USERNAME, LeagueRole.USER, 100));
+        league.setSettings(LeagueSettings.builder().priceTierS(500).priceTierD(0).build());
         ClosedListEntity giveEntry = closedListEntry(GIVE, 6);
         giveEntry.setTier(Tier.D);
         ClosedListEntity takeEntry = closedListEntry(TAKE, 25);
@@ -235,7 +265,26 @@ class SwapWithBenchCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new SwapWithBenchCommand(LEAGUE_ID, USERNAME, GIVE, TAKE)))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("igual o mejor tier");
+                .hasMessageContaining("No tienes suficientes monedas")
+                .hasMessageContaining("500")
+                .hasMessageContaining("100");
+        assertThat(league.getMembers().get(0).getCoinBalance()).isEqualTo(100);
+        assertThat(draft.getPicks()).singleElement().satisfies(p -> assertThat(p.getPokemonName()).isEqualTo(GIVE));
+        verify(draftRepository, never()).save(any());
+        verify(leagueRepository, never()).save(any());
+    }
+
+    @Test
+    void handle_lockedPick_throwsIllegalState() {
+        // Recién robado o intercambiado: bloqueado 7 días, igual que para liberarlo
+        DraftEntity draft = completedDraftWithPick(USERNAME, GIVE, 6);
+        draft.getPicks().get(0).setLockedUntil(Instant.now().plusSeconds(3600));
+        when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+
+        assertThatThrownBy(() -> handler.handle(new SwapWithBenchCommand(LEAGUE_ID, USERNAME, GIVE, TAKE)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("está bloqueado");
+        verify(draftRepository, never()).save(any());
     }
 
     @Test

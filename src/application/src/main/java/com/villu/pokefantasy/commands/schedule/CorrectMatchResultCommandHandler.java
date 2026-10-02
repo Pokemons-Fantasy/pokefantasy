@@ -37,7 +37,7 @@ public class CorrectMatchResultCommandHandler implements CommandHandler<CorrectM
         LeagueEntity league = leagueAdminGuard.requireLeagueAdmin(command.leagueId(), command.requestingUsername());
 
         ScheduleEntity schedule = scheduleRepository.findByLeagueId(command.leagueId())
-                .orElseThrow(() -> new IllegalStateException("No schedule found for league"));
+                .orElseThrow(() -> new IllegalStateException("Esta liga aún no tiene calendario"));
         ScheduleEntity.Match match = matchResultService.findMatch(schedule, command.matchId());
 
         if (match.getStatus() != MatchStatus.COMPLETED || match.getWinnerUsername() == null) {

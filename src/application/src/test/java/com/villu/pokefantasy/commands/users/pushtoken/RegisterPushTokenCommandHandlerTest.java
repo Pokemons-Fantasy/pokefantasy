@@ -4,11 +4,12 @@ import com.villu.pokefantasy.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.inOrder;
 
 @ExtendWith(MockitoExtension.class)
 class RegisterPushTokenCommandHandlerTest {
@@ -22,9 +23,12 @@ class RegisterPushTokenCommandHandlerTest {
     }
 
     @Test
-    void handle_validToken_callsAddFcmToken() throws Exception {
+    void handle_validToken_takesItFromAnyOtherUserFirst() throws Exception {
         handler.handle(new RegisterPushTokenCommand("ash", "fcm-token-123"));
-        verify(userRepository).addFcmToken("ash", "fcm-token-123");
+
+        InOrder order = inOrder(userRepository);
+        order.verify(userRepository).removeFcmToken("fcm-token-123");
+        order.verify(userRepository).addFcmToken("ash", "fcm-token-123");
     }
 
     @Test

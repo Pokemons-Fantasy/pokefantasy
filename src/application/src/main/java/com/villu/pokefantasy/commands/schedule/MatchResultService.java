@@ -44,7 +44,7 @@ public class MatchResultService {
                 }
             }
         }
-        throw new IllegalArgumentException("Match not found: " + matchId);
+        throw new IllegalArgumentException("Partido no encontrado");
     }
 
     int findRoundNumber(ScheduleEntity schedule, String matchId) {
@@ -63,7 +63,7 @@ public class MatchResultService {
     /** Valida que {@code winner} juega el partido y devuelve al perdedor. */
     String requireParticipant(ScheduleEntity.Match match, String winner) {
         if (winner == null || (!winner.equals(match.getPlayer1()) && !winner.equals(match.getPlayer2()))) {
-            throw new IllegalArgumentException("Winner '" + winner + "' is not a participant of this match");
+            throw new IllegalArgumentException("'" + winner + "' no juega este partido");
         }
         return winner.equals(match.getPlayer1()) ? match.getPlayer2() : match.getPlayer1();
     }
@@ -81,7 +81,7 @@ public class MatchResultService {
         if (!winnerHasPokemons) {
             throw new IllegalArgumentException(
                     "El ganador declarado '" + winner + "' no tiene Pokémon en esta liga. " +
-                    "¿Quisiste decir '" + loser + "'?");
+                    "¿Querías decir '" + loser + "'?");
         }
     }
 

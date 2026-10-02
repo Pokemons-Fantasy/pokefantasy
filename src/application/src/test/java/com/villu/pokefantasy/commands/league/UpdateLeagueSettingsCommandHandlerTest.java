@@ -1,5 +1,6 @@
 package com.villu.pokefantasy.commands.league;
 
+import static org.mockito.Mockito.never;
 import com.villu.pokefantasy.commands.closedlist.TierAssignmentService;
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueRole;
@@ -78,42 +79,42 @@ class UpdateLeagueSettingsCommandHandlerTest {
     void handle_nullCoinsPerWin_throwsIllegalArgument() {
         assertThatThrownBy(() -> handler.handle(cmd(null, 50, 500, 400, 300, 200, 100)))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("required");
+                .hasMessageContaining("Indica");
     }
 
     @Test
     void handle_nullCoinsPerLoss_throwsIllegalArgument() {
         assertThatThrownBy(() -> handler.handle(cmd(100, null, 500, 400, 300, 200, 100)))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("required");
+                .hasMessageContaining("Indica");
     }
 
     @Test
     void handle_negativeCoinsPerWin_throwsIllegalArgument() {
         assertThatThrownBy(() -> handler.handle(cmd(-5, 50, 500, 400, 300, 200, 100)))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining(">= 0");
+                .hasMessageContaining("negativ");
     }
 
     @Test
     void handle_negativeCoinsPerLoss_throwsIllegalArgument() {
         assertThatThrownBy(() -> handler.handle(cmd(100, -1, 500, 400, 300, 200, 100)))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining(">= 0");
+                .hasMessageContaining("negativ");
     }
 
     @Test
     void handle_nullTierPrice_throwsIllegalArgument() {
         assertThatThrownBy(() -> handler.handle(cmd(100, 50, null, 400, 300, 200, 100)))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("required");
+                .hasMessageContaining("Indica");
     }
 
     @Test
     void handle_negativeTierPrice_throwsIllegalArgument() {
         assertThatThrownBy(() -> handler.handle(cmd(100, 50, 500, -10, 300, 200, 100)))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining(">= 0");
+                .hasMessageContaining("negativ");
     }
 
     @Test
@@ -152,7 +153,7 @@ class UpdateLeagueSettingsCommandHandlerTest {
     }
 
     @Test
-    void handle_draftPending_savesSettings() {
+    void handle_draftInSetup_savesSettingsWithoutRetiering() {
         LeagueEntity league = leagueWithAdmin("ash");
         when(leagueAdminGuard.requireLeagueAdmin("l1", "ash")).thenReturn(league);
 
@@ -163,27 +164,28 @@ class UpdateLeagueSettingsCommandHandlerTest {
         handler.handle(validCmd());
 
         verify(leagueRepository).save(league);
+        verify(tierAssignmentService, never()).assignTiersToPool(any(), any());
     }
 
     @Test
     void handle_tierPctSumNot100_throwsIllegalArgument() {
         assertThatThrownBy(() -> handler.handle(cmdWithPcts(30, 30, 20, 10, 5)))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("sum to 100");
+                .hasMessageContaining("deben sumar 100");
     }
 
     @Test
     void handle_nullTierPct_throwsIllegalArgument() {
         assertThatThrownBy(() -> handler.handle(cmdWithPcts(null, 20, 20, 20, 20)))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("required");
+                .hasMessageContaining("Indica");
     }
 
     @Test
     void handle_negativeTierPct_throwsIllegalArgument() {
         assertThatThrownBy(() -> handler.handle(cmdWithPcts(-10, 30, 30, 30, 20)))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining(">= 0");
+                .hasMessageContaining("negativ");
     }
 
     @Test

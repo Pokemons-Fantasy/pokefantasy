@@ -1,22 +1,18 @@
 package com.villu.pokefantasy.commands.steal;
 
+import com.villu.pokefantasy.dto.PushMessage;
 import com.villu.pokefantasy.dto.ActivityEventType;
-import com.villu.pokefantasy.dto.LeagueSettings;
-import com.villu.pokefantasy.dto.Tier;
 import com.villu.pokefantasy.league.LeagueMemberService;
-import com.villu.pokefantasy.league.TierPricingService;
 import com.villu.pokefantasy.mediator.CommandHandler;
 import com.villu.pokefantasy.team.TeamOperation;
 import com.villu.pokefantasy.team.TeamTransferService;
 import lombok.extern.slf4j.Slf4j;
 import com.villu.pokefantasy.repository.ActivityEventRepository;
-import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.PushNotificationPort;
 import com.villu.pokefantasy.repository.UserRepository;
 import com.villu.pokefantasy.repository.entity.ActivityEventEntity;
-import com.villu.pokefantasy.repository.entity.ClosedListEntity;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
 import com.villu.pokefantasy.repository.entity.DraftPick;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
@@ -31,33 +27,30 @@ import java.time.Instant;
 public class StealPokemonCommandHandler implements CommandHandler<StealPokemonCommand, String> {
 
     private final DraftRepository draftRepository;
-    private final ClosedListRepository closedListRepository;
     private final LeagueRepository leagueRepository;
     private final UserRepository userRepository;
     private final TeamTransferService teamTransferService;
     private final ActivityEventRepository activityEventRepository;
     private final PushNotificationPort pushNotificationPort;
     private final LeagueMemberService leagueMemberService;
-    private final TierPricingService tierPricingService;
+    private final StealClauseService stealClauseService;
 
     public StealPokemonCommandHandler(DraftRepository draftRepository,
-                                      ClosedListRepository closedListRepository,
                                       LeagueRepository leagueRepository,
                                       UserRepository userRepository,
                                       TeamTransferService teamTransferService,
                                       ActivityEventRepository activityEventRepository,
                                       PushNotificationPort pushNotificationPort,
                                       LeagueMemberService leagueMemberService,
-                                      TierPricingService tierPricingService) {
+                                      StealClauseService stealClauseService) {
         this.draftRepository = draftRepository;
-        this.closedListRepository = closedListRepository;
         this.leagueRepository = leagueRepository;
         this.userRepository = userRepository;
         this.teamTransferService = teamTransferService;
         this.activityEventRepository = activityEventRepository;
         this.pushNotificationPort = pushNotificationPort;
         this.leagueMemberService = leagueMemberService;
-        this.tierPricingService = tierPricingService;
+        this.stealClauseService = stealClauseService;
     }
 
     @Override
@@ -81,24 +74,13 @@ public class StealPokemonCommandHandler implements CommandHandler<StealPokemonCo
 
         teamTransferService.requireUnlocked(targetPick);
 
-        // Compute steal price
-        LeagueSettings settings = league.getSettings();
-        int stealPrice;
-        if (targetPick.getCustomStealPrice() != null) {
-            stealPrice = targetPick.getCustomStealPrice();
-        } else {
-            ClosedListEntity entry = closedListRepository
-                    .findByPokemonNameIgnoreCaseAndLeagueId(targetName, leagueId)
-                    .orElse(null);
-            Tier tier = entry != null ? entry.getTier() : null;
-            stealPrice = tierPricingService.priceForTier(settings, tier);
-        }
+        int stealPrice = stealClauseService.currentClause(league, targetPick);
 
-        // Stealer pays, victim receives 2×
+        // Stealer pays the clause, victim receives it
         LeagueMember stealerMember = teamTransferService.requireMember(league, stealer);
         teamTransferService.charge(stealerMember, stealPrice);
         LeagueMember victimMember = leagueMemberService.requireMember(league, victim);
-        victimMember.setCoinBalance(victimMember.getCoinBalance() + stealPrice * 2);
+        victimMember.setCoinBalance(victimMember.getCoinBalance() + stealPrice);
         leagueRepository.save(league);
 
         teamTransferService.transfer(targetPick, stealer, Instant.now());
@@ -111,6 +93,7 @@ public class StealPokemonCommandHandler implements CommandHandler<StealPokemonCo
                 .targetUsername(victim)
                 .pokemonName(targetName)
                 .coinsAmount(stealPrice)
+                .targetCoinsAmount(stealPrice)
                 .createdAt(Instant.now())
                 .build());
 
@@ -118,8 +101,8 @@ public class StealPokemonCommandHandler implements CommandHandler<StealPokemonCo
         if (victimUser != null && !victimUser.getFcmTokens().isEmpty()) {
             pushNotificationPort.send(
                     victimUser.getFcmTokens(),
-                    "Te han robado un Pokémon",
-                    stealer + " te ha robado a " + targetName);
+                    PushMessage.teams(leagueId, "Te han robado un Pokémon",
+                            stealer + " te ha robado a " + targetName + " y recibes " + stealPrice + " monedas"));
         }
 
         return victim;

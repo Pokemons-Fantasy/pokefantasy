@@ -19,4 +19,12 @@ public class DraftPick {
     private Integer customStealPrice;
     /** Timestamp hasta el que este pokémon está bloqueado (7 días desde el robo/trade). null = libre. */
     private Instant lockedUntil;
+    /** Monedas pagadas en el draft por este pick. null en drafts sin presupuesto y en fichajes fuera del draft. */
+    private Integer price;
+
+    /** Constructor de compatibilidad: todos los usos anteriores al presupuesto del draft (sin precio). */
+    public DraftPick(String username, String pokemonName, Integer pokemonId, int round, Instant pickedAt,
+                     Integer customStealPrice, Instant lockedUntil) {
+        this(username, pokemonName, pokemonId, round, pickedAt, customStealPrice, lockedUntil, null);
+    }
 }

@@ -29,13 +29,13 @@ public class AddMemberToLeagueCommandHandler implements CommandHandler<AddMember
         LeagueEntity league = leagueAdminGuard.requireLeagueAdmin(command.leagueId(), command.requestingUsername());
 
         if (userRepository.findByUsername(command.targetUsername()) == null) {
-            throw new IllegalArgumentException("User not found: " + command.targetUsername());
+            throw new IllegalArgumentException("No existe el usuario '" + command.targetUsername() + "'");
         }
 
         boolean alreadyMember = league.getMembers().stream()
                 .anyMatch(m -> m.getUsername().equals(command.targetUsername()));
         if (alreadyMember) {
-            throw new IllegalArgumentException("User '" + command.targetUsername() + "' is already a member of this league");
+            throw new IllegalArgumentException("'" + command.targetUsername() + "' ya es miembro de esta liga");
         }
 
         leagueRepository.addMember(command.leagueId(), new LeagueMember(command.targetUsername(), LeagueRole.USER, 0));

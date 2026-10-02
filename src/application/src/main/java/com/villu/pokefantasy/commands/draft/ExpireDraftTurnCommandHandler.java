@@ -20,7 +20,7 @@ public class ExpireDraftTurnCommandHandler implements CommandHandler<ExpireDraft
     @Override
     public Void handle(ExpireDraftTurnCommand command) throws Exception {
         LeagueEntity league = leagueRepository.findById(command.leagueId())
-                .orElseThrow(() -> new IllegalArgumentException("League not found: " + command.leagueId()));
+                .orElseThrow(() -> new IllegalArgumentException("Liga no encontrada"));
         // Vuelve a comprobar el vencimiento dentro de la transacción: entre el listado y aquí el jugador
         // o un cliente pueden haber hecho ya el pick.
         draftTurnTimeoutService.autoPickExpiredTurn(league);

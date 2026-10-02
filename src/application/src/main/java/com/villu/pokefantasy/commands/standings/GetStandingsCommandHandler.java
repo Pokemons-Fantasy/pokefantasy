@@ -38,7 +38,7 @@ public class GetStandingsCommandHandler implements CommandHandler<GetStandingsCo
         leagueMembershipGuard.requireMember(command.leagueId(), command.requestingUsername());
 
         LeagueEntity league = leagueRepository.findById(command.leagueId())
-                .orElseThrow(() -> new IllegalArgumentException("Liga no encontrada: " + command.leagueId()));
+                .orElseThrow(() -> new IllegalArgumentException("Liga no encontrada"));
 
         // [victorias, derrotas, marcador a favor, marcador en contra]
         Map<String, int[]> stats = new HashMap<>();
