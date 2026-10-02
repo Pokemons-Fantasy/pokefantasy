@@ -91,11 +91,16 @@ api-rest ─► application ─► domain ◄─ infrastructure ─► MongoDB A
 | Ventanas de robo / swap (hora de Madrid) | `JornadaWindowService` |
 | Registrar / corregir / deshacer resultados, monedas por partido y sus eventos | `MatchResultService` |
 | Precio de un tier | `TierPricingService` |
+| Cláusula de robo (valor actual, coste de subirla: cada moneda suma ×2) | `StealClauseService` |
 | Reparto de tiers del pool | `TierAssignmentService` |
 | Calendario round-robin | `RoundRobinScheduler` |
 | Turnos vencidos del draft (cliente y job) | `DraftTurnTimeoutService` |
+| Turnos y presupuesto del draft (precio, restante, quién puede elegir, avance lineal/snake) | `DraftTurnService` |
+| Preparación del draft (admin + draft en `PENDING`) / orden de turnos válido | `DraftSetupGuard` / `TurnOrderPolicy` |
+| Cierre del draft (ajustes por defecto, sobrante del presupuesto al saldo, calendario) | `DraftCompletionService` |
 | Push de turno / de cierre de ventana | `DraftTurnNotifier` / `WindowReminderService` |
-| Admin de liga / pertenencia a liga | `LeagueAdminGuard` / `LeagueMemberService` |
+| Admin de liga / pertenencia a liga | `LeagueAdminGuard` / `LeagueMemberService`, `LeagueMembershipGuard` (incl. `sharesLeague`) |
+| Qué foto de perfil se acepta (JPEG, tamaño, dimensiones) | `AvatarImagePolicy` (ADR-014) |
 | Emitir SSE (vía Redis Pub/Sub) | `RealtimeNotifier` (api-rest) |
 | Enviar push | `PushNotificationPort` |
 | Sesión (JWT + refresh), límite de login | `JwtAuthFilter` + `AuthCookies` + `RefreshTokenPort`, `LoginAttemptPort` |
@@ -195,7 +200,7 @@ También parar ante: cambios de contrato de la API que rompan al front actual, m
 | `TooManyAttemptsException` | 429 | `TOO_MANY_ATTEMPTS` |
 | `Exception` | 500 | `INTERNAL_ERROR` |
 
-**Seguridad**: sesión por cookies httpOnly (JWT 15 min + refresh en Redis). Públicos solo los de `SecurityConfig.PUBLIC_PATHS` + OpenAPI. CORS en `SecurityConfig.corsConfigurationSource()`: si se añade un dominio propio, actualizarlo. Detalle en `vault/20 Arquitectura/Seguridad y auth.md`.
+**Seguridad**: sesión por cookies httpOnly (JWT 15 min + refresh en Redis). Públicos solo los de `SecurityConfig.PUBLIC_PATHS` + OpenAPI. CORS en `SecurityConfig.corsConfigurationSource()`: orígenes exactos (web, deploy previews por regex, Android, localhost); nunca comodines de hosting compartido como `*.netlify.app` (con credenciales, cualquier sitio de ahí usaría la sesión de la víctima). Si se añade un dominio propio, actualizarlo. Detalle en `vault/20 Arquitectura/Seguridad y auth.md`.
 
 ## Tests
 

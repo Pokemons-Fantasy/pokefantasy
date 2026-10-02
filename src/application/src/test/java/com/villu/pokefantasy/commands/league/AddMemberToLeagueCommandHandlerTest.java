@@ -62,7 +62,7 @@ class AddMemberToLeagueCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new AddMemberToLeagueCommand("l1", "brock", "ash")))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("already a member");
+                .hasMessageContaining("ya es miembro");
     }
 
     @Test

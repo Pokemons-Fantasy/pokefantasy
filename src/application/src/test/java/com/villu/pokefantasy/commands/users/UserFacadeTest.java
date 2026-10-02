@@ -1,12 +1,20 @@
 package com.villu.pokefantasy.commands.users;
 
+import com.villu.pokefantasy.commands.users.avatar.DeleteAvatarCommand;
+import com.villu.pokefantasy.commands.users.avatar.GetAvatarCommand;
+import com.villu.pokefantasy.commands.users.avatar.UploadAvatarCommand;
 import com.villu.pokefantasy.commands.users.create.CreateUserCommand;
 import com.villu.pokefantasy.commands.users.login.LoginResult;
 import com.villu.pokefantasy.commands.users.login.LoginUserCommand;
 import com.villu.pokefantasy.commands.users.logout.LogoutUserCommand;
+import com.villu.pokefantasy.commands.users.me.GetCurrentUserCommand;
 import com.villu.pokefantasy.commands.users.password.ChangePasswordCommand;
+import com.villu.pokefantasy.commands.users.pushtoken.RegisterPushTokenCommand;
+import com.villu.pokefantasy.commands.users.pushtoken.UnregisterPushTokenCommand;
 import com.villu.pokefantasy.commands.users.search.SearchUsersCommand;
 import com.villu.pokefantasy.mediator.Mediator;
+import com.villu.pokefantasy.response.AvatarImageResponse;
+import com.villu.pokefantasy.response.CurrentUserResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -15,6 +23,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Duration;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -82,5 +91,55 @@ class UserFacadeTest {
         ArgumentCaptor<SearchUsersCommand> captor = ArgumentCaptor.forClass(SearchUsersCommand.class);
         verify(mediator).send(captor.capture());
         assertThat(captor.getValue()).isEqualTo(new SearchUsersCommand("as", "l1", "ash"));
+    }
+
+    @Test
+    void uploadAvatar_sendsCommandAndReturnsVersion() throws Exception {
+        byte[] image = {1};
+        when(mediator.send(any(UploadAvatarCommand.class))).thenReturn(42L);
+
+        assertThat(facade.uploadAvatar("ash", image)).isEqualTo(42L);
+
+        ArgumentCaptor<UploadAvatarCommand> captor = ArgumentCaptor.forClass(UploadAvatarCommand.class);
+        verify(mediator).send(captor.capture());
+        assertThat(captor.getValue().username()).isEqualTo("ash");
+        assertThat(captor.getValue().image()).isSameAs(image);
+    }
+
+    @Test
+    void deleteAvatar_sendsCommand() throws Exception {
+        facade.deleteAvatar("ash");
+
+        verify(mediator).send(new DeleteAvatarCommand("ash"));
+    }
+
+    @Test
+    void getAvatar_sendsCommandAndReturnsImage() throws Exception {
+        Optional<AvatarImageResponse> image = Optional.of(new AvatarImageResponse(new byte[]{1}, "image/jpeg"));
+        when(mediator.send(new GetAvatarCommand("misty", "ash"))).thenReturn(image);
+
+        assertThat(facade.getAvatar("misty", "ash")).isSameAs(image);
+    }
+
+    @Test
+    void me_sendsCommand() throws Exception {
+        CurrentUserResponse me = CurrentUserResponse.builder().username("ash").build();
+        when(mediator.send(new GetCurrentUserCommand("ash"))).thenReturn(me);
+
+        assertThat(facade.me("ash")).isSameAs(me);
+    }
+
+    @Test
+    void registerPushToken_sendsRegisterPushTokenCommand() throws Exception {
+        facade.registerPushToken("ash", "tok-1");
+
+        verify(mediator).send(new RegisterPushTokenCommand("ash", "tok-1"));
+    }
+
+    @Test
+    void unregisterPushToken_sendsUnregisterPushTokenCommand() throws Exception {
+        facade.unregisterPushToken("ash", "tok-1");
+
+        verify(mediator).send(new UnregisterPushTokenCommand("ash", "tok-1"));
     }
 }

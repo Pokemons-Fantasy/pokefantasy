@@ -27,6 +27,11 @@ public class DraftRepositoryImpl implements DraftRepository {
     }
 
     @Override
+    public void delete(DraftEntity draft) {
+        mongoTemplate.remove(draft);
+    }
+
+    @Override
     public Optional<DraftEntity> findActiveByLeagueId(String leagueId) {
         Query query = new Query(Criteria.where("leagueId").is(leagueId)
                 .and("status").in(DraftStatus.PENDING, DraftStatus.IN_PROGRESS));

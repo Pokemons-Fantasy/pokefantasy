@@ -45,7 +45,7 @@ public class RespondToTradeCommandHandler implements CommandHandler<RespondToTra
     @Override
     public Void handle(RespondToTradeCommand command) {
         TradeEntity trade = tradeRepository.findById(command.tradeId())
-                .orElseThrow(() -> new IllegalArgumentException("Trade not found: " + command.tradeId()));
+                .orElseThrow(() -> new IllegalArgumentException("Propuesta no encontrada"));
 
         if (trade.getStatus() != TradeStatus.PENDING) {
             throw new IllegalStateException("Esta propuesta ya no está pendiente");
@@ -159,7 +159,7 @@ public class RespondToTradeCommandHandler implements CommandHandler<RespondToTra
         return league.getMembers().stream()
                 .filter(m -> username.equalsIgnoreCase(m.getUsername()))
                 .findFirst()
-                .orElseThrow(() -> new IllegalStateException("Member not found: " + username));
+                .orElseThrow(() -> new IllegalStateException("'" + username + "' no es miembro de esta liga"));
     }
 
     @Override

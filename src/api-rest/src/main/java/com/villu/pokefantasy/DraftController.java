@@ -1,8 +1,11 @@
 package com.villu.pokefantasy;
 
 import com.villu.pokefantasy.commands.draft.DraftFacade;
+import com.villu.pokefantasy.dto.DraftConfig;
 import com.villu.pokefantasy.request.draft.DraftPickRequest;
+import com.villu.pokefantasy.request.draft.SetDraftPoolTiersRequest;
 import com.villu.pokefantasy.request.draft.StartDraftRequest;
+import com.villu.pokefantasy.request.draft.UpdateDraftConfigRequest;
 import com.villu.pokefantasy.response.DraftStatusResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -28,8 +31,49 @@ public class DraftController {
     @PostMapping("/start")
     public ResponseEntity<Void> startDraft(@PathVariable String leagueId,
                                            @AuthenticationPrincipal UserDetails userDetails,
-                                           @RequestBody StartDraftRequest request) throws Exception {
-        draftFacade.startDraft(request.getTurnOrder(), leagueId, userDetails.getUsername());
+                                           @RequestBody(required = false) StartDraftRequest request) throws Exception {
+        // Sin body: empieza el draft preparado. Con turnOrder y sin preparar: arranque directo del front anterior.
+        draftFacade.startDraft(request != null ? request.getTurnOrder() : null, leagueId, userDetails.getUsername());
+        realtimeNotifier.draftUpdated(leagueId);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/prepare")
+    public ResponseEntity<Void> prepareDraft(@PathVariable String leagueId,
+                                             @AuthenticationPrincipal UserDetails userDetails) throws Exception {
+        draftFacade.prepareDraft(leagueId, userDetails.getUsername());
+        realtimeNotifier.draftUpdated(leagueId);
+        return ResponseEntity.ok().build();
+    }
+
+    @PutMapping("/config")
+    public ResponseEntity<Void> updateConfig(@PathVariable String leagueId,
+                                             @AuthenticationPrincipal UserDetails userDetails,
+                                             @RequestBody UpdateDraftConfigRequest request) throws Exception {
+        DraftConfig config = DraftConfig.builder()
+                .budget(request.getBudget())
+                .priceS(request.getPriceS()).priceA(request.getPriceA()).priceB(request.getPriceB())
+                .priceC(request.getPriceC()).priceD(request.getPriceD())
+                .snake(request.getSnake())
+                .build();
+        draftFacade.updateConfig(leagueId, userDetails.getUsername(), config, request.getTurnOrder());
+        realtimeNotifier.draftUpdated(leagueId);
+        return ResponseEntity.ok().build();
+    }
+
+    @PutMapping("/pool/tiers")
+    public ResponseEntity<Void> setPoolTiers(@PathVariable String leagueId,
+                                             @AuthenticationPrincipal UserDetails userDetails,
+                                             @RequestBody SetDraftPoolTiersRequest request) throws Exception {
+        draftFacade.setPoolTiers(leagueId, userDetails.getUsername(), request.getEntryIds(), request.getTier());
+        realtimeNotifier.draftUpdated(leagueId);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/pool/reset-tiers")
+    public ResponseEntity<Void> resetPoolTiers(@PathVariable String leagueId,
+                                               @AuthenticationPrincipal UserDetails userDetails) throws Exception {
+        draftFacade.resetPoolTiers(leagueId, userDetails.getUsername());
         realtimeNotifier.draftUpdated(leagueId);
         return ResponseEntity.ok().build();
     }

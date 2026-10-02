@@ -1,11 +1,13 @@
 package com.villu.pokefantasy.commands.draft;
 
+import com.villu.pokefantasy.dto.DraftConfig;
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.league.LeagueMembershipGuard;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
 import com.villu.pokefantasy.repository.entity.DraftPick;
+import com.villu.pokefantasy.response.DraftPickResponse;
 import com.villu.pokefantasy.response.DraftStatusResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -15,6 +17,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -34,7 +37,8 @@ class GetDraftStatusCommandHandlerTest {
 
     @BeforeEach
     void setUp() {
-        handler = new GetDraftStatusCommandHandler(draftRepository, leagueRepository, leagueMembershipGuard);
+        handler = new GetDraftStatusCommandHandler(draftRepository, leagueRepository, leagueMembershipGuard,
+                new DraftTurnService());
     }
 
     @Test
@@ -44,7 +48,7 @@ class GetDraftStatusCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new GetDraftStatusCommand(LEAGUE_ID, "ash")))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("No draft found");
+                .hasMessageContaining("no tiene draft");
     }
 
     @Test
@@ -115,5 +119,41 @@ class GetDraftStatusCommandHandlerTest {
         draft.setPicks(picks);
         draft.setLeagueId(LEAGUE_ID);
         return draft;
+    }
+
+    @Test
+    void handle_budgetDraft_returnsConfigBudgetsAndPrices() {
+        DraftEntity draft = new DraftEntity();
+        draft.setLeagueId(LEAGUE_ID);
+        draft.setStatus(DraftStatus.PENDING);
+        draft.setTurnOrder(List.of("ash", "misty"));
+        draft.setConfig(DraftConfig.defaults());
+        DraftPick paid = new DraftPick("ash", "mew", 151, 1, Instant.now(), null, null);
+        paid.setPrice(200);
+        draft.setPicks(List.of(paid));
+        draft.setDraftHistory(List.of(paid));
+        when(draftRepository.findActiveByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+
+        DraftStatusResponse response = handler.handle(new GetDraftStatusCommand(LEAGUE_ID, "ash"));
+
+        assertThat(response.getConfig()).isEqualTo(DraftConfig.defaults());
+        assertThat(response.getBudgets()).containsExactly(Map.entry("ash", 800), Map.entry("misty", 1000));
+        assertThat(response.getDraftHistory()).extracting(DraftPickResponse::getPrice).containsExactly(200);
+        assertThat(response.getCurrentTurn()).isNull(); // en preparación no hay turno
+    }
+
+    @Test
+    void handle_draftWithoutConfig_hasNoBudgets() {
+        DraftEntity draft = new DraftEntity();
+        draft.setLeagueId(LEAGUE_ID);
+        draft.setStatus(DraftStatus.COMPLETED);
+        draft.setTurnOrder(List.of("ash"));
+        when(draftRepository.findActiveByLeagueId(LEAGUE_ID)).thenReturn(Optional.empty());
+        when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+
+        DraftStatusResponse response = handler.handle(new GetDraftStatusCommand(LEAGUE_ID, "ash"));
+
+        assertThat(response.getConfig()).isNull();
+        assertThat(response.getBudgets()).isNull();
     }
 }

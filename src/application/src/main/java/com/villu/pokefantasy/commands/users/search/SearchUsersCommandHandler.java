@@ -32,7 +32,7 @@ public class SearchUsersCommandHandler
     @Override
     public List<String> handle(SearchUsersCommand command) {
         if (command.leagueId() == null || command.leagueId().isBlank()) {
-            throw new IllegalArgumentException("leagueId is required");
+            throw new IllegalArgumentException("Falta la liga.");
         }
         Set<String> existing = leagueAdminGuard
                 .requireLeagueAdmin(command.leagueId(), command.requestingUsername())

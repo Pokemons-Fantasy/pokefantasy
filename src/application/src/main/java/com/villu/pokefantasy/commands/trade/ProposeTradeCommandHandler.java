@@ -1,5 +1,6 @@
 package com.villu.pokefantasy.commands.trade;
 
+import com.villu.pokefantasy.dto.PushMessage;
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.TradeStatus;
 import com.villu.pokefantasy.mediator.CommandHandler;
@@ -53,19 +54,19 @@ public class ProposeTradeCommandHandler implements CommandHandler<ProposeTradeCo
         int coinsOffered = command.coinsOffered();
 
         if (proposer.equalsIgnoreCase(responder)) {
-            throw new IllegalArgumentException("No puedes proponerte un trade a ti mismo");
+            throw new IllegalArgumentException("No puedes proponerte un intercambio a ti mismo");
         }
         if (coinsOffered < 0) {
-            throw new IllegalArgumentException("coinsOffered must be >= 0");
+            throw new IllegalArgumentException("Las monedas ofrecidas no pueden ser negativas.");
         }
 
         DraftEntity draft = draftRepository.findLatestByLeagueId(leagueId)
                 .filter(d -> d.getStatus() == DraftStatus.COMPLETED)
                 .orElseThrow(() -> new IllegalStateException(
-                        "Trades are only allowed after the draft is completed"));
+                        "Los intercambios solo se pueden hacer con el draft completado"));
 
         LeagueEntity league = leagueRepository.findById(leagueId)
-                .orElseThrow(() -> new IllegalArgumentException("League not found: " + leagueId));
+                .orElseThrow(() -> new IllegalArgumentException("Liga no encontrada"));
 
         LeagueMember proposerMember = findMember(league, proposer);
         findMember(league, responder); // valida que el responder es miembro
@@ -98,9 +99,9 @@ public class ProposeTradeCommandHandler implements CommandHandler<ProposeTradeCo
         if (responderUser != null && !responderUser.getFcmTokens().isEmpty()) {
             pushNotificationPort.send(
                     responderUser.getFcmTokens(),
-                    "Trade propuesto",
-                    proposer + " quiere intercambiar " + trade.getProposerPokemonName()
-                            + " por tu " + trade.getResponderPokemonName());
+                    PushMessage.teams(leagueId, "Propuesta de intercambio",
+                            proposer + " quiere intercambiar " + trade.getProposerPokemonName()
+                                    + " por tu " + trade.getResponderPokemonName()));
         }
         return saved.getId();
     }

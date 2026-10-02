@@ -1,14 +1,17 @@
 package com.villu.pokefantasy.commands.steal;
 
+import com.villu.pokefantasy.dto.ActivityEventType;
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueRole;
 import com.villu.pokefantasy.dto.LeagueSettings;
 import com.villu.pokefantasy.dto.Tier;
 import com.villu.pokefantasy.league.LeagueMemberService;
 import com.villu.pokefantasy.league.TierPricingService;
+import com.villu.pokefantasy.repository.ActivityEventRepository;
 import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
+import com.villu.pokefantasy.repository.entity.ActivityEventEntity;
 import com.villu.pokefantasy.repository.entity.ClosedListEntity;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
 import com.villu.pokefantasy.repository.entity.DraftPick;
@@ -37,6 +40,7 @@ class SetStealPriceCommandHandlerTest {
     @Mock private DraftRepository draftRepository;
     @Mock private ClosedListRepository closedListRepository;
     @Mock private LeagueRepository leagueRepository;
+    @Mock private ActivityEventRepository activityEventRepository;
 
     private SetStealPriceCommandHandler handler;
 
@@ -46,15 +50,15 @@ class SetStealPriceCommandHandlerTest {
 
     @BeforeEach
     void setUp() {
-        handler = new SetStealPriceCommandHandler(draftRepository, closedListRepository, leagueRepository,
-                new LeagueMemberService(), new TierPricingService());
+        handler = new SetStealPriceCommandHandler(draftRepository, leagueRepository, new LeagueMemberService(),
+                new StealClauseService(closedListRepository, new TierPricingService()), activityEventRepository);
     }
 
     // ── Happy path ────────────────────────────────────────────────────────────
 
     @Test
-    void handle_happyPath_deductsInvestmentAndSetsPrice() {
-        // Tier S price = 300 → raise to 500 → invest 200
+    void handle_happyPath_chargesHalfTheIncreaseAndSetsPrice() {
+        // Tier S price = 300 → raise to 500 → each coin adds 2 → invest 100
         int currentTierPrice = 300;
         int newPrice = 500;
         int initialBalance = 1000;
@@ -74,7 +78,7 @@ class SetStealPriceCommandHandlerTest {
 
         // Investment deducted
         LeagueMember member = getMember(league);
-        assertThat(member.getCoinBalance()).isEqualTo(800); // 1000 - 200
+        assertThat(member.getCoinBalance()).isEqualTo(900); // 1000 - 100
 
         // customStealPrice updated on pick
         ArgumentCaptor<DraftEntity> draftCaptor = ArgumentCaptor.forClass(DraftEntity.class);
@@ -85,6 +89,46 @@ class SetStealPriceCommandHandlerTest {
         assertThat(pick.getCustomStealPrice()).isEqualTo(newPrice);
 
         verify(leagueRepository).save(league);
+    }
+
+    @Test
+    void handle_oddIncrease_roundsCostUpAndClauseToTwiceThePaidCoins() {
+        // 300 → 501 pedido: coste ceil(201/2) = 101, la cláusula queda en 300 + 2·101 = 502
+        DraftEntity draft = draftWithPick(USERNAME, POKEMON, null);
+        LeagueEntity league = leagueWithMember(1000);
+        league.setSettings(LeagueSettings.builder().priceTierS(300).build());
+        ClosedListEntity entry = closedListEntry(POKEMON, Tier.S);
+
+        when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+        when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
+        when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(POKEMON, LEAGUE_ID))
+                .thenReturn(Optional.of(entry));
+
+        handler.handle(new SetStealPriceCommand(LEAGUE_ID, USERNAME, POKEMON, 501));
+
+        assertThat(getMember(league).getCoinBalance()).isEqualTo(899);
+        assertThat(draft.getPicks().get(0).getCustomStealPrice()).isEqualTo(502);
+    }
+
+    @Test
+    void handle_raise_savesClauseRaisedEventWithInvestment() {
+        DraftEntity draft = draftWithPick(USERNAME, POKEMON, 400);
+        LeagueEntity league = leagueWithMember(1000);
+
+        when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+        when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
+
+        handler.handle(new SetStealPriceCommand(LEAGUE_ID, USERNAME, POKEMON, 600));
+
+        ArgumentCaptor<ActivityEventEntity> captor = ArgumentCaptor.forClass(ActivityEventEntity.class);
+        verify(activityEventRepository).save(captor.capture());
+        ActivityEventEntity event = captor.getValue();
+        assertThat(event.getType()).isEqualTo(ActivityEventType.CLAUSE_RAISED);
+        assertThat(event.getLeagueId()).isEqualTo(LEAGUE_ID);
+        assertThat(event.getActorUsername()).isEqualTo(USERNAME);
+        assertThat(event.getPokemonName()).isEqualTo(POKEMON);
+        assertThat(event.getCoinsAmount()).isEqualTo(100); // 400 → 600: invierte 100
+        assertThat(event.getCreatedAt()).isNotNull();
     }
 
     // ── New price not higher than current ─────────────────────────────────────
@@ -125,7 +169,7 @@ class SetStealPriceCommandHandlerTest {
 
     @Test
     void handle_insufficientCoinsForInvestment_throws() {
-        // tier price = 100, new = 400 → investment = 300, balance = 50 → throws
+        // tier price = 100, new = 400 → investment = 150, balance = 50 → throws
         DraftEntity draft = draftWithPick(USERNAME, POKEMON, null);
         LeagueEntity league = leagueWithMember(50);
         league.setSettings(LeagueSettings.builder().priceTierB(100).build());
@@ -138,7 +182,8 @@ class SetStealPriceCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new SetStealPriceCommand(LEAGUE_ID, USERNAME, POKEMON, 400)))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("suficientes monedas");
+                .hasMessageContaining("suficientes monedas")
+                .hasMessageContaining("invertir 150");
     }
 
     // ── Negative price ────────────────────────────────────────────────────────
@@ -172,7 +217,7 @@ class SetStealPriceCommandHandlerTest {
         handler.handle(new SetStealPriceCommand(LEAGUE_ID, USERNAME, POKEMON, newPrice));
 
         LeagueMember member = getMember(league);
-        assertThat(member.getCoinBalance()).isEqualTo(930); // 1000 - 70
+        assertThat(member.getCoinBalance()).isEqualTo(965); // 1000 - 35
     }
 
     // ── Tier D price used ─────────────────────────────────────────────────────
@@ -196,7 +241,7 @@ class SetStealPriceCommandHandlerTest {
         handler.handle(new SetStealPriceCommand(LEAGUE_ID, USERNAME, POKEMON, newPrice));
 
         LeagueMember member = getMember(league);
-        assertThat(member.getCoinBalance()).isEqualTo(465); // 500 - 35
+        assertThat(member.getCoinBalance()).isEqualTo(482); // 500 - ceil(35/2)
     }
 
     // ── Concurrencia: draft.save falla → se propaga sin compensar ───────

@@ -41,7 +41,7 @@ public class GetSeasonStatsCommandHandler
         leagueMembershipGuard.requireMember(command.leagueId(), command.requestingUsername());
 
         LeagueEntity league = leagueRepository.findById(command.leagueId())
-                .orElseThrow(() -> new IllegalArgumentException("League not found: " + command.leagueId()));
+                .orElseThrow(() -> new IllegalArgumentException("Liga no encontrada"));
 
         List<String> members = league.getMembers().stream()
                 .map(LeagueMember::getUsername)

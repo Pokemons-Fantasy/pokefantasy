@@ -42,7 +42,7 @@ class CacheAdapterTest {
     @Test
     void put_serializesAndStoresUnderCacheKey() {
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-        List<PokemonCacheDto> value = List.of(new PokemonCacheDto("url", "pikachu", 25));
+        List<PokemonCacheDto> value = List.of(new PokemonCacheDto("url", "pikachu", 25, null));
         when(redisObjectMapper.writeValueAsString(value)).thenReturn("[serialized]");
 
         cacheAdapter.put(value);
@@ -86,7 +86,7 @@ class CacheAdapterTest {
         TypeFactory typeFactory = TypeFactory.createDefaultInstance();
         when(redisObjectMapper.getTypeFactory()).thenReturn(typeFactory);
         JavaType javaType = typeFactory.constructCollectionType(List.class, PokemonCacheDto.class);
-        List<PokemonCacheDto> expected = List.of(new PokemonCacheDto("url", "pikachu", 25));
+        List<PokemonCacheDto> expected = List.of(new PokemonCacheDto("url", "pikachu", 25, null));
         when(redisObjectMapper.readValue(eq("[{\"name\":\"pikachu\"}]"), any(JavaType.class))).thenReturn(expected);
 
         List<PokemonCacheDto> result = cacheAdapter.getPokemon(CACHE_KEY);

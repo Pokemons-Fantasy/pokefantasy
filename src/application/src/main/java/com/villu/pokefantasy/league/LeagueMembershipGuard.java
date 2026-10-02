@@ -16,14 +16,24 @@ public class LeagueMembershipGuard {
 
     public LeagueEntity requireMember(String leagueId, String username) {
         LeagueEntity league = leagueRepository.findById(leagueId)
-                .orElseThrow(() -> new IllegalArgumentException("League not found: " + leagueId));
+                .orElseThrow(() -> new IllegalArgumentException("Liga no encontrada"));
 
         boolean isMember = league.getMembers().stream()
                 .anyMatch(m -> m.getUsername().equals(username));
 
         if (!isMember) {
-            throw new ForbiddenOperationException("User '" + username + "' is not a member of league: " + leagueId);
+            throw new ForbiddenOperationException("No eres miembro de esta liga");
         }
         return league;
+    }
+
+    /** {@code true} si son el mismo usuario o están juntos en alguna liga. */
+    public boolean sharesLeague(String username, String otherUsername) {
+        if (username.equals(otherUsername)) {
+            return true;
+        }
+        return leagueRepository.findByMemberUsername(username).stream()
+                .anyMatch(league -> league.getMembers().stream()
+                        .anyMatch(m -> m.getUsername().equals(otherUsername)));
     }
 }

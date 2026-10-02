@@ -58,7 +58,7 @@ public class BuyFromBenchCommandHandler implements CommandHandler<BuyFromBenchCo
         // Pokemon must exist in the pool
         ClosedListEntity benchEntry = closedListRepository
                 .findByPokemonNameIgnoreCaseAndLeagueId(pokemonName, leagueId)
-                .orElseThrow(() -> new IllegalArgumentException("'" + pokemonName + "' is not in the pool for this league"));
+                .orElseThrow(() -> new IllegalArgumentException("'" + pokemonName + "' no está en el pool de esta liga"));
 
         teamTransferService.requireOnBench(draft, pokemonName);
 
@@ -71,7 +71,7 @@ public class BuyFromBenchCommandHandler implements CommandHandler<BuyFromBenchCo
         if (currentTeamSize >= maxTeamSize) {
             throw new IllegalStateException(
                     "Tu equipo está lleno (" + maxTeamSize + "/" + maxTeamSize +
-                    "). No puedes comprar más pokémon de la banca.");
+                    "). No puedes comprar más Pokémon del banquillo.");
         }
 
         int price = tierPricingService.priceForTier(settings, benchEntry.getTier());

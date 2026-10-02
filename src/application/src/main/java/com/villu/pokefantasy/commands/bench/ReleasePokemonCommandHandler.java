@@ -63,14 +63,15 @@ public class ReleasePokemonCommandHandler implements CommandHandler<ReleasePokem
                         "No tienes a '" + pokemonName + "' en tu equipo"));
         teamTransferService.requireUnlocked(pick);
 
-        // Recompensa: la mitad del precio de su tier (la tier está en la closed list, no en el pick)
+        // Recompensa: el precio de mercado de su tier, lo mismo que cuesta comprarlo del banquillo
+        // (el tier está en la closed list, no en el pick)
         LeagueSettings settings = league.getSettings();
 
         ClosedListEntity entry = closedListRepository
                 .findByPokemonNameIgnoreCaseAndLeagueId(pokemonName, leagueId)
                 .orElse(null);
         Tier tier = entry != null ? entry.getTier() : null;
-        int reward = tierPricingService.priceForTier(settings, tier) / 2;
+        int reward = tierPricingService.priceForTier(settings, tier);
 
         // --- Execute ---
 

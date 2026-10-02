@@ -31,8 +31,8 @@ public class ActivityEventMongoRepository implements ActivityEventRepository {
     }
 
     @Override
-    public List<ActivityEventEntity> findByLeagueIdOrderByCreatedAtDesc(String leagueId, int page, int size) {
-        Query query = new Query(Criteria.where("leagueId").is(leagueId))
+    public List<ActivityEventEntity> find(ActivityEventFilter filter, int page, int size) {
+        Query query = new Query(criteria(filter))
                 .with(Sort.by(Sort.Direction.DESC, "createdAt"))
                 .skip((long) page * size)
                 .limit(size);
@@ -40,32 +40,20 @@ public class ActivityEventMongoRepository implements ActivityEventRepository {
     }
 
     @Override
-    public long countByLeagueId(String leagueId) {
-        Query query = new Query(Criteria.where("leagueId").is(leagueId));
-        return mongoTemplate.count(query, ActivityEventEntity.class, "activity_events");
+    public long count(ActivityEventFilter filter) {
+        return mongoTemplate.count(new Query(criteria(filter)), ActivityEventEntity.class, "activity_events");
     }
 
-    @Override
-    public List<ActivityEventEntity> findByLeagueIdAndUsernameOrderByCreatedAtDesc(
-            String leagueId, String username, int page, int size) {
-        Criteria userCriteria = new Criteria().orOperator(
-                Criteria.where("actorUsername").is(username),
-                Criteria.where("targetUsername").is(username)
-        );
-        Query query = new Query(Criteria.where("leagueId").is(leagueId).andOperator(userCriteria))
-                .with(Sort.by(Sort.Direction.DESC, "createdAt"))
-                .skip((long) page * size)
-                .limit(size);
-        return mongoTemplate.find(query, ActivityEventEntity.class, "activity_events");
-    }
-
-    @Override
-    public long countByLeagueIdAndUsername(String leagueId, String username) {
-        Criteria userCriteria = new Criteria().orOperator(
-                Criteria.where("actorUsername").is(username),
-                Criteria.where("targetUsername").is(username)
-        );
-        Query query = new Query(Criteria.where("leagueId").is(leagueId).andOperator(userCriteria));
-        return mongoTemplate.count(query, ActivityEventEntity.class, "activity_events");
+    private static Criteria criteria(ActivityEventFilter filter) {
+        Criteria criteria = Criteria.where("leagueId").is(filter.leagueId());
+        if (filter.types() != null) {
+            criteria.and("type").in(filter.types());
+        }
+        if (filter.username() != null) {
+            criteria.orOperator(
+                    Criteria.where("actorUsername").is(filter.username()),
+                    Criteria.where("targetUsername").is(filter.username()));
+        }
+        return criteria;
     }
 }

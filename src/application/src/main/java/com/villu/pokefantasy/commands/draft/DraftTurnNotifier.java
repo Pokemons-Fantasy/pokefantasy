@@ -1,5 +1,6 @@
 package com.villu.pokefantasy.commands.draft;
 
+import com.villu.pokefantasy.dto.PushMessage;
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.repository.PushNotificationPort;
 import com.villu.pokefantasy.repository.UserRepository;
@@ -41,8 +42,8 @@ public class DraftTurnNotifier {
                 .map(deadline -> " Tienes " + describe(draft.getCurrentTurnStartedAt().until(deadline,
                         ChronoUnit.SECONDS)) + ".")
                 .orElse("");
-        pushNotificationPort.send(user.getFcmTokens(), "¡Te toca en el draft!",
-                leagueName + " · ronda " + draft.getCurrentRound() + ": elige tu Pokémon." + timer);
+        pushNotificationPort.send(user.getFcmTokens(), PushMessage.draftTurn(draft.getLeagueId(), "¡Te toca en el draft!",
+                leagueName + " · ronda " + draft.getCurrentRound() + ": elige tu Pokémon." + timer));
     }
 
     static String describe(long seconds) {

@@ -1,11 +1,14 @@
 package com.villu.pokefantasy.commands.closedlist;
 
 import com.villu.pokefantasy.dto.ActivityEventType;
+import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.Stat;
 import com.villu.pokefantasy.dto.Tier;
 import com.villu.pokefantasy.league.LeagueAdminGuard;
 import com.villu.pokefantasy.repository.ActivityEventRepository;
 import com.villu.pokefantasy.repository.ClosedListRepository;
+import com.villu.pokefantasy.repository.DraftRepository;
+import com.villu.pokefantasy.repository.entity.DraftEntity;
 import com.villu.pokefantasy.repository.entity.ActivityEventEntity;
 import com.villu.pokefantasy.repository.entity.ClosedListEntity;
 import com.villu.pokefantasy.response.TierAdjustmentResponse;
@@ -13,6 +16,8 @@ import com.villu.pokefantasy.response.TierChangeDto;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -30,6 +35,7 @@ class AssignTierCommandHandlerTest {
     @Mock private ClosedListRepository closedListRepository;
     @Mock private LeagueAdminGuard leagueAdminGuard;
     @Mock private ActivityEventRepository activityEventRepository;
+    @Mock private DraftRepository draftRepository;
 
     private AssignTierCommandHandler handler;
 
@@ -38,7 +44,22 @@ class AssignTierCommandHandlerTest {
 
     @BeforeEach
     void setUp() {
-        handler = new AssignTierCommandHandler(closedListRepository, leagueAdminGuard, activityEventRepository);
+        handler = new AssignTierCommandHandler(closedListRepository, leagueAdminGuard, activityEventRepository,
+                draftRepository);
+    }
+
+    // Con el draft en preparación o en curso el tier fija el precio de los picks: no se toca desde aquí.
+    @ParameterizedTest
+    @EnumSource(value = DraftStatus.class, names = {"PENDING", "IN_PROGRESS"})
+    void handle_draftInSetupOrInProgress_throwsAndChangesNothing(DraftStatus status) {
+        DraftEntity draft = new DraftEntity();
+        draft.setStatus(status);
+        when(draftRepository.findLatestByLeagueId(LEAGUE)).thenReturn(Optional.of(draft));
+
+        assertThatThrownBy(() -> handler.handle(new AssignTierCommand("e1", Tier.A, LEAGUE, ADMIN)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Los tiers solo se ajustan aquí con el draft terminado");
+        verify(closedListRepository, never()).updateTier(any(), any());
     }
 
     // ── existing validation tests ─────────────────────────────────────────────
@@ -47,14 +68,14 @@ class AssignTierCommandHandlerTest {
     void handle_nullEntryId_throwsIllegalArgument() {
         assertThatThrownBy(() -> handler.handle(new AssignTierCommand(null, Tier.S, LEAGUE, ADMIN)))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("entryId and tier are required");
+                .hasMessageContaining("Indica el Pokémon y el tier");
     }
 
     @Test
     void handle_nullTier_throwsIllegalArgument() {
         assertThatThrownBy(() -> handler.handle(new AssignTierCommand("e1", null, LEAGUE, ADMIN)))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("entryId and tier are required");
+                .hasMessageContaining("Indica el Pokémon y el tier");
     }
 
     @Test
@@ -63,7 +84,7 @@ class AssignTierCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new AssignTierCommand("e1", Tier.A, LEAGUE, ADMIN)))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("not found");
+                .hasMessageContaining("no está en el pool");
     }
 
     @Test
@@ -73,7 +94,7 @@ class AssignTierCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new AssignTierCommand("e1", Tier.B, LEAGUE, ADMIN)))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("does not belong");
+                .hasMessageContaining("no es del pool de esta liga");
     }
 
     // ── same tier → no changes ────────────────────────────────────────────────

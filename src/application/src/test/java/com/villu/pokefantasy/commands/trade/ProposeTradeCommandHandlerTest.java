@@ -1,5 +1,6 @@
 package com.villu.pokefantasy.commands.trade;
 
+import com.villu.pokefantasy.dto.PushMessage;
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueRole;
 import com.villu.pokefantasy.dto.TradeStatus;
@@ -31,7 +32,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -107,7 +108,7 @@ class ProposeTradeCommandHandlerTest {
         assertThatThrownBy(() -> handler.handle(
                 new ProposeTradeCommand("l1", "ash", "brock", "pikachu", "onix", -1)))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining(">= 0");
+                .hasMessageContaining("negativ");
     }
 
     @Test
@@ -119,7 +120,7 @@ class ProposeTradeCommandHandlerTest {
         assertThatThrownBy(() -> handler.handle(
                 new ProposeTradeCommand("l1", "ash", "brock", "pikachu", "onix", 0)))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("draft is completed");
+                .hasMessageContaining("con el draft completado");
     }
 
     @Test
@@ -144,7 +145,7 @@ class ProposeTradeCommandHandlerTest {
         assertThatThrownBy(() -> handler.handle(
                 new ProposeTradeCommand("l1", "ash", "brock", "pikachu", "onix", 0)))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("League not found");
+                .hasMessageContaining("Liga no encontrada");
     }
 
     @Test
@@ -288,8 +289,8 @@ class ProposeTradeCommandHandlerTest {
 
         verify(pushNotificationPort).send(
                 eq(List.of("token-brock-android")),
-                eq("Trade propuesto"),
-                anyString());
+                argThat(m -> m.title().equals("Propuesta de intercambio") && m.path().equals("/leagues/l1/teams")
+                        && m.tag() == null));
     }
 
     @Test
@@ -319,6 +320,6 @@ class ProposeTradeCommandHandlerTest {
 
         handler.handle(new ProposeTradeCommand("l1", "ash", "brock", "pikachu", "onix", 0));
 
-        verify(pushNotificationPort, never()).send(anyList(), anyString(), anyString());
+        verify(pushNotificationPort, never()).send(anyList(), any());
     }
 }

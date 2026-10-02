@@ -51,7 +51,7 @@ class GetMyCoinBalanceCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new GetMyCoinBalanceCommand(LEAGUE_ID, USERNAME)))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("League not found");
+                .hasMessageContaining("Liga no encontrada");
     }
 
     @Test
@@ -64,7 +64,7 @@ class GetMyCoinBalanceCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new GetMyCoinBalanceCommand(LEAGUE_ID, USERNAME)))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("not a member");
+                .hasMessageContaining("miembro de esta liga");
     }
 
     @Test
