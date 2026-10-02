@@ -61,6 +61,14 @@ public class LeagueController {
         return ResponseEntity.noContent().build();
     }
 
+    @PutMapping("/{leagueId}/members/{username}/admin")
+    public ResponseEntity<Void> promoteToAdmin(@PathVariable String leagueId,
+                                               @PathVariable String username,
+                                               @AuthenticationPrincipal UserDetails userDetails) throws Exception {
+        leagueFacade.promoteToAdmin(leagueId, username, userDetails.getUsername());
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/{leagueId}/settings")
     public ResponseEntity<LeagueSettingsResponse> getSettings(@PathVariable String leagueId,
                                                                @AuthenticationPrincipal UserDetails userDetails) throws Exception {

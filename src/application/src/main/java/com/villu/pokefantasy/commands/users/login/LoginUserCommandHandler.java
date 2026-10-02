@@ -46,7 +46,7 @@ public class LoginUserCommandHandler implements CommandHandler<LoginUserCommand,
     public LoginResult handle(LoginUserCommand command) {
         if (command == null || command.username() == null || command.password() == null
                 || command.username().isEmpty() || command.password().isEmpty()) {
-            throw new IllegalArgumentException("LoginUserCommand cannot be null or have values empty");
+            throw new IllegalArgumentException("Indica usuario y contraseña.");
         }
 
         String userKey = "user:" + command.username().toLowerCase(Locale.ROOT);
@@ -67,7 +67,7 @@ public class LoginUserCommandHandler implements CommandHandler<LoginUserCommand,
             if (ipKey != null) {
                 loginAttemptPort.recordFailure(ipKey, LOCKOUT_WINDOW);
             }
-            throw new BadCredentialsException("Invalid username or password");
+            throw new BadCredentialsException("Usuario o contraseña incorrectos");
         }
 
         loginAttemptPort.clearFailures(userKey);

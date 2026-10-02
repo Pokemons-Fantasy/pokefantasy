@@ -37,6 +37,10 @@ public class LeagueFacade {
         mediator.send(new RemoveMemberFromLeagueCommand(leagueId, targetUsername, requestingUsername));
     }
 
+    public void promoteToAdmin(String leagueId, String targetUsername, String requestingUsername) throws Exception {
+        mediator.send(new PromoteMemberToAdminCommand(leagueId, targetUsername, requestingUsername));
+    }
+
     public LeagueSettingsResponse getSettings(String leagueId, String requestingUsername) throws Exception {
         return mediator.send(new GetLeagueSettingsCommand(leagueId, requestingUsername));
     }

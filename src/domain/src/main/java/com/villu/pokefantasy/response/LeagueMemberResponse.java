@@ -9,4 +9,6 @@ import lombok.Data;
 public class LeagueMemberResponse {
     private String username;
     private LeagueRole leagueRole;
+    /** Versión de su foto de perfil; {@code null} = sin foto. */
+    private Long avatarVersion;
 }

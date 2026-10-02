@@ -76,7 +76,7 @@ class ApiExceptionHandlerTest {
         problem("conflict", 409, "CONFLICT").andExpect(jsonPath("$.message").value("El draft ya empezó"));
         problem("forbidden", 403, "FORBIDDEN");
         problem("credentials", 401, "INVALID_CREDENTIALS")
-                .andExpect(jsonPath("$.message").value("Invalid username or password"));
+                .andExpect(jsonPath("$.message").value("Usuario o contraseña incorrectos"));
         problem("lock", 409, "CONCURRENT_MODIFICATION");
         problem("duplicate", 409, "DUPLICATE");
     }
@@ -96,7 +96,7 @@ class ApiExceptionHandlerTest {
     @Test
     void unexpectedError_hidesInternalMessage() throws Exception {
         problem("other", 500, "INTERNAL_ERROR")
-                .andExpect(jsonPath("$.message").value("Internal server error"))
+                .andExpect(jsonPath("$.message").value("Error interno del servidor"))
                 .andExpect(content().string(org.hamcrest.Matchers.not(containsString("secreto"))));
     }
 

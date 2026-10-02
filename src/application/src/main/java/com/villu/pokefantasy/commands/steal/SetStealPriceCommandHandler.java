@@ -1,40 +1,40 @@
 package com.villu.pokefantasy.commands.steal;
 
+import com.villu.pokefantasy.dto.ActivityEventType;
 import com.villu.pokefantasy.dto.DraftStatus;
-import com.villu.pokefantasy.dto.LeagueSettings;
-import com.villu.pokefantasy.dto.Tier;
 import com.villu.pokefantasy.league.LeagueMemberService;
-import com.villu.pokefantasy.league.TierPricingService;
 import com.villu.pokefantasy.mediator.CommandHandler;
-import com.villu.pokefantasy.repository.ClosedListRepository;
+import com.villu.pokefantasy.repository.ActivityEventRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
-import com.villu.pokefantasy.repository.entity.ClosedListEntity;
+import com.villu.pokefantasy.repository.entity.ActivityEventEntity;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
 import com.villu.pokefantasy.repository.entity.DraftPick;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import com.villu.pokefantasy.repository.entity.LeagueMember;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
+
 @Service
 public class SetStealPriceCommandHandler implements CommandHandler<SetStealPriceCommand, Void> {
 
     private final DraftRepository draftRepository;
-    private final ClosedListRepository closedListRepository;
     private final LeagueRepository leagueRepository;
     private final LeagueMemberService leagueMemberService;
-    private final TierPricingService tierPricingService;
+    private final StealClauseService stealClauseService;
+    private final ActivityEventRepository activityEventRepository;
 
     public SetStealPriceCommandHandler(DraftRepository draftRepository,
-                                       ClosedListRepository closedListRepository,
                                        LeagueRepository leagueRepository,
                                        LeagueMemberService leagueMemberService,
-                                       TierPricingService tierPricingService) {
+                                       StealClauseService stealClauseService,
+                                       ActivityEventRepository activityEventRepository) {
         this.draftRepository = draftRepository;
-        this.closedListRepository = closedListRepository;
         this.leagueRepository = leagueRepository;
         this.leagueMemberService = leagueMemberService;
-        this.tierPricingService = tierPricingService;
+        this.stealClauseService = stealClauseService;
+        this.activityEventRepository = activityEventRepository;
     }
 
     @Override
@@ -60,27 +60,15 @@ public class SetStealPriceCommandHandler implements CommandHandler<SetStealPrice
                         "'" + pokemonName + "' no está en tu equipo en esta liga"));
 
         LeagueEntity league = leagueRepository.findById(leagueId)
-                .orElseThrow(() -> new IllegalArgumentException("League not found: " + leagueId));
+                .orElseThrow(() -> new IllegalArgumentException("Liga no encontrada"));
 
-        // Compute current effective price
-        LeagueSettings settings = league.getSettings();
-        int currentEffectivePrice;
-        if (pick.getCustomStealPrice() != null) {
-            currentEffectivePrice = pick.getCustomStealPrice();
-        } else {
-            ClosedListEntity entry = closedListRepository
-                    .findByPokemonNameIgnoreCaseAndLeagueId(pokemonName, leagueId)
-                    .orElse(null);
-            Tier tier = entry != null ? entry.getTier() : null;
-            currentEffectivePrice = tierPricingService.priceForTier(settings, tier);
-        }
-
-        if (newPrice <= currentEffectivePrice) {
+        int currentClause = stealClauseService.currentClause(league, pick);
+        if (newPrice <= currentClause) {
             throw new IllegalArgumentException(
-                    "El nuevo precio (" + newPrice + ") debe ser mayor que el precio actual (" + currentEffectivePrice + ")");
+                    "El nuevo precio (" + newPrice + ") debe ser mayor que el precio actual (" + currentClause + ")");
         }
 
-        int investment = newPrice - currentEffectivePrice;
+        int investment = stealClauseService.raiseCost(currentClause, newPrice);
         LeagueMember member = leagueMemberService.requireMember(league, username);
 
         if (member.getCoinBalance() < investment) {
@@ -92,9 +80,18 @@ public class SetStealPriceCommandHandler implements CommandHandler<SetStealPrice
         member.setCoinBalance(member.getCoinBalance() - investment);
         leagueRepository.save(league);
 
-        pick.setCustomStealPrice(newPrice);
-
+        int raisedClause = stealClauseService.raisedClause(currentClause, investment);
+        pick.setCustomStealPrice(raisedClause);
         draftRepository.save(draft);
+
+        activityEventRepository.save(ActivityEventEntity.builder()
+                .leagueId(leagueId)
+                .type(ActivityEventType.CLAUSE_RAISED)
+                .actorUsername(username)
+                .pokemonName(pick.getPokemonName())
+                .coinsAmount(investment)
+                .createdAt(Instant.now())
+                .build());
 
         return null;
     }

@@ -70,7 +70,7 @@ class LoginUserCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new LoginUserCommand("unknown", "pass", IP)))
                 .isInstanceOf(BadCredentialsException.class)
-                .hasMessageContaining("Invalid username or password");
+                .hasMessageContaining("Usuario o contraseña incorrectos");
     }
 
     @Test
@@ -86,7 +86,7 @@ class LoginUserCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new LoginUserCommand("ash", "wrong", IP)))
                 .isInstanceOf(BadCredentialsException.class)
-                .hasMessageContaining("Invalid username or password");
+                .hasMessageContaining("Usuario o contraseña incorrectos");
     }
 
     @Test

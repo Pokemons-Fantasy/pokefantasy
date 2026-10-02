@@ -53,7 +53,7 @@ class ReleasePokemonCommandHandlerTest {
     private static final String POKEMON    = "dragonite";
     private static final int    POKEMON_ID = 149;
     private static final int    TIER_PRICE = 100;
-    private static final int    REWARD     = 50; // 100 / 2
+    private static final int    REWARD     = TIER_PRICE; // el precio de mercado entero del tier
 
     @BeforeEach
     void setUp() {
@@ -100,8 +100,8 @@ class ReleasePokemonCommandHandlerTest {
     }
 
     @Test
-    void handle_oddTierPrice_rewardIsFloor() {
-        // 75 / 2 = 37 (integer division = floor), not 38
+    void handle_rewardIsTheWholeTierPrice() {
+        // Antes se cobraba la mitad (75 / 2 = 37): ahora el precio entero
         DraftPick pick = pick(USERNAME, POKEMON, null);
         DraftEntity draft = draftWithPicks(new ArrayList<>(List.of(pick)));
         LeagueEntity league = leagueWithMemberAndTierPrice(USERNAME, 200, 75);
@@ -113,7 +113,7 @@ class ReleasePokemonCommandHandlerTest {
 
         handler.handle(new ReleasePokemonCommand(LEAGUE_ID, USERNAME, POKEMON));
 
-        assertThat(league.getMembers().get(0).getCoinBalance()).isEqualTo(200 + 37);
+        assertThat(league.getMembers().get(0).getCoinBalance()).isEqualTo(200 + 75);
     }
 
     @Test

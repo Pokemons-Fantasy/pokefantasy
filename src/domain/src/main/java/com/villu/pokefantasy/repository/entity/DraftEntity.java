@@ -1,5 +1,6 @@
 package com.villu.pokefantasy.repository.entity;
 
+import com.villu.pokefantasy.dto.DraftConfig;
 import com.villu.pokefantasy.dto.DraftStatus;
 import lombok.Data;
 import org.springframework.data.annotation.Id;
@@ -31,6 +32,8 @@ public class DraftEntity {
     private String leagueId;
     /** Timestamp when the current turn started; reset on each pick or auto-pick. */
     private Instant currentTurnStartedAt;
+    /** Presupuesto, precios por tier y snake. null en drafts anteriores a la configuración: picks gratis y lineales. */
+    private DraftConfig config;
 
     /**
      * Nombres (en minúsculas) de todos los Pokémon que tienen dueño en la liga.

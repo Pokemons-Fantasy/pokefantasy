@@ -1,6 +1,7 @@
 package com.villu.pokefantasy.adapters;
 
 import com.villu.pokefantasy.dto.Pokemons;
+import com.villu.pokefantasy.dto.TypeMember;
 import com.villu.pokefantasy.ports.PokemonApiPort;
 import com.villu.pokefantasy.response.PokemonResponseApi;
 import lombok.extern.slf4j.Slf4j;
@@ -10,6 +11,7 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.function.Supplier;
 
 @Component
@@ -17,6 +19,7 @@ import java.util.function.Supplier;
 public class PokemonApiAdapter implements PokemonApiPort {
 
     private static final String POKE_API_URL = "https://pokeapi.co/api/v2/pokemon?limit=100000&offset=0";
+    private static final String TYPE_URL = "https://pokeapi.co/api/v2/type/";
     private static final int MAX_ATTEMPTS = 3;
     private static final Duration RETRY_DELAY = Duration.ofSeconds(2);
 
@@ -58,6 +61,25 @@ public class PokemonApiAdapter implements PokemonApiPort {
     public Pokemons fetchPokemonData(String url) {
         return null;
     }
+
+    @Override
+    public List<TypeMember> fetchTypeMembers(String type) {
+        TypeResponse response = fetchWithRetry(
+                () -> restTemplate.getForObject(TYPE_URL + type, TypeResponse.class), "type " + type);
+        if (response == null || response.pokemon() == null) {
+            return List.of();
+        }
+        return response.pokemon().stream()
+                .map(p -> new TypeMember(p.pokemon().name(), p.slot()))
+                .toList();
+    }
+
+    /** Lo que se usa de {@code GET /type/{type}}: los Pokémon de ese tipo y en qué slot lo tienen. */
+    record TypeResponse(List<TypeSlot> pokemon) {}
+
+    record TypeSlot(NamedResource pokemon, int slot) {}
+
+    record NamedResource(String name) {}
 
     /**
      * Reintenta hasta MAX_ATTEMPTS veces con espera fija entre intentos. Si todos fallan,

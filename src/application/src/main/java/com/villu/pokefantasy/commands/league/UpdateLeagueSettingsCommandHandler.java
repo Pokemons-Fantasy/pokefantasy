@@ -13,6 +13,7 @@ import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.util.Optional;
 
 @Service
 public class UpdateLeagueSettingsCommandHandler
@@ -39,46 +40,44 @@ public class UpdateLeagueSettingsCommandHandler
     @Override
     public Void handle(UpdateLeagueSettingsCommand command) {
         if (command.coinsPerWin() == null || command.coinsPerLoss() == null) {
-            throw new IllegalArgumentException("coinsPerWin and coinsPerLoss are required");
+            throw new IllegalArgumentException("Indica las monedas por victoria y por derrota.");
         }
         if (command.coinsPerWin() < 0 || command.coinsPerLoss() < 0) {
-            throw new IllegalArgumentException("coinsPerWin and coinsPerLoss must be >= 0");
+            throw new IllegalArgumentException("Las monedas por victoria y por derrota no pueden ser negativas.");
         }
         if (command.priceTierS() == null || command.priceTierA() == null || command.priceTierB() == null
                 || command.priceTierC() == null || command.priceTierD() == null) {
-            throw new IllegalArgumentException("All tier prices are required");
+            throw new IllegalArgumentException("Indica el precio de todos los tiers.");
         }
         if (command.priceTierS() < 0 || command.priceTierA() < 0 || command.priceTierB() < 0
                 || command.priceTierC() < 0 || command.priceTierD() < 0) {
-            throw new IllegalArgumentException("Tier prices must be >= 0");
+            throw new IllegalArgumentException("Los precios de los tiers no pueden ser negativos.");
         }
 
         if (command.tierPctS() == null || command.tierPctA() == null || command.tierPctB() == null
                 || command.tierPctC() == null || command.tierPctD() == null) {
-            throw new IllegalArgumentException("All tier percentages are required");
+            throw new IllegalArgumentException("Indica el porcentaje de todos los tiers.");
         }
         if (command.tierPctS() < 0 || command.tierPctA() < 0 || command.tierPctB() < 0
                 || command.tierPctC() < 0 || command.tierPctD() < 0) {
-            throw new IllegalArgumentException("Tier percentages must be >= 0");
+            throw new IllegalArgumentException("Los porcentajes de los tiers no pueden ser negativos.");
         }
         int sumPct = command.tierPctS() + command.tierPctA() + command.tierPctB()
                 + command.tierPctC() + command.tierPctD();
         if (sumPct != 100) {
             throw new IllegalArgumentException(
-                    "Tier percentages must sum to 100 (current sum: " + sumPct + ")");
+                    "Los porcentajes de los tiers deben sumar 100 (ahora suman " + sumPct + ")");
         }
 
         LeagueEntity league = leagueAdminGuard.requireLeagueAdmin(command.leagueId(), command.requestingUsername());
 
-        draftRepository.findLatestByLeagueId(command.leagueId()).ifPresent(draft -> {
-            if (draft.getStatus() == DraftStatus.IN_PROGRESS) {
-                throw new IllegalStateException(
-                        "No se pueden cambiar los ajustes con un draft en curso");
-            }
-        });
+        Optional<DraftEntity> latestDraft = draftRepository.findLatestByLeagueId(command.leagueId());
+        if (latestDraft.map(d -> d.getStatus() == DraftStatus.IN_PROGRESS).orElse(false)) {
+            throw new IllegalStateException("No se pueden cambiar los ajustes con un draft en curso");
+        }
 
         if (command.maxTeamSize() != null && command.maxTeamSize() < 10) {
-            throw new IllegalArgumentException("maxTeamSize must be >= 10");
+            throw new IllegalArgumentException("El tamaño máximo del equipo debe ser al menos 10.");
         }
 
         league.setSettings(LeagueSettings.builder()
@@ -105,8 +104,12 @@ public class UpdateLeagueSettingsCommandHandler
 
         leagueRepository.save(league);
 
-        // Recalculate pool tiers using the new percentages (no-ops if pool is empty)
-        tierAssignmentService.assignTiersToPool(command.leagueId(), league.getSettings());
+        // Recalcular los tiers del pool con los nuevos porcentajes (no hace nada si el pool está vacío).
+        // En preparación los tiers los reparte el admin a mano: no se pisan.
+        boolean draftInSetup = latestDraft.map(d -> d.getStatus() == DraftStatus.PENDING).orElse(false);
+        if (!draftInSetup) {
+            tierAssignmentService.assignTiersToPool(command.leagueId(), league.getSettings());
+        }
 
         // If seasonStartDate was set, retroactively assign weekly dates to all jornadas
         if (command.seasonStartDate() != null) {

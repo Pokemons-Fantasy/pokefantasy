@@ -1,7 +1,9 @@
 package com.villu.pokefantasy.commands.activity;
 
+import com.villu.pokefantasy.dto.ActivityEventType;
 import com.villu.pokefantasy.league.LeagueMembershipGuard;
 import com.villu.pokefantasy.mediator.CommandHandler;
+import com.villu.pokefantasy.repository.ActivityEventFilter;
 import com.villu.pokefantasy.repository.ActivityEventRepository;
 import com.villu.pokefantasy.repository.entity.ActivityEventEntity;
 import com.villu.pokefantasy.response.ActivityEventResponse;
@@ -9,6 +11,7 @@ import com.villu.pokefantasy.response.ActivityFeedResponse;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class GetActivityFeedCommandHandler implements CommandHandler<GetActivityFeedCommand, ActivityFeedResponse> {
@@ -29,20 +32,13 @@ public class GetActivityFeedCommandHandler implements CommandHandler<GetActivity
 
         int page = command.page();
         int size = Math.min(command.size(), MAX_PAGE_SIZE);
-        String username = command.username();
+        // Usuario en blanco o lista de tipos vacía = sin ese filtro
+        String username = command.username() == null || command.username().isBlank() ? null : command.username();
+        Set<ActivityEventType> types = command.types() == null || command.types().isEmpty() ? null : command.types();
+        ActivityEventFilter filter = new ActivityEventFilter(command.leagueId(), username, types);
 
-        List<ActivityEventEntity> events;
-        long totalCount;
-
-        if (username != null && !username.isBlank()) {
-            events = activityEventRepository
-                    .findByLeagueIdAndUsernameOrderByCreatedAtDesc(command.leagueId(), username, page, size);
-            totalCount = activityEventRepository.countByLeagueIdAndUsername(command.leagueId(), username);
-        } else {
-            events = activityEventRepository
-                    .findByLeagueIdOrderByCreatedAtDesc(command.leagueId(), page, size);
-            totalCount = activityEventRepository.countByLeagueId(command.leagueId());
-        }
+        List<ActivityEventEntity> events = activityEventRepository.find(filter, page, size);
+        long totalCount = activityEventRepository.count(filter);
 
         int totalPages = size > 0 ? (int) Math.ceil((double) totalCount / size) : 0;
         boolean hasMore = (long) (page + 1) * size < totalCount;
@@ -69,6 +65,7 @@ public class GetActivityFeedCommandHandler implements CommandHandler<GetActivity
                 .pokemonName(entity.getPokemonName())
                 .pokemonName2(entity.getPokemonName2())
                 .coinsAmount(entity.getCoinsAmount())
+                .targetCoinsAmount(entity.getTargetCoinsAmount())
                 .fromTier(entity.getFromTier())
                 .toTier(entity.getToTier())
                 .roundNumber(entity.getRoundNumber())

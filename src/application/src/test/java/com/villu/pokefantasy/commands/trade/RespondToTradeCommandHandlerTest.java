@@ -141,7 +141,7 @@ class RespondToTradeCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new RespondToTradeCommand("l1", "t1", "brock", true)))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Trade not found");
+                .hasMessageContaining("Propuesta no encontrada");
     }
 
     @Test
@@ -186,7 +186,7 @@ class RespondToTradeCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new RespondToTradeCommand("l1", "t1", "brock", true)))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("No schedule");
+                .hasMessageContaining("aún no tiene calendario");
     }
 
     @Test

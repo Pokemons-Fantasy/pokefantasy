@@ -36,7 +36,7 @@ class GetLeagueSettingsCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new GetLeagueSettingsCommand("l1", "ash")))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("League not found");
+                .hasMessageContaining("Liga no encontrada");
     }
 
     @Test

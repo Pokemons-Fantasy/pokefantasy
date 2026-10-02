@@ -79,7 +79,7 @@ class BuyFromBenchCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(cmd()))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("only allowed after the draft is completed");
+                .hasMessageContaining("con el draft completado");
     }
 
     @Test
@@ -114,7 +114,7 @@ class BuyFromBenchCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(cmd()))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("No schedule found");
+                .hasMessageContaining("aún no tiene calendario");
     }
 
     // ── Member/user validation ────────────────────────────────────────────────
@@ -127,7 +127,7 @@ class BuyFromBenchCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(cmd()))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("League not found");
+                .hasMessageContaining("Liga no encontrada");
     }
 
     @Test
@@ -138,7 +138,7 @@ class BuyFromBenchCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(cmd()))
                 .isInstanceOf(ForbiddenOperationException.class)
-                .hasMessageContaining("not a member");
+                .hasMessageContaining("miembro de esta liga");
     }
 
     // ── Pokemon validation ────────────────────────────────────────────────────
@@ -152,7 +152,7 @@ class BuyFromBenchCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(cmd()))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("not in the pool");
+                .hasMessageContaining("no está en el pool");
     }
 
     @Test
@@ -171,7 +171,7 @@ class BuyFromBenchCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(cmd()))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("not available on the bench");
+                .hasMessageContaining("no está en el banquillo");
     }
 
     // ── Team size validation ──────────────────────────────────────────────────

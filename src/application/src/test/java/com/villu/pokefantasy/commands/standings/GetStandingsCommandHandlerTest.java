@@ -46,7 +46,7 @@ class GetStandingsCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new GetStandingsCommand("l1", "ash")))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("l1");
+                .hasMessageContaining("Liga no encontrada");
     }
 
     @Test

@@ -5,14 +5,21 @@ import com.villu.pokefantasy.commands.schedule.MatchScore;
 import com.villu.pokefantasy.commands.schedule.ScheduleFacade;
 import com.villu.pokefantasy.commands.users.UserFacade;
 import com.villu.pokefantasy.commands.users.login.LoginResult;
+import com.villu.pokefantasy.dto.DraftConfig;
+import com.villu.pokefantasy.dto.Tier;
 import com.villu.pokefantasy.exception.ForbiddenOperationException;
+import com.villu.pokefantasy.response.AvatarImageResponse;
+import com.villu.pokefantasy.response.CurrentUserResponse;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -23,6 +30,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -64,6 +72,34 @@ class DraftScheduleUserControllersTest extends ControllerTestSupport {
         verify(draftFacade).autoPick("l1", ME);
 
         verify(notifier, org.mockito.Mockito.times(4)).draftUpdated("l1");
+    }
+
+    @Test
+    void draftSetupActions_notifyWatchers() throws Exception {
+        mvc.perform(post("/v1/leagues/l1/draft/prepare")).andExpect(status().isOk());
+        verify(draftFacade).prepareDraft("l1", ME);
+
+        mvc.perform(json(put("/v1/leagues/l1/draft/config"),
+                "{\"budget\":900,\"priceS\":200,\"priceA\":150,\"priceB\":100,\"priceC\":60,\"priceD\":0,\"snake\":true,\"turnOrder\":[\"misty\",\"ash\"]}"))
+                .andExpect(status().isOk());
+        verify(draftFacade).updateConfig("l1", ME,
+                DraftConfig.builder().budget(900).priceS(200).priceA(150).priceB(100).priceC(60).priceD(0).snake(true).build(),
+                List.of("misty", "ash"));
+
+        mvc.perform(json(put("/v1/leagues/l1/draft/pool/tiers"), "{\"entryIds\":[\"e1\",\"e2\"],\"tier\":\"A\"}"))
+                .andExpect(status().isOk());
+        verify(draftFacade).setPoolTiers("l1", ME, List.of("e1", "e2"), Tier.A);
+
+        mvc.perform(post("/v1/leagues/l1/draft/pool/reset-tiers")).andExpect(status().isOk());
+        verify(draftFacade).resetPoolTiers("l1", ME);
+
+        verify(notifier, org.mockito.Mockito.times(4)).draftUpdated("l1");
+    }
+
+    @Test
+    void startWithoutBody_startsPreparedDraft() throws Exception {
+        mvc.perform(post("/v1/leagues/l1/draft/start")).andExpect(status().isOk());
+        verify(draftFacade).startDraft(null, "l1", ME);
     }
 
     @Test
@@ -231,8 +267,71 @@ class DraftScheduleUserControllersTest extends ControllerTestSupport {
 
         mvc.perform(json(post("/v1/users/push-token"), "{\"token\":\"fcm-1\"}")).andExpect(status().isOk());
         verify(userFacade).registerPushToken(ME, "fcm-1");
+        mvc.perform(json(delete("/v1/users/push-token"), "{\"token\":\"fcm-1\"}")).andExpect(status().isNoContent());
+        verify(userFacade).unregisterPushToken(ME, "fcm-1");
 
         mvc.perform(get("/v1/users/events")).andExpect(request().asyncStarted());
         assertThat(userRegistry.connectionCount(ME)).isEqualTo(1);
+    }
+
+    // ── Avatar ───────────────────────────────────────────────────────────────
+
+    @Test
+    void uploadAvatar_passesBytesAndReturnsVersion() throws Exception {
+        byte[] image = {1, 2, 3};
+        when(userFacade.uploadAvatar(ME, image)).thenReturn(42L);
+
+        mvc.perform(multipart(HttpMethod.PUT, "/v1/user/avatar")
+                        .file(new MockMultipartFile("file", "avatar.jpg", "image/jpeg", image)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.avatarVersion").value(42));
+    }
+
+    @Test
+    void uploadAvatar_invalidImage_400() throws Exception {
+        when(userFacade.uploadAvatar(org.mockito.ArgumentMatchers.eq(ME), org.mockito.ArgumentMatchers.any()))
+                .thenThrow(new IllegalArgumentException("La imagen debe ser JPEG"));
+
+        mvc.perform(multipart(HttpMethod.PUT, "/v1/user/avatar")
+                        .file(new MockMultipartFile("file", "a.png", "image/png", new byte[]{1})))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("BAD_REQUEST"));
+    }
+
+    @Test
+    void deleteAvatar_204() throws Exception {
+        mvc.perform(delete("/v1/user/avatar")).andExpect(status().isNoContent());
+        verify(userFacade).deleteAvatar(ME);
+    }
+
+    @Test
+    void getAvatar_servesJpegWithImmutableCache() throws Exception {
+        byte[] data = {1, 2, 3};
+        when(userFacade.getAvatar("misty", ME)).thenReturn(Optional.of(new AvatarImageResponse(data, "image/jpeg")));
+
+        MvcResult result = mvc.perform(get("/v1/users/misty/avatar").param("v", "42"))
+                .andExpect(status().isOk()).andReturn();
+
+        assertThat(result.getResponse().getContentType()).isEqualTo("image/jpeg");
+        assertThat(result.getResponse().getContentAsByteArray()).isEqualTo(data);
+        assertThat(result.getResponse().getHeader("Cache-Control"))
+                .contains("max-age=31536000").contains("private").contains("immutable");
+    }
+
+    @Test
+    void getAvatar_missing_404() throws Exception {
+        when(userFacade.getAvatar("misty", ME)).thenReturn(Optional.empty());
+
+        mvc.perform(get("/v1/users/misty/avatar")).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void me_returnsCurrentUser() throws Exception {
+        when(userFacade.me(ME)).thenReturn(CurrentUserResponse.builder().username(ME).avatarVersion(42L).build());
+
+        mvc.perform(get("/v1/user/me"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.username").value(ME))
+                .andExpect(jsonPath("$.avatarVersion").value(42));
     }
 }

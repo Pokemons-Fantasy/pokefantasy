@@ -24,7 +24,8 @@ public class GetAvailablePokemonsCommandHandler implements CommandHandler<GetAva
                 .map(p -> new AvailablePokemonResponse(
                         p.getId(),
                         p.getName(),
-                        String.format(SPRITE_URL_TEMPLATE, p.getId())
+                        String.format(SPRITE_URL_TEMPLATE, p.getId()),
+                        p.getTypes()
                 ))
                 .toList();
     }
