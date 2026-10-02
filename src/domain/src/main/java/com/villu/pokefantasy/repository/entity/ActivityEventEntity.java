@@ -28,6 +28,8 @@ public class ActivityEventEntity {
     private String pokemonName;
     private String pokemonName2;
     private Integer coinsAmount;
+    /** STEAL: monedas que cobró la víctima. Null en robos anteriores a la cláusula ×2, cuando cobraba el doble. */
+    private Integer targetCoinsAmount;
     private String fromTier;
     private String toTier;
     private Integer roundNumber;

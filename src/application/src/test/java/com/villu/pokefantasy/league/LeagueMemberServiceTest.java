@@ -30,7 +30,7 @@ class LeagueMemberServiceTest {
 
         assertThatThrownBy(() -> service.requireMember(league, "ash"))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("Member not found: ash");
+                .hasMessageContaining("'ash' no es miembro de esta liga");
     }
 
     private LeagueEntity leagueWithMembers(LeagueMember... members) {

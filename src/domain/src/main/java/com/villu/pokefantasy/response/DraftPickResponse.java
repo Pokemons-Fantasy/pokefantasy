@@ -17,4 +17,6 @@ public class DraftPickResponse {
     private Integer customStealPrice;
     /** Timestamp hasta el que este pokémon está bloqueado. null = libre. */
     private Instant lockedUntil;
+    /** Monedas pagadas en el draft. null en drafts sin presupuesto. */
+    private Integer price;
 }

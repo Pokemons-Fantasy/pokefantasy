@@ -32,7 +32,7 @@ class CreateLeagueCommandHandlerTest {
     void handle_blankName_throwsIllegalArgument() {
         assertThatThrownBy(() -> handler.handle(new CreateLeagueCommand("  ", "ash")))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("name is required");
+                .hasMessageContaining("Indica el nombre de la liga");
     }
 
     @Test
@@ -45,7 +45,7 @@ class CreateLeagueCommandHandlerTest {
     void handle_blankCreator_throwsIllegalArgument() {
         assertThatThrownBy(() -> handler.handle(new CreateLeagueCommand("Liga", "  ")))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("username is required");
+                .hasMessageContaining("Falta el usuario que crea la liga");
     }
 
     @Test

@@ -59,7 +59,7 @@ class CancelTradeCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new CancelTradeCommand("l1", "t1", "ash")))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Trade not found");
+                .hasMessageContaining("Propuesta no encontrada");
     }
 
     @Test

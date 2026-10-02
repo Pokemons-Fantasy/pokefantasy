@@ -1,9 +1,16 @@
 package com.villu.pokefantasy.commands.league;
 
+import com.villu.pokefantasy.commands.draft.DraftCompletionService;
+import com.villu.pokefantasy.commands.draft.DraftTurnService;
+import com.villu.pokefantasy.dto.DraftConfig;
+import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueRole;
+import com.villu.pokefantasy.dto.Tier;
 import com.villu.pokefantasy.exception.ForbiddenOperationException;
+import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
+import com.villu.pokefantasy.repository.entity.ClosedListEntity;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
 import com.villu.pokefantasy.repository.entity.DraftPick;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
@@ -27,12 +34,15 @@ class RemoveMemberFromLeagueCommandHandlerTest {
 
     @Mock private LeagueRepository leagueRepository;
     @Mock private DraftRepository draftRepository;
+    @Mock private ClosedListRepository closedListRepository;
+    @Mock private DraftCompletionService draftCompletionService;
 
     private RemoveMemberFromLeagueCommandHandler handler;
 
     @BeforeEach
     void setUp() {
-        handler = new RemoveMemberFromLeagueCommandHandler(leagueRepository, draftRepository);
+        handler = new RemoveMemberFromLeagueCommandHandler(leagueRepository, draftRepository, closedListRepository,
+                new DraftTurnService(), draftCompletionService);
     }
 
     private LeagueEntity leagueWith(String id, LeagueMember... members) {
@@ -48,7 +58,7 @@ class RemoveMemberFromLeagueCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new RemoveMemberFromLeagueCommand("l1", "brock", "ash")))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("League not found");
+                .hasMessageContaining("Liga no encontrada");
     }
 
     @Test
@@ -71,7 +81,7 @@ class RemoveMemberFromLeagueCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new RemoveMemberFromLeagueCommand("l1", "brock", "ash")))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("not a member");
+                .hasMessageContaining("miembro de esta liga");
     }
 
     @Test
@@ -83,7 +93,7 @@ class RemoveMemberFromLeagueCommandHandlerTest {
         // ash trying to leave (self-leave of last admin)
         assertThatThrownBy(() -> handler.handle(new RemoveMemberFromLeagueCommand("l1", "ash", "ash")))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("last admin");
+                .hasMessageContaining("sin admin");
     }
 
     @Test
@@ -194,6 +204,39 @@ class RemoveMemberFromLeagueCommandHandlerTest {
         // removedIndex(1) == currentIndex(1), new index = 1 % 1 = 0
         assertThat(draft.getCurrentTurnIndex()).isEqualTo(0);
         assertThat(draft.getTurnOrder()).containsExactly("ash");
+    }
+
+    @Test
+    void handle_currentPlayerRemovedAndNobodyElseCanPick_completesDraft() {
+        LeagueEntity league = leagueWith("l1",
+                new LeagueMember("ash", LeagueRole.ADMIN, 0),
+                new LeagueMember("brock", LeagueRole.USER, 0));
+        LeagueEntity afterRemoval = leagueWith("l1", new LeagueMember("ash", LeagueRole.ADMIN, 0));
+        when(leagueRepository.findById("l1")).thenReturn(Optional.of(league), Optional.of(afterRemoval));
+
+        DraftPick paid = new DraftPick("ash", "mew", 151, 1, java.time.Instant.now(), null, null);
+        paid.setPrice(290);
+        DraftEntity draft = new DraftEntity();
+        draft.setLeagueId("l1");
+        draft.setStatus(DraftStatus.IN_PROGRESS);
+        draft.setConfig(DraftConfig.builder().budget(300).priceS(200).priceA(150).priceB(100).priceC(60).priceD(30)
+                .snake(false).build());
+        draft.setTurnOrder(new ArrayList<>(List.of("ash", "brock")));
+        draft.setCurrentTurnIndex(1); // le toca a brock
+        draft.setCurrentRound(1);
+        draft.setPicks(new ArrayList<>(List.of(paid)));
+        draft.setDraftHistory(new ArrayList<>(List.of(paid)));
+        when(draftRepository.findActiveByLeagueId("l1")).thenReturn(Optional.of(draft));
+        ClosedListEntity abra = new ClosedListEntity();
+        abra.setPokemonName("abra");
+        abra.setTier(Tier.D);
+        when(closedListRepository.findAllByLeagueId("l1")).thenReturn(List.of(abra));
+
+        handler.handle(new RemoveMemberFromLeagueCommand("l1", "brock", "ash"));
+
+        assertThat(draft.getStatus()).isEqualTo(DraftStatus.COMPLETED); // ash tiene 10 y lo más barato cuesta 30
+        verify(draftRepository).save(draft);
+        verify(draftCompletionService).complete("l1", afterRemoval, draft);
     }
 
     @Test

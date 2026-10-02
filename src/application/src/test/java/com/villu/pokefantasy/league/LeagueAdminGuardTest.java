@@ -36,7 +36,7 @@ class LeagueAdminGuardTest {
 
         assertThatThrownBy(() -> guard.requireLeagueAdmin("league-1", "ash"))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("League not found");
+                .hasMessageContaining("Liga no encontrada");
     }
 
     @Test

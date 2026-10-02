@@ -14,7 +14,9 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class GetDraftStatusCommandHandler implements CommandHandler<GetDraftStatusCommand, DraftStatusResponse> {
@@ -22,13 +24,16 @@ public class GetDraftStatusCommandHandler implements CommandHandler<GetDraftStat
     private final DraftRepository draftRepository;
     private final LeagueRepository leagueRepository;
     private final LeagueMembershipGuard leagueMembershipGuard;
+    private final DraftTurnService draftTurnService;
 
     public GetDraftStatusCommandHandler(DraftRepository draftRepository,
                                         LeagueRepository leagueRepository,
-                                        LeagueMembershipGuard leagueMembershipGuard) {
+                                        LeagueMembershipGuard leagueMembershipGuard,
+                                        DraftTurnService draftTurnService) {
         this.draftRepository = draftRepository;
         this.leagueRepository = leagueRepository;
         this.leagueMembershipGuard = leagueMembershipGuard;
+        this.draftTurnService = draftTurnService;
     }
 
     @Override
@@ -37,9 +42,11 @@ public class GetDraftStatusCommandHandler implements CommandHandler<GetDraftStat
 
         DraftEntity draft = draftRepository.findActiveByLeagueId(command.leagueId())
                 .or(() -> draftRepository.findLatestByLeagueId(command.leagueId()))
-                .orElseThrow(() -> new IllegalStateException("No draft found for league: " + command.leagueId()));
+                .orElseThrow(() -> new IllegalStateException("Esta liga no tiene draft"));
 
-        String currentTurn = draft.getStatus() == DraftStatus.COMPLETED ? null
+        // Completado o en preparación: no hay turno.
+        String currentTurn = draft.getStatus() == DraftStatus.COMPLETED || draft.getStatus() == DraftStatus.PENDING
+                ? null
                 : draft.getTurnOrder().get(draft.getCurrentTurnIndex());
 
         Instant turnDeadline = null;
@@ -62,6 +69,8 @@ public class GetDraftStatusCommandHandler implements CommandHandler<GetDraftStat
                 .picks(mapPicks(draft.getPicks()))
                 .draftHistory(mapPicks(draft.getDraftHistory()))
                 .turnDeadline(turnDeadline)
+                .config(draft.getConfig())
+                .budgets(budgets(draft))
                 .build();
     }
 
@@ -75,8 +84,17 @@ public class GetDraftStatusCommandHandler implements CommandHandler<GetDraftStat
                         .pickedAt(pick.getPickedAt())
                         .customStealPrice(pick.getCustomStealPrice())
                         .lockedUntil(pick.getLockedUntil())
+                        .price(pick.getPrice())
                         .build())
                 .toList();
+    }
+
+    /** Monedas que le quedan a cada jugador, en el orden de turnos; null si el draft no tiene presupuesto. */
+    private Map<String, Integer> budgets(DraftEntity draft) {
+        if (draft.getConfig() == null) return null;
+        Map<String, Integer> budgets = new LinkedHashMap<>();
+        draft.getTurnOrder().forEach(u -> budgets.put(u, draftTurnService.remainingBudget(draft, u)));
+        return budgets;
     }
 
     @Override

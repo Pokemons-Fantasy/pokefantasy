@@ -75,7 +75,18 @@ class NominatePokemonCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new NominatePokemonCommand("ash", "pikachu", "l1")))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("Nominations are closed");
+                .hasMessageContaining("Las nominaciones están cerradas");
+    }
+
+    @Test
+    void handle_draftInSetup_throwsIllegalState() {
+        DraftEntity draft = new DraftEntity();
+        draft.setStatus(DraftStatus.PENDING);
+        when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.of(draft));
+
+        assertThatThrownBy(() -> handler.handle(new NominatePokemonCommand("ash", "pikachu", "l1")))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Las nominaciones están cerradas: se está preparando el draft");
     }
 
     @Test
@@ -85,7 +96,7 @@ class NominatePokemonCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new NominatePokemonCommand("ash", "pikachu", "l1")))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("already in the closed list");
+                .hasMessageContaining("ya está nominado");
     }
 
     @Test
@@ -96,7 +107,7 @@ class NominatePokemonCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new NominatePokemonCommand("ash", "pikachu", "l1")))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("maximum");
+                .hasMessageContaining("el máximo de");
     }
 
     @Test
@@ -105,11 +116,11 @@ class NominatePokemonCommandHandlerTest {
         when(closedListRepository.existsByPokemonNameAndLeagueId("pikachu", "l1")).thenReturn(false);
         when(closedListRepository.countByNominatedByAndLeagueId("ash", "l1")).thenReturn(0L);
         when(cachePort.getPokemon("pokemons")).thenReturn(List.of(
-                new PokemonCacheDto("url", "bulbasaur", 1)));
+                new PokemonCacheDto("url", "bulbasaur", 1, null)));
 
         assertThatThrownBy(() -> handler.handle(new NominatePokemonCommand("ash", "pikachu", "l1")))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("not found");
+                .hasMessageContaining("No existe ningún Pokémon");
     }
 
     @Test
@@ -131,7 +142,7 @@ class NominatePokemonCommandHandlerTest {
         when(closedListRepository.existsByPokemonNameAndLeagueId("pikachu", "l1")).thenReturn(false);
         when(closedListRepository.countByNominatedByAndLeagueId("ash", "l1")).thenReturn(0L);
         when(cachePort.getPokemon("pokemons")).thenReturn(List.of(
-                new PokemonCacheDto("https://pokeapi.co/api/v2/pokemon/25/", "pikachu", 25)));
+                new PokemonCacheDto("https://pokeapi.co/api/v2/pokemon/25/", "pikachu", 25, null)));
         Pokemons poke = new Pokemons(25, "pikachu", null, null, null, null, null, null);
         when(pokemonApiPort.fetchPokemonById("https://pokeapi.co/api/v2/pokemon/25/", "pikachu")).thenReturn(poke);
 
@@ -144,6 +155,30 @@ class NominatePokemonCommandHandlerTest {
         assertThat(captor.getValue().getNominatedBy()).isEqualTo("ash");
         assertThat(captor.getValue().getLeagueId()).isEqualTo("l1");
         assertThat(captor.getValue().getPokemonId()).isEqualTo(25);
+    }
+
+    @Test
+    void handle_lastDraftCancelled_nominationsAreOpenAgain() {
+        DraftEntity draft = new DraftEntity();
+        draft.setStatus(DraftStatus.CANCELLED);
+        when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.of(draft));
+        when(closedListRepository.existsByPokemonNameAndLeagueId("pikachu", "l1")).thenReturn(true);
+
+        // Pasa la comprobación del draft y llega a la siguiente (ya nominado)
+        assertThatThrownBy(() -> handler.handle(new NominatePokemonCommand("ash", "pikachu", "l1")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("ya está nominado");
+    }
+
+    @Test
+    void handle_seasonStarted_throwsWithSeasonMessage() {
+        DraftEntity draft = new DraftEntity();
+        draft.setStatus(DraftStatus.COMPLETED);
+        when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.of(draft));
+
+        assertThatThrownBy(() -> handler.handle(new NominatePokemonCommand("ash", "pikachu", "l1")))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Las nominaciones están cerradas: la temporada ya ha empezado");
     }
 
     @Test

@@ -1,5 +1,6 @@
 package com.villu.pokefantasy.commands.steal;
 
+import com.villu.pokefantasy.dto.PushMessage;
 import com.villu.pokefantasy.commands.schedule.JornadaWindowService;
 import com.villu.pokefantasy.dto.ActivityEventType;
 import com.villu.pokefantasy.dto.DraftStatus;
@@ -67,10 +68,10 @@ class StealPokemonCommandHandlerTest {
     @BeforeEach
     void setUp() {
         handler = new StealPokemonCommandHandler(
-                draftRepository, closedListRepository, leagueRepository,
+                draftRepository, leagueRepository,
                 userRepository, new com.villu.pokefantasy.team.TeamTransferService(draftRepository, scheduleRepository, leagueRepository, jornadaWindowService),
                 activityEventRepository, pushNotificationPort,
-                new LeagueMemberService(), new TierPricingService());
+                new LeagueMemberService(), new StealClauseService(closedListRepository, new TierPricingService()));
 
         // Default stub — tests that need specific settings override this
         LeagueEntity defaultLeague = leagueWithTwoMembers(1000, 500);
@@ -103,11 +104,11 @@ class StealPokemonCommandHandlerTest {
 
         String result = handler.handle(new StealPokemonCommand(LEAGUE_ID, STEALER, TARGET));
 
-        // Coin transfer: stealer -300, victim +600
+        // Coin transfer: stealer -300, victim +300 (cobra la cláusula entera, sin ×2)
         LeagueMember stealerMember = getMember(league, STEALER);
         LeagueMember victimMember  = getMember(league, VICTIM);
         assertThat(stealerMember.getCoinBalance()).isEqualTo(700);  // 1000-300
-        assertThat(victimMember.getCoinBalance()).isEqualTo(1100);  // 500+600
+        assertThat(victimMember.getCoinBalance()).isEqualTo(800);   // 500+300
 
         // Draft pick ownership transferred
         ArgumentCaptor<DraftEntity> draftCaptor = ArgumentCaptor.forClass(DraftEntity.class);
@@ -262,7 +263,7 @@ class StealPokemonCommandHandlerTest {
         LeagueMember stealerMember = getMember(league, STEALER);
         LeagueMember victimMember  = getMember(league, VICTIM);
         assertThat(stealerMember.getCoinBalance()).isEqualTo(200);   // 1000-800
-        assertThat(victimMember.getCoinBalance()).isEqualTo(1600);   // 0+1600
+        assertThat(victimMember.getCoinBalance()).isEqualTo(800);    // 0+800
 
         // customStealPrice preserved on the transferred pick
         ArgumentCaptor<DraftEntity> draftCaptor = ArgumentCaptor.forClass(DraftEntity.class);
@@ -319,7 +320,7 @@ class StealPokemonCommandHandlerTest {
         String result = handler.handle(new StealPokemonCommand(LEAGUE_ID, STEALER, TARGET));
 
         assertThat(getMember(league, STEALER).getCoinBalance()).isEqualTo(900);  // 1000-100
-        assertThat(getMember(league, VICTIM).getCoinBalance()).isEqualTo(700);   // 500+200
+        assertThat(getMember(league, VICTIM).getCoinBalance()).isEqualTo(600);   // 500+100
         assertThat(result).isEqualTo(VICTIM);
     }
 
@@ -403,6 +404,7 @@ class StealPokemonCommandHandlerTest {
         assertThat(saved.getTargetUsername()).isEqualTo(VICTIM);
         assertThat(saved.getPokemonName()).isEqualTo(TARGET);
         assertThat(saved.getCoinsAmount()).isEqualTo(stealPrice);
+        assertThat(saved.getTargetCoinsAmount()).isEqualTo(stealPrice);
         assertThat(saved.getCreatedAt()).isNotNull();
         assertThat(result).isEqualTo(VICTIM);
     }
@@ -487,8 +489,8 @@ class StealPokemonCommandHandlerTest {
 
         verify(pushNotificationPort).send(
                 eq(List.of("token-brock")),
-                eq("Te han robado un Pokémon"),
-                anyString());
+                eq(PushMessage.teams(LEAGUE_ID, "Te han robado un Pokémon",
+                        STEALER + " te ha robado a " + TARGET + " y recibes 300 monedas")));
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

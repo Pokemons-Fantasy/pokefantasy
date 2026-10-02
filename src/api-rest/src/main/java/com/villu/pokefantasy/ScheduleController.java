@@ -48,7 +48,7 @@ public class ScheduleController {
                                               @AuthenticationPrincipal UserDetails userDetails,
                                               @RequestBody RecordMatchResultRequest request) throws Exception {
         if (request.getWinnerUsername() == null || request.getWinnerUsername().isBlank()) {
-            throw new IllegalArgumentException("winnerUsername is required");
+            throw new IllegalArgumentException("Indica el ganador.");
         }
         scheduleFacade.correctResult(leagueId, matchId, request.getWinnerUsername(),
                 MatchScore.of(request.getWinnerScore(), request.getLoserScore()), userDetails.getUsername());

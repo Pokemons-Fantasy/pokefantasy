@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.format.DateTimeFormatter;
 
 /**
  * Reglas comunes a todo lo que mueve Pokémon entre equipos y banca después del draft (robo, trade,
@@ -30,6 +31,10 @@ public class TeamTransferService {
 
     /** {@code round} de los picks comprados en la banca (las rondas del draft empiezan en 1). */
     public static final int BENCH_PURCHASE_ROUND = 0;
+
+    /** "04/06 a las 23:59", en la hora de la liga. */
+    private static final DateTimeFormatter LOCKED_UNTIL =
+            DateTimeFormatter.ofPattern("dd/MM 'a las' HH:mm").withZone(JornadaWindowService.LEAGUE_ZONE);
 
     private final DraftRepository draftRepository;
     private final ScheduleRepository scheduleRepository;
@@ -52,9 +57,9 @@ public class TeamTransferService {
                 .filter(d -> d.getStatus() == DraftStatus.COMPLETED)
                 .orElseThrow(() -> new IllegalStateException(operation.draftNotCompletedMessage));
         ScheduleEntity schedule = scheduleRepository.findByLeagueId(leagueId)
-                .orElseThrow(() -> new IllegalStateException("No schedule found for this league"));
+                .orElseThrow(() -> new IllegalStateException("Esta liga aún no tiene calendario"));
         LeagueEntity league = leagueRepository.findById(leagueId)
-                .orElseThrow(() -> new IllegalArgumentException("League not found: " + leagueId));
+                .orElseThrow(() -> new IllegalArgumentException("Liga no encontrada"));
 
         boolean open = operation.window == TeamOperation.Window.STEAL
                 ? jornadaWindowService.isStealWindowOpen(schedule, league.getSettings())
@@ -71,13 +76,13 @@ public class TeamTransferService {
                 .filter(m -> username.equals(m.getUsername()))
                 .findFirst()
                 .orElseThrow(() -> new ForbiddenOperationException(
-                        "User '" + username + "' is not a member of league: " + league.getId()));
+                        "No eres miembro de esta liga"));
     }
 
     public void requireUnlocked(DraftPick pick) {
         if (pick.getLockedUntil() != null && Instant.now().isBefore(pick.getLockedUntil())) {
             throw new IllegalStateException(
-                    "'" + pick.getPokemonName() + "' está bloqueado hasta " + pick.getLockedUntil() + ".");
+                    "'" + pick.getPokemonName() + "' está bloqueado hasta el " + LOCKED_UNTIL.format(pick.getLockedUntil()) + ".");
         }
     }
 
@@ -93,7 +98,7 @@ public class TeamTransferService {
 
     public void requireOnBench(DraftEntity draft, String pokemonName) {
         if (draft.ownedPokemonNames().contains(pokemonName.toLowerCase())) {
-            throw new IllegalStateException("'" + pokemonName + "' is not available on the bench");
+            throw new IllegalStateException("'" + pokemonName + "' no está en el banquillo");
         }
     }
 

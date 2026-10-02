@@ -1,5 +1,6 @@
 package com.villu.pokefantasy.commands.schedule;
 
+import com.villu.pokefantasy.dto.PushMessage;
 import com.villu.pokefantasy.dto.LeagueSettings;
 import com.villu.pokefantasy.repository.PushNotificationPort;
 import com.villu.pokefantasy.repository.UserRepository;
@@ -15,11 +16,12 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 
 /**
  * Aviso por push a todos los miembros de una liga cuando faltan menos de {@link #LEAD} para que cierre la
- * ventana de robos o la de swaps de la jornada. Se avisa una vez por cierre: la jornada apunta de qué
+ * ventana de robos o la de intercambios de la jornada. Se avisa una vez por cierre: la jornada apunta de qué
  * cierre ya avisó ({@code stealReminderSentFor} / {@code swapReminderSentFor}).
  */
 @Service
@@ -30,7 +32,7 @@ public class WindowReminderService {
 
     enum Window {
         STEAL("robos", "robar"),
-        SWAP("swaps", "hacer swaps o comprar en la banca");
+        SWAP("intercambios", "hacer intercambios o comprar en el banquillo");
 
         final String name;
         final String action;
@@ -87,10 +89,11 @@ public class WindowReminderService {
                 .flatMap(List::stream)
                 .toList();
         for (Due reminder : due) {
-            pushNotificationPort.send(tokens,
+            pushNotificationPort.send(tokens, PushMessage.window(league.getId(),
+                    reminder.window().name().toLowerCase(Locale.ROOT),
                     "⏰ Cierra la ventana de " + reminder.window().name,
                     league.getName() + ": tienes hasta las " + HOUR.format(reminder.deadline())
-                            + " para " + reminder.window().action + ".");
+                            + " para " + reminder.window().action + "."));
             markSent(reminder);
         }
         return true;

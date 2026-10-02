@@ -36,7 +36,7 @@ class LeagueMembershipGuardTest {
 
         assertThatThrownBy(() -> guard.requireMember("league-1", "ash"))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("League not found");
+                .hasMessageContaining("Liga no encontrada");
     }
 
     @Test
@@ -61,6 +61,29 @@ class LeagueMembershipGuardTest {
         LeagueEntity result = guard.requireMember("league-1", "ash");
 
         assertThat(result).isSameAs(league);
+    }
+
+    @Test
+    void sharesLeague_sameUser_isTrueWithoutQuerying() {
+        assertThat(guard.sharesLeague("ash", "ash")).isTrue();
+    }
+
+    @Test
+    void sharesLeague_bothInSomeLeague_isTrue() {
+        LeagueEntity other = leagueWithMembers(new LeagueMember("ash", LeagueRole.USER, 0));
+        LeagueEntity shared = leagueWithMembers(
+                new LeagueMember("ash", LeagueRole.USER, 0), new LeagueMember("misty", LeagueRole.ADMIN, 0));
+        when(leagueRepository.findByMemberUsername("ash")).thenReturn(List.of(other, shared));
+
+        assertThat(guard.sharesLeague("ash", "misty")).isTrue();
+    }
+
+    @Test
+    void sharesLeague_noCommonLeague_isFalse() {
+        when(leagueRepository.findByMemberUsername("ash"))
+                .thenReturn(List.of(leagueWithMembers(new LeagueMember("ash", LeagueRole.USER, 0))));
+
+        assertThat(guard.sharesLeague("ash", "misty")).isFalse();
     }
 
     private LeagueEntity leagueWithMembers(LeagueMember... members) {

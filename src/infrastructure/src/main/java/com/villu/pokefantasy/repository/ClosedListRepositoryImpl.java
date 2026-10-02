@@ -47,6 +47,13 @@ public class ClosedListRepositoryImpl implements ClosedListRepository {
     }
 
     @Override
+    public void clearTiers(String leagueId) {
+        Query query = new Query(Criteria.where("leagueId").is(leagueId));
+        Update update = new Update().unset("tier").inc("version", 1);
+        mongoTemplate.updateMulti(query, update, ClosedListEntity.class);
+    }
+
+    @Override
     public List<ClosedListEntity> findAllByLeagueId(String leagueId) {
         return mongoTemplate.find(new Query(Criteria.where("leagueId").is(leagueId)), ClosedListEntity.class);
     }
