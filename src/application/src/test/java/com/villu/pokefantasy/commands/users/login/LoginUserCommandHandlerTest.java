@@ -238,10 +238,73 @@ class LoginUserCommandHandlerTest {
         public void clearFailures(String key) {
             counts.remove(key);
         }
+
+        final Map<String, Duration> trusted = new HashMap<>();
+
+        @Override
+        public void markTrusted(String key, Duration ttl) {
+            trusted.put(key, ttl);
+        }
+
+        @Override
+        public boolean isTrusted(String key) {
+            return trusted.containsKey(key);
+        }
     }
 
     @Test
     void commandType_returnsCorrectClass() {
         assertThat(handler.commandType()).isEqualTo(LoginUserCommand.class);
+    }
+
+    @Test
+    void handle_successfulLogin_remembersThatIpFor30Days() {
+        stubUser("ash", "hashed");
+        when(passwordHashPort.matches("secret", "hashed")).thenReturn(true);
+        when(tokenPort.generateToken("ash")).thenReturn("jwt");
+
+        handler.handle(new LoginUserCommand("ash", "secret", IP));
+
+        assertThat(attempts.trusted).containsEntry("user:ash|" + IP, Duration.ofDays(30));
+    }
+
+    @Test
+    void handle_userLockedByOthers_stillEntersFromAnIpItLoggedInFromBefore() {
+        // Alguien que sabe su nombre ha gastado los 5 intentos desde otra IP
+        attempts.counts.put("user:ash", (long) LoginUserCommandHandler.MAX_FAILURES_PER_USER);
+        attempts.trusted.put("user:ash|" + IP, Duration.ofDays(30));
+        stubUser("ash", "hashed");
+        when(passwordHashPort.matches("secret", "hashed")).thenReturn(true);
+        when(tokenPort.generateToken("ash")).thenReturn("jwt");
+
+        assertThatThrownBy(() -> handler.handle(new LoginUserCommand("ash", "secret", "9.9.9.9")))
+                .isInstanceOf(TooManyAttemptsException.class);
+        assertThat(handler.handle(new LoginUserCommand("ash", "secret", IP)).accessToken()).isEqualTo("jwt");
+    }
+
+    @Test
+    void handle_failureFromAKnownIp_doesNotCountTowardsTheUserLock_butTheIpLimitStays() {
+        attempts.trusted.put("user:ash|" + IP, Duration.ofDays(30));
+        stubUser("ash", "hashed");
+        when(passwordHashPort.matches("wrong", "hashed")).thenReturn(false);
+
+        assertThatThrownBy(() -> handler.handle(new LoginUserCommand("ash", "wrong", IP)))
+                .isInstanceOf(BadCredentialsException.class);
+        assertThat(attempts.counts).containsOnlyKeys("ip:" + IP);
+
+        attempts.counts.put("ip:" + IP, (long) LoginUserCommandHandler.MAX_FAILURES_PER_IP);
+        assertThatThrownBy(() -> handler.handle(new LoginUserCommand("ash", "secret", IP)))
+                .isInstanceOf(TooManyAttemptsException.class);
+    }
+
+    @Test
+    void handle_withoutIp_remembersNothing() {
+        stubUser("ash", "hashed");
+        when(passwordHashPort.matches("secret", "hashed")).thenReturn(true);
+        when(tokenPort.generateToken("ash")).thenReturn("jwt");
+
+        handler.handle(new LoginUserCommand("ash", "secret", null));
+
+        assertThat(attempts.trusted).isEmpty();
     }
 }

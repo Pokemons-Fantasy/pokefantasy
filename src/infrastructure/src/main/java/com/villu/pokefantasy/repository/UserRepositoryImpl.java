@@ -40,6 +40,12 @@ public class UserRepositoryImpl implements UserRepository {
     }
 
     @Override
+    public boolean existsByUsernameIgnoreCase(String username) {
+        return mongoTemplate.exists(
+                Query.query(Criteria.where("nameLower").is(username.toLowerCase(Locale.ROOT))), UserEntity.class);
+    }
+
+    @Override
     public UserEntity findByUsername(String username) {
         try {
             return mongoTemplate.findOne(

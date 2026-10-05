@@ -16,4 +16,10 @@ public interface LoginAttemptPort {
 
     /** Olvida los fallos de {@code key} (p. ej. tras un login correcto). */
     void clearFailures(String key);
+
+    /** Recuerda {@code key} (usuario + IP con un login correcto) durante {@code ttl}. */
+    void markTrusted(String key, Duration ttl);
+
+    /** Si {@code key} tuvo un login correcto dentro de su {@code ttl}. */
+    boolean isTrusted(String key);
 }

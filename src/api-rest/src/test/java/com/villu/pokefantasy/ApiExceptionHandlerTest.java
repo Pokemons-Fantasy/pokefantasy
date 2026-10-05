@@ -22,6 +22,7 @@ import java.time.Duration;
 import java.util.Map;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -46,8 +47,24 @@ class ApiExceptionHandlerTest {
                 case "lock" -> new OptimisticLockingFailureException("stale");
                 case "duplicate" -> new DuplicateKeyException("Ya existe un usuario con name=ash");
                 case "abort" -> new ClientAbortException();
+                case "library-bad" -> libraryError(() -> Integer.parseInt("x"));
+                case "library-conflict" -> libraryError(() -> {
+                    java.util.Scanner scanner = new java.util.Scanner("a");
+                    scanner.close();
+                    scanner.next();
+                });
                 default -> new RuntimeException("secreto interno");
             };
+        }
+
+        /** La excepción tal cual la lanza una librería (primer marco de la traza fuera de nuestro código). */
+        private static RuntimeException libraryError(Runnable call) {
+            try {
+                call.run();
+            } catch (RuntimeException exception) {
+                return exception;
+            }
+            throw new AssertionError("La llamada no lanzó");
         }
 
         @PostMapping("/json")
@@ -78,7 +95,27 @@ class ApiExceptionHandlerTest {
         problem("credentials", 401, "INVALID_CREDENTIALS")
                 .andExpect(jsonPath("$.message").value("Usuario o contraseña incorrectos"));
         problem("lock", 409, "CONCURRENT_MODIFICATION");
-        problem("duplicate", 409, "DUPLICATE");
+        problem("duplicate", 409, "DUPLICATE")
+                .andExpect(jsonPath("$.message").value(ApiExceptionHandler.GENERIC_DUPLICATE));
+    }
+
+    @Test
+    void libraryErrors_hideTheirInternalText() throws Exception {
+        problem("library-bad", 400, "BAD_REQUEST")
+                .andExpect(jsonPath("$.message").value(ApiExceptionHandler.GENERIC_BAD_REQUEST))
+                .andExpect(content().string(org.hamcrest.Matchers.not(containsString("For input string"))));
+        problem("library-conflict", 409, "CONFLICT")
+                .andExpect(jsonPath("$.message").value(ApiExceptionHandler.GENERIC_CONFLICT));
+        problem("duplicate", 409, "DUPLICATE")
+                .andExpect(content().string(org.hamcrest.Matchers.not(containsString("name=ash"))));
+    }
+
+    @Test
+    void ownErrorWithoutMessage_getsTheGenericText() {
+        assertThat(ApiExceptionHandler.ownMessage(new IllegalStateException(), "genérico")).isEqualTo("genérico");
+        IllegalStateException noTrace = new IllegalStateException("x");
+        noTrace.setStackTrace(new StackTraceElement[0]);
+        assertThat(ApiExceptionHandler.ownMessage(noTrace, "genérico")).isEqualTo("genérico");
     }
 
     @Test

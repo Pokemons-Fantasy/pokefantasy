@@ -8,7 +8,8 @@ import org.springframework.stereotype.Component;
 import java.time.Duration;
 
 /**
- * Contadores de login fallidos en Redis ({@code login-fail:<key>} con TTL = ventana).
+ * Contadores de login fallidos en Redis ({@code login-fail:<key>} con TTL = ventana) e IPs de confianza de cada
+ * usuario ({@code login-trusted:<key>}).
  *
  * <p>Si Redis falla, no bloquea a nadie (fail-open): perder el límite unos minutos es preferible
  * a impedir el login de todos los usuarios.
@@ -18,6 +19,7 @@ import java.time.Duration;
 public class LoginAttemptRedisAdapter implements LoginAttemptPort {
 
     static final String PREFIX = "login-fail:";
+    static final String TRUSTED_PREFIX = "login-trusted:";
 
     private final StringRedisTemplate redisTemplate;
 
@@ -58,6 +60,26 @@ public class LoginAttemptRedisAdapter implements LoginAttemptPort {
             redisTemplate.delete(PREFIX + key);
         } catch (RuntimeException exception) {
             log.warn("Could not clear login failures for {}: {}", key, exception.getMessage());
+        }
+    }
+
+    @Override
+    public void markTrusted(String key, Duration ttl) {
+        try {
+            redisTemplate.opsForValue().set(TRUSTED_PREFIX + key, "1", ttl);
+        } catch (RuntimeException exception) {
+            log.warn("Could not mark trusted login for {}: {}", key, exception.getMessage());
+        }
+    }
+
+    /** Si Redis falla, no es de confianza: tampoco hay contadores, así que no bloquea a nadie. */
+    @Override
+    public boolean isTrusted(String key) {
+        try {
+            return Boolean.TRUE.equals(redisTemplate.hasKey(TRUSTED_PREFIX + key));
+        } catch (RuntimeException exception) {
+            log.warn("Could not read trusted login for {}: {}", key, exception.getMessage());
+            return false;
         }
     }
 }

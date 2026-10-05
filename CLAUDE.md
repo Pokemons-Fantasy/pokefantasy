@@ -110,6 +110,7 @@ api-rest ─► application ─► domain ◄─ infrastructure ─► MongoDB A
 | Emitir SSE (vía Redis Pub/Sub) | `RealtimeNotifier` (api-rest) |
 | Enviar push | `PushNotificationPort` |
 | Sesión (JWT + refresh), límite de login | `JwtAuthFilter` + `AuthCookies` + `RefreshTokenPort`, `LoginAttemptPort` |
+| IP real del cliente (nunca `X-Forwarded-For`) | `ClientIpFilter` + `ProxySignaturePort` (proxy firmado de Netlify) |
 | Excepción → HTTP (`ProblemDetail`) | `ApiExceptionHandler` |
 | Índices / migraciones de esquema | `MongoIndexInitializer` / clases `*Migration` |
 | Caché de Pokémon | `PokemonCacheLoader` |
@@ -225,4 +226,4 @@ Gate JaCoCo 80 % (instrucciones y ramas) en `application`, `infrastructure` y `a
 
 ## Cambios que afectan al frontend
 
-Las reglas del front están en `C:\PokeFantasy\pokefantasy-web\CLAUDE.md`. Desde el backend basta con recordar: **tras cambiar un DTO, enum o endpoint**, en el front `npm run api:spec` → `npm run api:types`, commitear `openapi.json` y `src/api/schema.d.ts`, y arreglar `src/api/contract.ts` si `tsc` falla.
+Las reglas del front están en `C:\PokeFantasy\pokefantasy-web\CLAUDE.md`. Desde el backend basta con recordar: **tras cambiar un DTO, enum o endpoint**, con el back arrancado con `API_DOCS_ENABLED=true` (Swagger y `/v3/api-docs` están apagados por defecto), en el front `npm run api:spec` → `npm run api:types`, commitear `openapi.json` y `src/api/schema.d.ts`, y arreglar `src/api/contract.ts` si `tsc` falla.

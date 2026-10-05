@@ -28,6 +28,8 @@ import org.testcontainers.mongodb.MongoDBContainer;
         "pokemon-cache.check-interval-ms=3600000",
         // Las conexiones SSE abiertas harían esperar 30 s al apagado ordenado.
         "server.shutdown=immediate",
+        // Apagada por defecto en producción; OpenApiIntegrationTest la genera para el front.
+        "springdoc.api-docs.enabled=true",
 })
 @Testcontainers(disabledWithoutDocker = true)
 public abstract class IntegrationTest {

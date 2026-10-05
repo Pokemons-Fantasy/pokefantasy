@@ -30,6 +30,8 @@ public class LoginUserCommandHandler implements CommandHandler<LoginUserCommand,
     /** Fallos por IP antes de bloquearla: frena probar una contraseña contra muchas cuentas. */
     static final int MAX_FAILURES_PER_IP = 30;
     public static final Duration LOCKOUT_WINDOW = Duration.ofMinutes(15);
+    /** Cuánto se recuerda una IP desde la que el usuario entró bien. */
+    static final Duration TRUSTED_IP_TTL = Duration.ofDays(30);
 
     public LoginUserCommandHandler(UserRepository userRepository, UserMapper userMapper,
                                    PasswordHashPort passwordHashPort, TokenPort tokenPort,
@@ -50,11 +52,16 @@ public class LoginUserCommandHandler implements CommandHandler<LoginUserCommand,
         }
 
         String userKey = "user:" + command.username().toLowerCase(Locale.ROOT);
-        String ipKey = command.clientIp() != null && !command.clientIp().isBlank()
-                ? "ip:" + command.clientIp() : null;
+        boolean hasIp = command.clientIp() != null && !command.clientIp().isBlank();
+        String ipKey = hasIp ? "ip:" + command.clientIp() : null;
+        String trustedKey = hasIp ? userKey + "|" + command.clientIp() : null;
+        // Desde una IP desde la que ya entró, el bloqueo por usuario no aplica ni cuenta sus fallos: si no,
+        // cualquiera que conozca su nombre (sale en las ligas) le dejaría sin entrar con 5 intentos.
+        // El límite por IP sigue. Requiere una IP que el cliente no pueda falsear (ClientIpFilter).
+        boolean knownIp = trustedKey != null && loginAttemptPort.isTrusted(trustedKey);
 
         // Se comprueba antes de validar la contraseña: bloqueado significa bloqueado, aunque acierte.
-        if (loginAttemptPort.failureCount(userKey) >= MAX_FAILURES_PER_USER
+        if ((!knownIp && loginAttemptPort.failureCount(userKey) >= MAX_FAILURES_PER_USER)
                 || (ipKey != null && loginAttemptPort.failureCount(ipKey) >= MAX_FAILURES_PER_IP)) {
             throw new TooManyAttemptsException(
                     "Demasiados intentos fallidos. Vuelve a intentarlo en "
@@ -63,7 +70,9 @@ public class LoginUserCommandHandler implements CommandHandler<LoginUserCommand,
 
         User user = userMapper.entityToDto(userRepository.findByUsername(command.username()));
         if (user == null || !passwordHashPort.matches(command.password(), user.getPassword())) {
-            loginAttemptPort.recordFailure(userKey, LOCKOUT_WINDOW);
+            if (!knownIp) {
+                loginAttemptPort.recordFailure(userKey, LOCKOUT_WINDOW);
+            }
             if (ipKey != null) {
                 loginAttemptPort.recordFailure(ipKey, LOCKOUT_WINDOW);
             }
@@ -71,6 +80,9 @@ public class LoginUserCommandHandler implements CommandHandler<LoginUserCommand,
         }
 
         loginAttemptPort.clearFailures(userKey);
+        if (trustedKey != null) {
+            loginAttemptPort.markTrusted(trustedKey, TRUSTED_IP_TTL);
+        }
         return new LoginResult(tokenPort.generateToken(command.username()), tokenPort.accessTokenTtl(),
                 refreshTokenPort.issue(command.username()), refreshTokenPort.ttl());
     }
