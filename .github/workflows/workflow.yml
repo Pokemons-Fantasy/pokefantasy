@@ -58,18 +58,48 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    outputs:
+      version: ${{ steps.release.outputs.version }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
       - name: Create release
+        id: release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           version=$(python3 -c "import xml.etree.ElementTree as ET; print(ET.parse('src/pom.xml').getroot().find('{http://maven.apache.org/POM/4.0.0}version').text)")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
           if gh release view "v$version" > /dev/null 2>&1; then
             echo "::warning::main ha cambiado sin subir la versión del POM: v$version ya tiene release."
           else
             gh release create "v$version" --target "$GITHUB_SHA" --title "v$version" --generate-notes
+          fi
+
+  # Tras cada push a main (versión o hotfix), abre el PR de main a develop: sin él, el siguiente PR de develop
+  # a main sale desactualizado (falta el merge commit de main) y un hotfix no llegaría a develop.
+  # El PR lo abre el token de Actions y no lanza la CI, pero sus checks son los de este commit de main, ya en verde.
+  sync-develop:
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Open sync PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ needs.release.outputs.version }}
+        run: |
+          if [ "$(gh api "repos/$GH_REPO/compare/develop...$GITHUB_SHA" --jq .ahead_by)" = "0" ]; then
+            echo "develop ya tiene todo lo de main."
+          elif [ -n "$(gh pr list --base develop --head main --state open --json number --jq '.[].number')" ]; then
+            echo "Ya hay un PR de main a develop abierto."
+          else
+            gh pr create --base develop --head main --title "chore: sync v$VERSION de main a develop" \
+              --body "Abierto por la CI tras el push a \`main\` (v$VERSION). Lleva a \`develop\` lo que solo está en \`main\`: el merge commit de la versión o un hotfix. Mergear con **merge commit** (ni squash ni rebase) para que no diverjan."
           fi
