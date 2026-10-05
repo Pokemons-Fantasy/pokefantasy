@@ -34,7 +34,7 @@ jobs:
       # La genera OpenApiIntegrationTest: sirve para generar el cliente TypeScript del frontend.
       - name: Upload OpenAPI spec
         if: success()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: openapi
           path: src/boot/target/openapi.json
