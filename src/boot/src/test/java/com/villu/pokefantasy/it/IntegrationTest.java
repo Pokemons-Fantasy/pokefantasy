@@ -30,6 +30,7 @@ import org.testcontainers.mongodb.MongoDBContainer;
         "server.shutdown=immediate",
         // Apagada por defecto en producción; OpenApiIntegrationTest la genera para el front.
         "springdoc.api-docs.enabled=true",
+        "springdoc.swagger-ui.enabled=true",
 })
 @Testcontainers(disabledWithoutDocker = true)
 public abstract class IntegrationTest {
