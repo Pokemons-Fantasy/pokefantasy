@@ -87,19 +87,21 @@ class SessionIntegrationTest extends IntegrationTest {
     }
 
     @Test
-    void failedLogins_areRateLimitedPerUser() throws Exception {
-        client().loggedInAs("ash_k", "pikachu123");
-        ApiClient attacker = client();
+    void failedLogins_areRateLimitedPerUser_butNotFromAnIpTheUserLoggedInFrom() throws Exception {
+        client().from("198.51.100.1").loggedInAs("ash_k", "pikachu123");
+        ApiClient attacker = client().from("203.0.113.66");
         String wrong = "{\"username\":\"ash_k\",\"password\":\"wrong-password\"}";
+        String right = "{\"username\":\"ash_k\",\"password\":\"pikachu123\"}";
         for (int i = 0; i < 5; i++) {
             assertThat(attacker.post("/v1/user/login", wrong).statusCode()).isEqualTo(401);
         }
 
-        HttpResponse<String> blocked = attacker.post("/v1/user/login",
-                "{\"username\":\"ash_k\",\"password\":\"pikachu123\"}");
+        HttpResponse<String> blocked = attacker.post("/v1/user/login", right);
 
         assertThat(blocked.statusCode()).isEqualTo(429);
         assertThat(blocked.headers().firstValue("Retry-After")).isPresent();
+        // El dueño de la cuenta sigue entrando desde donde ya había entrado (IP de confianza)
+        assertThat(client().from("198.51.100.1").post("/v1/user/login", right).statusCode()).isEqualTo(200);
     }
 
     private static HttpResponse<String> sendWithRefresh(ApiClient client, String refresh) throws Exception {

@@ -84,16 +84,9 @@ public class UserController {
         }
     }
 
-    /**
-     * IP real del cliente. En Render el tráfico llega por Cloudflare y su balanceador, que ponen la IP
-     * del cliente como primera entrada de {@code X-Forwarded-For}; sin cabecera (local) se usa la del socket.
-     */
+    /** IP real del cliente, la que resolvió {@link ClientIpFilter}; sin el filtro (tests), la del socket. */
     static String clientIp(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            return forwarded.split(",")[0].trim();
-        }
-        return request.getRemoteAddr();
+        return request.getAttribute(ClientIpFilter.ATTRIBUTE) instanceof String ip ? ip : request.getRemoteAddr();
     }
 
     @PostMapping("/user/logout")

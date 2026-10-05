@@ -9,6 +9,8 @@ public interface UserRepository {
 
     void saveUser(UserEntity userEntity);
     UserEntity findByUsername(String username);
+    /** Si ya hay un usuario con ese nombre, sin distinguir mayúsculas ({@code Lobon} y {@code lobon}). */
+    boolean existsByUsernameIgnoreCase(String username);
     List<UserEntity> findByUsernamePrefix(String prefix);
     /** Usuarios con esos nombres; solo trae {@code name} y {@code avatarVersion}. */
     List<UserEntity> findByUsernames(Collection<String> usernames);

@@ -93,7 +93,8 @@ public class WindowReminderService {
                     reminder.window().name().toLowerCase(Locale.ROOT),
                     "⏰ Cierra la ventana de " + reminder.window().name,
                     league.getName() + ": tienes hasta las " + HOUR.format(reminder.deadline())
-                            + " para " + reminder.window().action + "."));
+                            + " para " + reminder.window().action + ".",
+                    Duration.between(windowService.now(), reminder.deadline())));
             markSent(reminder);
         }
         return true;

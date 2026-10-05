@@ -25,7 +25,8 @@ Toda la documentación y el conocimiento del proyecto (back y front) vive en el 
   1. PR `chore/version-x.y.z` a `develop` que sube `<version>` en `src/pom.xml`.
   2. PR de `develop` a `main`, mergeado con **merge commit** (el ruleset de `main` no deja squash ni rebase: si no, `main` y `develop` divergen).
   3. Al llegar a `main`, la CI pasa, Render despliega y el job `release` crea la release `vX.Y.Z` con la versión del POM.
-  - Hotfix: rama `hotfix/...` desde `main` → PR a `main` → después PR de `main` a `develop` (merge commit).
+  4. El job `sync-develop` abre el PR de vuelta a `develop` desde una rama `sync/vX.Y.Z-<sha>`: mergearlo con merge commit (si no, el siguiente PR a `main` sale desactualizado). Si `develop` avanzó, "Update branch" en ese PR.
+  - Hotfix: rama `hotfix/...` desde `main` → PR a `main`; el PR de vuelta a `develop` lo abre `sync-develop`.
 
 ## Git workflow (mandatory)
 
@@ -109,6 +110,7 @@ api-rest ─► application ─► domain ◄─ infrastructure ─► MongoDB A
 | Emitir SSE (vía Redis Pub/Sub) | `RealtimeNotifier` (api-rest) |
 | Enviar push | `PushNotificationPort` |
 | Sesión (JWT + refresh), límite de login | `JwtAuthFilter` + `AuthCookies` + `RefreshTokenPort`, `LoginAttemptPort` |
+| IP real del cliente (nunca `X-Forwarded-For`) | `ClientIpFilter` + `ProxySignaturePort` (proxy firmado de Netlify) |
 | Excepción → HTTP (`ProblemDetail`) | `ApiExceptionHandler` |
 | Índices / migraciones de esquema | `MongoIndexInitializer` / clases `*Migration` |
 | Caché de Pokémon | `PokemonCacheLoader` |
@@ -224,4 +226,4 @@ Gate JaCoCo 80 % (instrucciones y ramas) en `application`, `infrastructure` y `a
 
 ## Cambios que afectan al frontend
 
-Las reglas del front están en `C:\PokeFantasy\pokefantasy-web\CLAUDE.md`. Desde el backend basta con recordar: **tras cambiar un DTO, enum o endpoint**, en el front `npm run api:spec` → `npm run api:types`, commitear `openapi.json` y `src/api/schema.d.ts`, y arreglar `src/api/contract.ts` si `tsc` falla.
+Las reglas del front están en `C:\PokeFantasy\pokefantasy-web\CLAUDE.md`. Desde el backend basta con recordar: **tras cambiar un DTO, enum o endpoint**, con el back arrancado con `API_DOCS_ENABLED=true` (Swagger y `/v3/api-docs` están apagados por defecto), en el front `npm run api:spec` → `npm run api:types`, commitear `openapi.json` y `src/api/schema.d.ts`, y arreglar `src/api/contract.ts` si `tsc` falla.
