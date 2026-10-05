@@ -19,10 +19,12 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -181,24 +183,52 @@ class FirebasePushNotificationAdapterTest {
     }
 
     @Test
-    void send_failureWithInvalidArgumentCode_removesStaleToken() throws Exception {
+    void send_invalidArgumentWhileAnotherTokenSucceeded_removesThatToken() throws Exception {
+        // El mensaje era válido (a otro token le llegó): el INVALID_ARGUMENT es del token
         ReflectionTestUtils.setField(adapter, "initialized", true);
         FirebaseMessagingException exception = mock(FirebaseMessagingException.class);
         when(exception.getMessagingErrorCode()).thenReturn(MessagingErrorCode.INVALID_ARGUMENT);
+        SendResponse ok = mock(SendResponse.class);
+        when(ok.isSuccessful()).thenReturn(true);
         SendResponse failed = mock(SendResponse.class);
         when(failed.isSuccessful()).thenReturn(false);
         when(failed.getException()).thenReturn(exception);
         BatchResponse response = mock(BatchResponse.class);
-        when(response.getSuccessCount()).thenReturn(0);
-        when(response.getResponses()).thenReturn(List.of(failed));
+        when(response.getSuccessCount()).thenReturn(1);
+        when(response.getResponses()).thenReturn(List.of(ok, failed));
 
         try (MockedStatic<FirebaseMessaging> messaging = mockStatic(FirebaseMessaging.class)) {
             messaging.when(FirebaseMessaging::getInstance).thenReturn(firebaseMessaging);
             when(firebaseMessaging.sendEachForMulticast(any(MulticastMessage.class))).thenReturn(response);
 
-            adapter.send(List.of("stale-token"), new PushMessage("title", "body", null, null));
+            adapter.send(List.of("good-token", "bad-token"), new PushMessage("title", "body", null, null));
 
-            verify(userRepository).removeFcmToken("stale-token");
+            verify(userRepository).removeFcmToken("bad-token");
+            verify(userRepository, never()).removeFcmToken("good-token");
+        }
+    }
+
+    @Test
+    void send_invalidArgumentForEveryToken_keepsThem() throws Exception {
+        // Ningún token lo recibió: puede ser el mensaje, no se borran los tokens de todos
+        ReflectionTestUtils.setField(adapter, "initialized", true);
+        FirebaseMessagingException exception = mock(FirebaseMessagingException.class);
+        when(exception.getMessagingErrorCode()).thenReturn(MessagingErrorCode.INVALID_ARGUMENT);
+        when(exception.getMessage()).thenReturn("Invalid value at 'message.webpush.headers'");
+        SendResponse failed = mock(SendResponse.class);
+        when(failed.isSuccessful()).thenReturn(false);
+        when(failed.getException()).thenReturn(exception);
+        BatchResponse response = mock(BatchResponse.class);
+        when(response.getSuccessCount()).thenReturn(0);
+        when(response.getResponses()).thenReturn(List.of(failed, failed));
+
+        try (MockedStatic<FirebaseMessaging> messaging = mockStatic(FirebaseMessaging.class)) {
+            messaging.when(FirebaseMessaging::getInstance).thenReturn(firebaseMessaging);
+            when(firebaseMessaging.sendEachForMulticast(any(MulticastMessage.class))).thenReturn(response);
+
+            adapter.send(List.of("token1", "token2"), new PushMessage("title", "body", null, null));
+
+            verify(userRepository, never()).removeFcmToken(Mockito.anyString());
         }
     }
 
@@ -273,7 +303,7 @@ class FirebasePushNotificationAdapterTest {
     @Test
     void buildMessage_withPath_addsWebLinkTagAndIcon() {
         MulticastMessage message = FirebasePushNotificationAdapter.buildMessage(List.of("t1"),
-                PushMessage.draftTurn("l1", "¡Te toca en el draft!", "Liga Kanto · ronda 1"),
+                PushMessage.draftTurn("l1", "¡Te toca en el draft!", "Liga Kanto · ronda 1", Duration.ofSeconds(120)),
                 "https://pokefantasy.netlify.app");
 
         Object webpush = ReflectionTestUtils.getField(message, "webpushConfig");
@@ -303,7 +333,8 @@ class FirebasePushNotificationAdapterTest {
     @Test
     void buildMessage_trailingSlashInWebUrl_doesNotDoubleIt() {
         MulticastMessage message = FirebasePushNotificationAdapter.buildMessage(List.of("t1"),
-                PushMessage.teams("l1", "Te han robado un Pokémon", "texto"), "https://pokefantasy.netlify.app/");
+                PushMessage.teams("l1", "Te han robado un Pokémon", "texto"),
+                FirebasePushNotificationAdapter.webOrigin("https://pokefantasy.netlify.app/"));
 
         Object webpush = ReflectionTestUtils.getField(message, "webpushConfig");
         @SuppressWarnings("unchecked")
@@ -322,5 +353,86 @@ class FirebasePushNotificationAdapterTest {
         @SuppressWarnings("unchecked")
         Map<String, String> data = (Map<String, String>) ReflectionTestUtils.getField(webpush, "data");
         assertThat(data).containsEntry("link", "http://localhost:5173/leagues/l1/teams");
+    }
+
+    @Test
+    void buildMessage_urgentWithTtl_setsWebHeadersAndAndroidPriority() {
+        MulticastMessage message = FirebasePushNotificationAdapter.buildMessage(List.of("t1"),
+                PushMessage.draftTurn("l1", "¡Te toca en el draft!", "texto", Duration.ofMinutes(2)),
+                "https://pokefantasy.netlify.app");
+
+        Object webpush = ReflectionTestUtils.getField(message, "webpushConfig");
+        @SuppressWarnings("unchecked")
+        Map<String, String> headers = (Map<String, String>) ReflectionTestUtils.getField(webpush, "headers");
+        assertThat(headers).containsEntry("TTL", "120").containsEntry("Urgency", "high");
+        Object android = ReflectionTestUtils.getField(message, "androidConfig");
+        assertThat(ReflectionTestUtils.getField(android, "ttl")).isEqualTo("120s");
+        assertThat(ReflectionTestUtils.getField(android, "priority")).isEqualTo("high");
+    }
+
+    @Test
+    void buildMessage_ttlWithoutUrgency_onlyExpires() {
+        MulticastMessage message = FirebasePushNotificationAdapter.buildMessage(List.of("t1"),
+                PushMessage.window("l1", "steal", "t", "b", Duration.ofHours(2)), "https://pokefantasy.netlify.app");
+
+        Object webpush = ReflectionTestUtils.getField(message, "webpushConfig");
+        @SuppressWarnings("unchecked")
+        Map<String, String> headers = (Map<String, String>) ReflectionTestUtils.getField(webpush, "headers");
+        assertThat(headers).containsEntry("TTL", "7200").doesNotContainKey("Urgency");
+        Object android = ReflectionTestUtils.getField(message, "androidConfig");
+        assertThat(ReflectionTestUtils.getField(android, "ttl")).isEqualTo("7200s");
+        assertThat(ReflectionTestUtils.getField(android, "priority")).isNull();
+    }
+
+    @Test
+    void buildMessage_urgentWithoutTtl_onlyRaisesPriority() {
+        MulticastMessage message = FirebasePushNotificationAdapter.buildMessage(List.of("t1"),
+                new PushMessage("t", "b", null, null, null, true), "https://pokefantasy.netlify.app");
+
+        Object android = ReflectionTestUtils.getField(message, "androidConfig");
+        assertThat(ReflectionTestUtils.getField(android, "ttl")).isNull();
+        assertThat(ReflectionTestUtils.getField(android, "priority")).isEqualTo("high");
+    }
+
+    @Test
+    void buildMessage_withoutTtlNorUrgency_leavesFcmDefaults() {
+        MulticastMessage message = FirebasePushNotificationAdapter.buildMessage(List.of("t1"),
+                PushMessage.teams("l1", "t", "b"), "https://pokefantasy.netlify.app");
+
+        assertThat(ReflectionTestUtils.getField(message, "androidConfig")).isNull();
+        Object webpush = ReflectionTestUtils.getField(message, "webpushConfig");
+        @SuppressWarnings("unchecked")
+        Map<String, String> headers = (Map<String, String>) ReflectionTestUtils.getField(webpush, "headers");
+        assertThat(headers).isNullOrEmpty();
+    }
+
+    @Test
+    void pushMessage_negativeTtl_becomesZero() {
+        assertThat(PushMessage.window("l1", "steal", "t", "b", Duration.ofMinutes(-5)).ttl()).isEqualTo(Duration.ZERO);
+    }
+
+    @Test
+    void webOrigin_acceptsOriginsAndDropsTrailingSlash() {
+        assertThat(FirebasePushNotificationAdapter.webOrigin("https://pokefantasy.netlify.app/"))
+                .isEqualTo("https://pokefantasy.netlify.app");
+        assertThat(FirebasePushNotificationAdapter.webOrigin(" http://localhost:5173 ")).isEqualTo("http://localhost:5173");
+    }
+
+    @Test
+    void webOrigin_rejectsAnythingThatIsNotAnOrigin() {
+        for (String bad : new String[] {null, "", "pokefantasy.netlify.app", "ftp://pokefantasy.netlify.app",
+                "https://pokefantasy.netlify.app/leagues", "https://pokefantasy.netlify.app?x=1",
+                "https://pokefantasy.netlify.app#a", "https://user@pokefantasy.netlify.app", "https://", "https://exa mple.com"}) {
+            assertThatThrownBy(() -> FirebasePushNotificationAdapter.webOrigin(bad))
+                    .as(String.valueOf(bad))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("WEB_URL");
+        }
+    }
+
+    @Test
+    void constructor_withInvalidWebUrl_failsAtStartup() {
+        assertThatThrownBy(() -> new FirebasePushNotificationAdapter(userRepository, "https://pokefantasy.netlify.app/app"))
+                .isInstanceOf(IllegalStateException.class);
     }
 }

@@ -18,6 +18,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -118,7 +119,9 @@ class WindowReminderServiceTest {
         assertThat(sent).isTrue();
         verify(pushNotificationPort).send(eq(List.of("ash-phone", "brock-phone", "brock-tablet")),
                 argThat(m -> m.title().contains("robos") && m.body().contains("Liga Kanto: tienes hasta las 23:59")
-                        && m.path().equals("/leagues/l1/teams") && m.tag().equals("window-steal-l1")));
+                        && m.path().equals("/leagues/l1/teams") && m.tag().equals("window-steal-l1")
+                        // caduca al cerrar la ventana (21:30 → 23:59) y no es urgente
+                        && m.ttl().equals(Duration.ofMinutes(149)) && !m.urgent()));
         assertThat(jornada.getStealReminderSentFor()).isEqualTo("2026-06-04T23:59");
         assertThat(jornada.getSwapReminderSentFor()).isNull();
     }
