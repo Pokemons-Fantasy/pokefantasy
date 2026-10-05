@@ -25,7 +25,8 @@ Toda la documentación y el conocimiento del proyecto (back y front) vive en el 
   1. PR `chore/version-x.y.z` a `develop` que sube `<version>` en `src/pom.xml`.
   2. PR de `develop` a `main`, mergeado con **merge commit** (el ruleset de `main` no deja squash ni rebase: si no, `main` y `develop` divergen).
   3. Al llegar a `main`, la CI pasa, Render despliega y el job `release` crea la release `vX.Y.Z` con la versión del POM.
-  - Hotfix: rama `hotfix/...` desde `main` → PR a `main` → después PR de `main` a `develop` (merge commit).
+  4. El job `sync-develop` abre el PR de `main` a `develop`: mergearlo con merge commit (si no, el siguiente PR a `main` sale desactualizado).
+  - Hotfix: rama `hotfix/...` desde `main` → PR a `main`; el PR de vuelta a `develop` lo abre `sync-develop`.
 
 ## Git workflow (mandatory)
 
