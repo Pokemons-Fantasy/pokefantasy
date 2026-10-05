@@ -16,11 +16,16 @@ Toda la documentación y el conocimiento del proyecto (back y front) vive en el 
 
 | Repo | Local path | Base branch | Deploy |
 |------|-----------|-------------|--------|
-| Backend | `C:\PokeFantasy\pokefantasy` | `develop` | Render (auto on push to `develop`) |
+| Backend | `C:\PokeFantasy\pokefantasy` | `develop` | Render (auto on push to `main`, once CI passes) |
 | Frontend | `C:\PokeFantasy\pokefantasy-web` | `main` | Netlify (auto on push to `main`) |
 
 - GitHub org: https://github.com/Pokemons-Fantasy
 - Production: https://pokefantasy.onrender.com
+- **Backend releases**: `develop` no despliega; producción es `main` y solo cambia al sacar versión.
+  1. PR `chore/version-x.y.z` a `develop` que sube `<version>` en `src/pom.xml`.
+  2. PR de `develop` a `main`, mergeado con **merge commit** (el ruleset de `main` no deja squash ni rebase: si no, `main` y `develop` divergen).
+  3. Al llegar a `main`, la CI pasa, Render despliega y el job `release` crea la release `vX.Y.Z` con la versión del POM.
+  - Hotfix: rama `hotfix/...` desde `main` → PR a `main` → después PR de `main` a `develop` (merge commit).
 
 ## Git workflow (mandatory)
 
@@ -32,7 +37,7 @@ Toda la documentación y el conocimiento del proyecto (back y front) vive en el 
    ```
    Si hay PRs abiertos, mencionarlos al usuario antes de continuar.
 2. **Siempre invocar el skill `brainstorming`** antes de implementar cualquier feature nueva, aunque parezca simple.
-3. Never push directly to `develop` (backend) or `main` (frontend): `feature/...` or `fix/...` → commit → push → PR. Backend PRs target `develop`; frontend PRs target `main`.
+3. Never push directly to `develop` or `main`: `feature/...` or `fix/...` → commit → push → PR. Backend PRs target `develop` (only releases and hotfixes go to `main`); frontend PRs target `main`.
 4. Si un cambio toca back y front, el front debe tolerar el back viejo (campos opcionales) y el back no romper el front viejo: así da igual el orden de los merges.
 
 There is no `gh` CLI — create PRs via GitHub API:
@@ -48,7 +53,7 @@ Shell: PowerShell on Windows. Git Bash also available via Bash tool (use paths l
 
 ## Build commands
 
-Maven wrapper `./mvnw` from the **repo root** with `-f src/pom.xml` (el `pom.xml` padre está en `src/`). Maven is not on PATH. La CI (`.github/workflows/workflow.yml`, en cada PR y push a `develop`) ejecuta el primer comando y además construye la imagen Docker:
+Maven wrapper `./mvnw` from the **repo root** with `-f src/pom.xml` (el `pom.xml` padre está en `src/`). Maven is not on PATH. La CI (`.github/workflows/workflow.yml`, en cada PR y push a `develop` y `main`) ejecuta el primer comando y además construye la imagen Docker:
 
 ```bash
 # Build + tests (unit, controllers, integration with Testcontainers if Docker is available) + coverage gate (80% JaCoCo)
