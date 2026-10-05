@@ -185,12 +185,13 @@ class DraftScheduleUserControllersTest extends ControllerTestSupport {
     }
 
     @Test
-    void login_setsSessionCookies_usingFirstForwardedIp() throws Exception {
+    void login_setsSessionCookies_usingTheIpResolvedByTheFilter() throws Exception {
         when(userFacade.login("ash", "pikachu123", "203.0.113.7")).thenReturn(
                 new LoginResult("jwt-token", Duration.ofMinutes(15), "refresh-token", Duration.ofDays(30)));
 
         MvcResult result = mvc.perform(json(post("/v1/user/login"), "{\"username\":\"ash\",\"password\":\"pikachu123\"}")
-                        .header("X-Forwarded-For", "203.0.113.7, 10.0.0.1"))
+                        .requestAttr(ClientIpFilter.ATTRIBUTE, "203.0.113.7")
+                        .header("X-Forwarded-For", "6.6.6.6"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.username").value("ash"))
                 .andReturn();
@@ -201,12 +202,12 @@ class DraftScheduleUserControllersTest extends ControllerTestSupport {
     }
 
     @Test
-    void login_blankForwardedHeader_usesSocketAddress() throws Exception {
+    void login_withoutTheFilter_usesSocketAddress_neverForwardedFor() throws Exception {
         when(userFacade.login("ash", "pikachu123", "127.0.0.1")).thenReturn(
                 new LoginResult("jwt-token", Duration.ofMinutes(15), null, Duration.ofDays(30)));
 
         mvc.perform(json(post("/v1/user/login"), "{\"username\":\"ash\",\"password\":\"pikachu123\"}")
-                        .header("X-Forwarded-For", " "))
+                        .header("X-Forwarded-For", "6.6.6.6"))
                 .andExpect(status().isOk());
     }
 

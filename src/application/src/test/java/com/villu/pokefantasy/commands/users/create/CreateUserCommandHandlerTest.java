@@ -139,4 +139,14 @@ class CreateUserCommandHandlerTest {
     void commandType_returnsCorrectClass() {
         assertThat(handler.commandType()).isEqualTo(CreateUserCommand.class);
     }
+
+    @Test
+    void handle_nameAlreadyTakenIgnoringCase_isAClearConflict() {
+        when(userRepository.existsByUsernameIgnoreCase("lobon")).thenReturn(true);
+
+        assertThatThrownBy(() -> handler.handle(new CreateUserCommand("lobon", "pikachu123")))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Ese nombre de usuario ya está en uso.");
+        verify(userRepository, never()).saveUser(any());
+    }
 }

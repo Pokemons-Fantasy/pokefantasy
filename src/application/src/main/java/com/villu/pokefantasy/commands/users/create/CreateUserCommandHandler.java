@@ -39,6 +39,11 @@ public class CreateUserCommandHandler implements CommandHandler<CreateUserComman
                     "El nombre de usuario debe tener entre 3 y 20 caracteres: letras, números, '_' o '-'.");
         }
         PasswordPolicy.validate(command.password());
+        // Antes lo detectaba el índice único y al usuario le llegaba el texto de Mongo. Sin distinguir
+        // mayúsculas: "lobon" no puede registrarse si ya existe "Lobon" (suplantación visual).
+        if (userRepository.existsByUsernameIgnoreCase(command.username())) {
+            throw new IllegalStateException("Ese nombre de usuario ya está en uso.");
+        }
 
         User user = User.builder()
                 .id(UUID.randomUUID().toString())
