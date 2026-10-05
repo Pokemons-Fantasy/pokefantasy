@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.villu</groupId>
         <artifactId>pokefantasy</artifactId>
-        <version>1.1.0</version>
+        <version>1.2.0</version>
     </parent>
 
     <modelVersion>4.0.0</modelVersion>
@@ -35,7 +35,7 @@
         <dependency>
             <groupId>org.yaml</groupId>
             <artifactId>snakeyaml</artifactId>
-            <version>2.6</version>
+            <version>2.7</version>
             <scope>compile</scope>
         </dependency>
         <dependency>
@@ -83,14 +83,6 @@
             <groupId>com.google.firebase</groupId>
             <artifactId>firebase-admin</artifactId>
             <version>9.10.0</version>
-        </dependency>
-        <!-- Force google-auth-library-credentials to match oauth2-http:1.29.0 transitive version.
-             Spring Boot 4.0.2 BOM pins credentials to 1.23.0 which lacks CredentialTypeForMetrics,
-             causing ClassNotFoundException at runtime when sendEachForMulticast is called. -->
-        <dependency>
-            <groupId>com.google.auth</groupId>
-            <artifactId>google-auth-library-credentials</artifactId>
-            <version>1.29.0</version>
         </dependency>
     </dependencies>
     <build>
