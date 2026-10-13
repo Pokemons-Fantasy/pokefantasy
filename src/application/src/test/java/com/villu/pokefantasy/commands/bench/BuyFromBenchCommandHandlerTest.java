@@ -22,6 +22,7 @@ import com.villu.pokefantasy.repository.entity.DraftPick;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import com.villu.pokefantasy.repository.entity.LeagueMember;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity;
+import com.villu.pokefantasy.team.TeamTransferService;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity.Jornada;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity.Match;
 import org.junit.jupiter.api.BeforeEach;
@@ -248,6 +249,22 @@ class BuyFromBenchCommandHandlerTest {
                 .anyMatch(p -> USERNAME.equals(p.getUsername())
                         && POKEMON.equals(p.getPokemonName())
                         && p.getRound() == 0);
+    }
+
+    @Test
+    void handle_happyPath_locksBoughtPickLikeAStolenOne() {
+        DraftEntity draft = completedDraft();
+        when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+        when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(POKEMON, LEAGUE_ID))
+                .thenReturn(Optional.of(benchEntry()));
+
+        Instant before = Instant.now();
+        handler.handle(cmd());
+
+        // Recién fichado de la banca: nadie lo puede robar ni tradear durante TRANSFER_LOCK
+        assertThat(draft.getPicks()).singleElement()
+                .satisfies(p -> assertThat(p.getLockedUntil())
+                        .isAfterOrEqualTo(before.plus(TeamTransferService.TRANSFER_LOCK)));
     }
 
     @Test

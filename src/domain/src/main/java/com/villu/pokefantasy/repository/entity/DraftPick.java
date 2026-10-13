@@ -17,7 +17,7 @@ public class DraftPick {
     private Instant pickedAt;
     /** Custom steal price set by the owner spending coins. null = use priceTierX default. Inherited when stolen. Reset to null when returned to bench. */
     private Integer customStealPrice;
-    /** Timestamp hasta el que este pokémon está bloqueado (7 días desde el robo/trade). null = libre. */
+    /** Timestamp hasta el que este pokémon está bloqueado (7 días desde el robo, trade, compra o swap). null = libre. */
     private Instant lockedUntil;
     /** Monedas pagadas en el draft por este pick. null en drafts sin presupuesto y en fichajes fuera del draft. */
     private Integer price;

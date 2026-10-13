@@ -26,7 +26,10 @@ import java.time.format.DateTimeFormatter;
 @Service
 public class TeamTransferService {
 
-    /** Un Pokémon robado o recibido en un trade no puede volver a cambiar de dueño durante este tiempo. */
+    /**
+     * Un Pokémon que entra en un equipo después del draft (robo, trade, compra o swap con la banca) no puede
+     * cambiar de dueño ni volver a la banca durante este tiempo.
+     */
     public static final Duration TRANSFER_LOCK = Duration.ofDays(7);
 
     /** {@code round} de los picks comprados en la banca (las rondas del draft empiezan en 1). */
@@ -112,19 +115,22 @@ public class TeamTransferService {
         pick.setPickedAt(now);
     }
 
-    /** Pokémon de la banca al equipo de {@code username} (compra). */
+    /** Pokémon de la banca al equipo de {@code username} (compra), bloqueado {@link #TRANSFER_LOCK}. */
     public DraftPick addFromBench(DraftEntity draft, String username, ClosedListEntity entry, Instant now) {
         DraftPick pick = new DraftPick(username, entry.getPokemonName(), entry.getPokemonId(),
-                BENCH_PURCHASE_ROUND, now, null, null);
+                BENCH_PURCHASE_ROUND, now, null, now.plus(TRANSFER_LOCK));
         draft.getPicks().add(pick);
         return pick;
     }
 
-    /** Sustituye {@code given} por un Pokémon de la banca en la misma posición del equipo (swap). */
-    public void replaceWithBench(DraftEntity draft, DraftPick given, ClosedListEntity entry) {
+    /**
+     * Sustituye {@code given} por un Pokémon de la banca en la misma posición del equipo (swap). El que entra
+     * queda bloqueado {@link #TRANSFER_LOCK}.
+     */
+    public void replaceWithBench(DraftEntity draft, DraftPick given, ClosedListEntity entry, Instant now) {
         int index = draft.getPicks().indexOf(given);
         draft.getPicks().set(index, new DraftPick(given.getUsername(), entry.getPokemonName(),
-                entry.getPokemonId(), given.getRound(), given.getPickedAt(), null, null));
+                entry.getPokemonId(), given.getRound(), given.getPickedAt(), null, now.plus(TRANSFER_LOCK)));
     }
 
     /** El Pokémon vuelve a la banca (liberación). */

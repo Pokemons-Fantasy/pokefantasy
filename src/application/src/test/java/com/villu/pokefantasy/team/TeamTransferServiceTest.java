@@ -176,17 +176,19 @@ class TeamTransferServiceTest {
         DraftPick bought = service.addFromBench(draft, "ash", eevee, now);
         assertThat(bought.getRound()).isEqualTo(TeamTransferService.BENCH_PURCHASE_ROUND);
         assertThat(draft.getPicks()).contains(bought);
+        assertThat(bought.getLockedUntil()).isEqualTo(now.plus(TeamTransferService.TRANSFER_LOCK));
 
         DraftPick rattata = draft.getPicks().get(1);
         ClosedListEntity pidgey = new ClosedListEntity();
         pidgey.setPokemonName("pidgey");
         pidgey.setPokemonId(16);
-        service.replaceWithBench(draft, rattata, pidgey);
+        service.replaceWithBench(draft, rattata, pidgey, now);
         DraftPick replaced = draft.getPicks().get(1);
         assertThat(replaced.getPokemonName()).isEqualTo("pidgey");
         assertThat(replaced.getUsername()).isEqualTo("ash");
         assertThat(replaced.getRound()).isEqualTo(2);
         assertThat(replaced.getCustomStealPrice()).isNull();
+        assertThat(replaced.getLockedUntil()).isEqualTo(now.plus(TeamTransferService.TRANSFER_LOCK));
 
         service.releaseToBench(draft, replaced);
         assertThat(draft.ownedPokemonNames()).containsExactlyInAnyOrder("pikachu", "eevee");
