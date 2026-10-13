@@ -14,6 +14,7 @@ import com.villu.pokefantasy.repository.entity.ScheduleEntity;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.time.LocalDate;
 
 /**
  * Lo que pasa cuando un draft queda COMPLETED (por el último pick posible o porque al expulsar al jugador en
@@ -46,8 +47,17 @@ public class DraftCompletionService {
         }
         ScheduleEntity schedule = new ScheduleEntity();
         schedule.setLeagueId(leagueId);
-        schedule.setJornadas(RoundRobinScheduler.generate(draft.getTurnOrder()));
+        schedule.setJornadas(RoundRobinScheduler.generate(draft.getTurnOrder(), seasonStart(league)));
         scheduleRepository.save(schedule);
+    }
+
+    /**
+     * Fecha de la jornada 1 si el admin ya la configuró. Sin ella las jornadas quedan sin fecha y sus ventanas
+     * no tienen hora de cierre.
+     */
+    private static LocalDate seasonStart(LeagueEntity league) {
+        String date = league != null && league.getSettings() != null ? league.getSettings().getSeasonStartDate() : null;
+        return date != null ? LocalDate.parse(date) : null;
     }
 
     private boolean initLeagueSettingsIfNeeded(LeagueEntity league) {

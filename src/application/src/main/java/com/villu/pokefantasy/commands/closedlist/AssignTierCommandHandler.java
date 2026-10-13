@@ -18,8 +18,11 @@ import java.time.Instant;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Map;
+import java.util.Set;
 
 @Service
 public class AssignTierCommandHandler implements CommandHandler<AssignTierCommand, TierAdjustmentResponse> {
@@ -41,8 +44,8 @@ public class AssignTierCommandHandler implements CommandHandler<AssignTierComman
 
     @Override
     public TierAdjustmentResponse handle(AssignTierCommand command) {
-        if (command.entryId() == null || command.tier() == null) {
-            throw new IllegalArgumentException("Indica el Pokémon y el tier.");
+        if (command.entryIds() == null || command.entryIds().isEmpty() || command.tier() == null) {
+            throw new IllegalArgumentException("Indica los Pokémon y el tier.");
         }
 
         leagueAdminGuard.requireLeagueAdmin(command.leagueId(), command.requestingUsername());
@@ -55,46 +58,43 @@ public class AssignTierCommandHandler implements CommandHandler<AssignTierComman
                     throw new IllegalStateException("Los tiers solo se ajustan aquí con el draft terminado");
                 });
 
-        ClosedListEntity entry = closedListRepository.findById(command.entryId())
-                .orElseThrow(() -> new IllegalArgumentException("Ese Pokémon no está en el pool"));
+        List<ClosedListEntity> pool = closedListRepository.findAllByLeagueId(command.leagueId());
+        Set<String> targetIds = new HashSet<>(command.entryIds());
+        List<ClosedListEntity> targets = pool.stream().filter(e -> targetIds.contains(e.getId())).toList();
 
-        if (!command.leagueId().equals(entry.getLeagueId())) {
-            throw new IllegalArgumentException("Ese Pokémon no es del pool de esta liga");
+        if (targets.size() != targetIds.size()) {
+            throw new IllegalArgumentException("Ese Pokémon no está en el pool de esta liga");
         }
 
-        Tier fromTier = entry.getTier();
+        Tier fromTier = targets.get(0).getTier();
         Tier toTier   = command.tier();
+
+        if (targets.stream().anyMatch(e -> e.getTier() != fromTier)) {
+            throw new IllegalArgumentException("Los Pokémon elegidos tienen que estar en el mismo tier");
+        }
 
         if (fromTier == toTier) {
             return TierAdjustmentResponse.builder().changes(List.of()).build();
         }
 
-        List<ClosedListEntity> pool = closedListRepository.findAllByLeagueId(command.leagueId());
+        Map<String, TierChangeDto> changes = computeCascade(targets, toTier, pool);
+        changes.forEach((entryId, change) -> closedListRepository.updateTier(entryId, change.getNewTier()));
 
-        List<TierChangeDto> changes = computeCascade(entry, toTier, pool);
-
-        for (TierChangeDto change : changes) {
-            closedListRepository.updateTier(
-                    pool.stream()
-                        .filter(e -> e.getPokemonId() == change.getPokemonId())
-                        .findFirst()
-                        .map(ClosedListEntity::getId)
-                        .orElseThrow(),
-                    change.getNewTier());
+        // Un evento por cada Pokémon movido a mano; los de la cascada no se registran
+        Instant now = Instant.now();
+        for (ClosedListEntity target : targets) {
+            activityEventRepository.save(ActivityEventEntity.builder()
+                    .leagueId(command.leagueId())
+                    .type(ActivityEventType.TIER_CHANGE)
+                    .actorUsername(command.requestingUsername())
+                    .pokemonName(target.getPokemonName())
+                    .fromTier(fromTier.name())
+                    .toTier(toTier.name())
+                    .createdAt(now)
+                    .build());
         }
 
-        // Record activity event for the primary target tier change
-        activityEventRepository.save(ActivityEventEntity.builder()
-                .leagueId(command.leagueId())
-                .type(ActivityEventType.TIER_CHANGE)
-                .actorUsername(command.requestingUsername())
-                .pokemonName(entry.getPokemonName())
-                .fromTier(fromTier != null ? fromTier.name() : null)
-                .toTier(toTier.name())
-                .createdAt(Instant.now())
-                .build());
-
-        return TierAdjustmentResponse.builder().changes(changes).build();
+        return TierAdjustmentResponse.builder().changes(new ArrayList<>(changes.values())).build();
     }
 
     @Override
@@ -130,76 +130,57 @@ public class AssignTierCommandHandler implements CommandHandler<AssignTierComman
     }
 
     /**
-     * Computes the full list of tier changes needed to move {@code target} to {@code toTier},
-     * cascading victims one step to keep tier counts balanced.
+     * Computes the tier changes needed to move the N {@code targets} (all in the same tier) to {@code toTier},
+     * cascading N victims one step per tier in between to keep tier counts balanced.
      *
      * Promotion (toRank < fromRank): for each tier T from toRank to fromRank-1,
-     *   pick the lowest-BST pokemon in T (not the target) and bump it down one tier.
+     *   the N lowest-BST pokemon in T (not targets) go down one tier.
      *
      * Demotion (toRank > fromRank): for each tier T from toRank down to fromRank+1,
-     *   pick the highest-BST pokemon in T (not the target) and bump it up one tier.
+     *   the N highest-BST pokemon in T (not targets) go up one tier.
+     *
+     * BST ties are broken by name. A victim pushed into the next tier can be picked again there; it then
+     * appears once, with its original and final tier. Keyed by entry id, in the order they first moved.
      */
-    private List<TierChangeDto> computeCascade(ClosedListEntity target, Tier toTier, List<ClosedListEntity> pool) {
-        int fromRank = rank(target.getTier());
+    private Map<String, TierChangeDto> computeCascade(List<ClosedListEntity> targets, Tier toTier,
+                                                      List<ClosedListEntity> pool) {
+        Set<String> targetIds = new HashSet<>(targets.stream().map(ClosedListEntity::getId).toList());
+        int fromRank = rank(targets.get(0).getTier());
         int toRank   = rank(toTier);
+        boolean promotion = toRank < fromRank;
+        int step = promotion ? 1 : -1;
 
-        List<TierChangeDto> changes = new ArrayList<>();
+        Comparator<ClosedListEntity> byBst = Comparator.comparingInt(this::bst);
+        Comparator<ClosedListEntity> victimOrder = (promotion ? byBst : byBst.reversed())
+                .thenComparing(ClosedListEntity::getPokemonName);
 
-        if (toRank < fromRank) {
-            // Promotion: iterate from destination tier down to just before origin tier
-            for (int r = toRank; r < fromRank; r++) {
-                final int currentRank = r;
-                ClosedListEntity victim = pool.stream()
-                        .filter(e -> e.getTier() != null && rank(e.getTier()) == currentRank)
-                        .filter(e -> !e.getId().equals(target.getId()))
-                        .min(Comparator.comparingInt(this::bst)
-                                .thenComparing(ClosedListEntity::getPokemonName))
-                        .orElse(null);
+        Map<String, TierChangeDto> changes = new LinkedHashMap<>();
 
-                if (victim != null) {
-                    Tier victimNewTier = tierAt(currentRank + 1);
-                    changes.add(TierChangeDto.builder()
-                            .pokemonId(victim.getPokemonId())
-                            .pokemonName(victim.getPokemonName())
-                            .oldTier(victim.getTier())
-                            .newTier(victimNewTier)
-                            .build());
-                    // Update in-memory so subsequent iterations see the new state
-                    victim.setTier(victimNewTier);
-                }
-            }
-        } else {
-            // Demotion: iterate from destination tier up to just after origin tier
-            for (int r = toRank; r > fromRank; r--) {
-                final int currentRank = r;
-                ClosedListEntity victim = pool.stream()
-                        .filter(e -> e.getTier() != null && rank(e.getTier()) == currentRank)
-                        .filter(e -> !e.getId().equals(target.getId()))
-                        .max(Comparator.comparingInt(this::bst)
-                                .thenComparing(Comparator.comparing(ClosedListEntity::getPokemonName).reversed()))
-                        .orElse(null);
-
-                if (victim != null) {
-                    Tier victimNewTier = tierAt(currentRank - 1);
-                    changes.add(TierChangeDto.builder()
-                            .pokemonId(victim.getPokemonId())
-                            .pokemonName(victim.getPokemonName())
-                            .oldTier(victim.getTier())
-                            .newTier(victimNewTier)
-                            .build());
-                    victim.setTier(victimNewTier);
-                }
-            }
+        for (int r = toRank; r != fromRank; r += step) {
+            Tier tier = tierAt(r);
+            Tier victimNewTier = tierAt(r + step);
+            List<ClosedListEntity> victims = pool.stream()
+                    .filter(e -> e.getTier() == tier)
+                    .filter(e -> !targetIds.contains(e.getId()))
+                    .sorted(victimOrder)
+                    .limit(targets.size())
+                    .toList();
+            // Update in-memory so subsequent iterations see the new state
+            victims.forEach(victim -> move(victim, victimNewTier, changes));
         }
 
-        // The target itself is the last change
-        changes.add(TierChangeDto.builder()
-                .pokemonId(target.getPokemonId())
-                .pokemonName(target.getPokemonName())
-                .oldTier(target.getTier())
-                .newTier(toTier)
-                .build());
-
+        targets.forEach(target -> move(target, toTier, changes));
         return changes;
+    }
+
+    private void move(ClosedListEntity entry, Tier newTier, Map<String, TierChangeDto> changes) {
+        TierChangeDto previous = changes.get(entry.getId());
+        changes.put(entry.getId(), TierChangeDto.builder()
+                .pokemonId(entry.getPokemonId())
+                .pokemonName(entry.getPokemonName())
+                .oldTier(previous == null ? entry.getTier() : previous.getOldTier())
+                .newTier(newTier)
+                .build());
+        entry.setTier(newTier);
     }
 }

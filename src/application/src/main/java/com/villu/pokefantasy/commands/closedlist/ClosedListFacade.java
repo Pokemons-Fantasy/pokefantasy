@@ -25,8 +25,8 @@ public class ClosedListFacade {
         mediator.send(new DenominatePokemonCommand(username, pokemonName, leagueId));
     }
 
-    public TierAdjustmentResponse assignTier(String entryId, Tier tier, String leagueId, String requestingUsername) throws Exception {
-        return mediator.send(new AssignTierCommand(entryId, tier, leagueId, requestingUsername));
+    public TierAdjustmentResponse assignTiers(List<String> entryIds, Tier tier, String leagueId, String requestingUsername) throws Exception {
+        return mediator.send(new AssignTierCommand(entryIds, tier, leagueId, requestingUsername));
     }
 
     public List<ClosedListEntryResponse> getClosedList(String leagueId, String requestingUsername) throws Exception {
