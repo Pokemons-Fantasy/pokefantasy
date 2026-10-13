@@ -22,6 +22,7 @@ import com.villu.pokefantasy.repository.entity.DraftPick;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import com.villu.pokefantasy.repository.entity.LeagueMember;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity;
+import com.villu.pokefantasy.team.TeamTransferService;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity.Jornada;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity.Match;
 import org.junit.jupiter.api.BeforeEach;
@@ -185,6 +186,24 @@ class SwapWithBenchCommandHandlerTest {
                 .anyMatch(p -> USERNAME.equals(p.getUsername()) && TAKE.equals(p.getPokemonName())
                         && p.getRound() == 1)
                 .noneMatch(p -> GIVE.equals(p.getPokemonName()));
+    }
+
+    @Test
+    void handle_happyPath_locksTakenPickLikeAStolenOne() {
+        DraftEntity draft = completedDraftWithPick(USERNAME, GIVE, 6);
+        when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+        when(leagueRepository.findById(LEAGUE_ID))
+                .thenReturn(Optional.of(leagueWithMembers(new LeagueMember(USERNAME, LeagueRole.USER, 0))));
+        when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(TAKE, LEAGUE_ID))
+                .thenReturn(Optional.of(closedListEntry(TAKE, 25)));
+
+        Instant before = Instant.now();
+        handler.handle(new SwapWithBenchCommand(LEAGUE_ID, USERNAME, GIVE, TAKE));
+
+        // El que sale de la banca queda bloqueado TRANSFER_LOCK, como uno robado
+        assertThat(draft.getPicks()).singleElement()
+                .satisfies(p -> assertThat(p.getLockedUntil())
+                        .isAfterOrEqualTo(before.plus(TeamTransferService.TRANSFER_LOCK)));
     }
 
     @Test
