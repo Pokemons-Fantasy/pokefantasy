@@ -31,6 +31,14 @@ class QueriesIntegrationTest extends IntegrationTest {
     }
 
     @Test
+    void fcmTokens_keepOnlyTheNewestThree() {
+        user("ash");
+        List.of("a", "b", "c", "d").forEach(token -> userRepository.addFcmToken("ash", token, 3));
+
+        assertThat(userRepository.findByUsername("ash").getFcmTokens()).containsExactly("b", "c", "d");
+    }
+
+    @Test
     void usernamePrefixSearch_isCaseInsensitive_andUsesTheIndex() {
         List.of("Ash_K", "ashley", "Asher", "misty", "ASH").forEach(this::user);
 

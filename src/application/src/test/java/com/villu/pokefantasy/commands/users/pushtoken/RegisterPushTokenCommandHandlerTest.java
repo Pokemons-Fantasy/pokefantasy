@@ -28,7 +28,7 @@ class RegisterPushTokenCommandHandlerTest {
 
         InOrder order = inOrder(userRepository);
         order.verify(userRepository).removeFcmToken("fcm-token-123");
-        order.verify(userRepository).addFcmToken("ash", "fcm-token-123");
+        order.verify(userRepository).addFcmToken("ash", "fcm-token-123", 3);
     }
 
     @Test

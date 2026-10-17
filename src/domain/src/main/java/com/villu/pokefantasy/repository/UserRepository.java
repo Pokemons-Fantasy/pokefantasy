@@ -15,7 +15,8 @@ public interface UserRepository {
     /** Usuarios con esos nombres; solo trae {@code name} y {@code avatarVersion}. */
     List<UserEntity> findByUsernames(Collection<String> usernames);
     void setAvatarVersion(String username, Long avatarVersion);
-    void addFcmToken(String username, String token);
+    /** Añade el token al final y deja solo los {@code maxTokens} más recientes. */
+    void addFcmToken(String username, String token, int maxTokens);
     void removeFcmToken(String token);
 
     /** Quita el token solo a ese usuario (dar de baja un navegador). */
