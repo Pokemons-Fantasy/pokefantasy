@@ -1,6 +1,7 @@
 package com.villu.pokefantasy.security;
 
 import jakarta.servlet.DispatcherType;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
@@ -11,19 +12,29 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.AccessDeniedHandler;
+import org.springframework.security.web.access.AccessDeniedHandlerImpl;
+import org.springframework.security.web.access.DelegatingAccessDeniedHandler;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.context.RequestAttributeSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
+import org.springframework.security.web.csrf.CsrfException;
+import org.springframework.security.web.csrf.CsrfToken;
+import org.springframework.security.web.csrf.CsrfTokenRepository;
+import org.springframework.security.web.csrf.DefaultCsrfToken;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.servlet.HandlerExceptionResolver;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.regex.Pattern;
 
 @Configuration
@@ -49,7 +60,9 @@ public class SecurityConfig {
 
         return http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .csrf(csrf -> csrf.disable())
+                .csrf(csrf -> csrf
+                        .requireCsrfProtectionMatcher(new CsrfHeaderRequestMatcher())
+                        .csrfTokenRepository(new StatelessCsrfTokenRepository()))
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .securityContext(context -> context.securityContextRepository(securityContextRepository))
                 .authorizeHttpRequests(auth -> auth
@@ -61,8 +74,48 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
-                .exceptionHandling(e -> e.authenticationEntryPoint(problemDetailEntryPoint(resolver)))
+                .exceptionHandling(e -> e
+                        .authenticationEntryPoint(problemDetailEntryPoint(resolver))
+                        .accessDeniedHandler(accessDeniedHandler(resolver)))
                 .build();
+    }
+
+    /**
+     * CSRF rechazado: 403 con el ProblemDetail de {@code ApiExceptionHandler} (código {@code CSRF_REJECTED}).
+     * El resto de denegaciones siguen con el 403 por defecto de Spring Security.
+     */
+    static AccessDeniedHandler accessDeniedHandler(HandlerExceptionResolver resolver) {
+        AccessDeniedHandler fallback = new AccessDeniedHandlerImpl();
+        AccessDeniedHandler csrf = (request, response, exception) -> {
+            if (resolver.resolveException(request, response, null, exception) == null) {
+                fallback.handle(request, response, exception);
+            }
+        };
+        LinkedHashMap<Class<? extends AccessDeniedException>, AccessDeniedHandler> handlers = new LinkedHashMap<>();
+        handlers.put(CsrfException.class, csrf);
+        return new DelegatingAccessDeniedHandler(handlers, fallback);
+    }
+
+    /**
+     * CSRF sin token (ADR-018): ningún cliente manda uno, así que toda petición que encaje con
+     * {@link CsrfHeaderRequestMatcher} se rechaza. No guarda nada: ni sesión ni cookie {@code XSRF-TOKEN}.
+     */
+    static final class StatelessCsrfTokenRepository implements CsrfTokenRepository {
+
+        @Override
+        public CsrfToken generateToken(HttpServletRequest request) {
+            return new DefaultCsrfToken("X-CSRF-TOKEN", "_csrf", UUID.randomUUID().toString());
+        }
+
+        @Override
+        public void saveToken(CsrfToken token, HttpServletRequest request, HttpServletResponse response) {
+            // Sin estado: el token no se guarda en ningún sitio.
+        }
+
+        @Override
+        public CsrfToken loadToken(HttpServletRequest request) {
+            return null;
+        }
     }
 
     /**
