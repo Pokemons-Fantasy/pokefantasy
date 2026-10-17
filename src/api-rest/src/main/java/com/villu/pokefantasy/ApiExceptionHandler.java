@@ -15,6 +15,7 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.web.csrf.CsrfException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
@@ -88,6 +89,12 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ProblemDetail> handleUnauthenticated() {
         return respond(HttpStatus.UNAUTHORIZED, "UNAUTHENTICATED", "Sesión no iniciada o caducada");
+    }
+
+    /** Escritura con cookie de sesión sin {@code X-Requested-With}: llega desde el CSRF de Spring Security. */
+    @ExceptionHandler(CsrfException.class)
+    public ResponseEntity<ProblemDetail> handleCsrf() {
+        return respond(HttpStatus.FORBIDDEN, "CSRF_REJECTED", "Petición rechazada: falta la cabecera X-Requested-With");
     }
 
     @ExceptionHandler(TooManyAttemptsException.class)
