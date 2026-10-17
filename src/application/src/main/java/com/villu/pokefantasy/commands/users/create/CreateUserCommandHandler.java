@@ -49,9 +49,7 @@ public class CreateUserCommandHandler implements CommandHandler<CreateUserComman
         String ipKey = command.clientIp() == null || command.clientIp().isBlank()
                 ? null : "register-ip:" + command.clientIp();
         if (ipKey != null && loginAttemptPort.failureCount(ipKey) >= MAX_REGISTRATIONS_PER_IP) {
-            throw new TooManyAttemptsException(
-                    "Demasiados registros desde esta conexión. Vuelve a intentarlo en "
-                            + REGISTRATION_WINDOW.toMinutes() + " minutos.", REGISTRATION_WINDOW);
+            throw tooManyRegistrations();
         }
         if (!USERNAME_PATTERN.matcher(command.username()).matches()) {
             throw new IllegalArgumentException(
@@ -63,6 +61,11 @@ public class CreateUserCommandHandler implements CommandHandler<CreateUserComman
         if (userRepository.existsByUsernameIgnoreCase(command.username())) {
             throw new IllegalStateException("Ese nombre de usuario ya está en uso.");
         }
+        // Reserva el hueco con el INCR atómico antes de crear la cuenta: con la lectura de arriba sola, varias
+        // peticiones a la vez la pasarían todas.
+        if (ipKey != null && loginAttemptPort.recordFailure(ipKey, REGISTRATION_WINDOW) > MAX_REGISTRATIONS_PER_IP) {
+            throw tooManyRegistrations();
+        }
 
         User user = User.builder()
                 .id(UUID.randomUUID().toString())
@@ -72,10 +75,12 @@ public class CreateUserCommandHandler implements CommandHandler<CreateUserComman
                 .build();
 
         userRepository.saveUser(userMapper.dtoToEntity(user));
-        if (ipKey != null) {
-            loginAttemptPort.recordFailure(ipKey, REGISTRATION_WINDOW);
-        }
         return null;
+    }
+
+    private static TooManyAttemptsException tooManyRegistrations() {
+        return new TooManyAttemptsException("Demasiados registros desde esta conexión. Vuelve a intentarlo en "
+                + REGISTRATION_WINDOW.toMinutes() + " minutos.", REGISTRATION_WINDOW);
     }
 
     @Override

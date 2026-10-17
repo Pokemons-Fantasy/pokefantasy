@@ -171,12 +171,24 @@ class CreateUserCommandHandlerTest {
     @Test
     void handle_ipBelowLimit_savesAndRecordsRegistration() {
         when(loginAttemptPort.failureCount("register-ip:1.2.3.4")).thenReturn(2L);
+        when(loginAttemptPort.recordFailure("register-ip:1.2.3.4", Duration.ofHours(1))).thenReturn(3L);
         when(userMapper.dtoToEntity(any())).thenReturn(new UserEntity());
 
         handler.handle(new CreateUserCommand("ash", "secret123", "1.2.3.4"));
 
         verify(userRepository).saveUser(any());
-        verify(loginAttemptPort).recordFailure("register-ip:1.2.3.4", Duration.ofHours(1));
+    }
+
+    @Test
+    void handle_concurrentRegistrationsOverLimit_areRejectedWithoutSaving() {
+        // Dos peticiones a la vez leen 2: el INCR atómico decide quién se queda el último hueco.
+        when(loginAttemptPort.failureCount("register-ip:1.2.3.4")).thenReturn(2L);
+        when(loginAttemptPort.recordFailure("register-ip:1.2.3.4", Duration.ofHours(1))).thenReturn(4L);
+
+        assertThatThrownBy(() -> handler.handle(new CreateUserCommand("ash", "secret123", "1.2.3.4")))
+                .isInstanceOf(TooManyAttemptsException.class);
+        verify(userRepository, never()).saveUser(any());
+        verifyNoInteractions(passwordHashPort);
     }
 
     @Test
