@@ -47,8 +47,9 @@ public class UserController {
     }
 
     @PostMapping("/user")
-    public ResponseEntity<Void> createUser(@RequestBody UserRequest user) throws Exception {
-        userFacade.create(user.getUsername(), user.getPassword());
+    public ResponseEntity<Void> createUser(@RequestBody UserRequest user,
+                                           HttpServletRequest request) throws Exception {
+        userFacade.create(user.getUsername(), user.getPassword(), clientIp(request));
         return ResponseEntity.ok().build();
     }
 

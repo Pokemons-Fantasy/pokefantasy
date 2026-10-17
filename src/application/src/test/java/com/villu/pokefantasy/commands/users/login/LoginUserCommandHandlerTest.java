@@ -229,9 +229,9 @@ class LoginUserCommandHandlerTest {
         }
 
         @Override
-        public void recordFailure(String key, Duration window) {
-            counts.merge(key, 1L, Long::sum);
+        public long recordFailure(String key, Duration window) {
             windows.put(key, window);
+            return counts.merge(key, 1L, Long::sum);
         }
 
         @Override
