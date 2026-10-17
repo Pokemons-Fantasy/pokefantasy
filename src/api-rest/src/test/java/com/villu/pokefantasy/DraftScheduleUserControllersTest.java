@@ -179,9 +179,12 @@ class DraftScheduleUserControllersTest extends ControllerTestSupport {
     // ── Usuario ──────────────────────────────────────────────────────────────
 
     @Test
-    void register() throws Exception {
-        mvc.perform(json(post("/v1/user"), "{\"username\":\"ash\",\"password\":\"pikachu123\"}")).andExpect(status().isOk());
-        verify(userFacade).create("ash", "pikachu123");
+    void register_usesTheIpResolvedByTheFilter() throws Exception {
+        mvc.perform(json(post("/v1/user"), "{\"username\":\"ash\",\"password\":\"pikachu123\"}")
+                        .requestAttr(ClientIpFilter.ATTRIBUTE, "203.0.113.7")
+                        .header("X-Forwarded-For", "6.6.6.6"))
+                .andExpect(status().isOk());
+        verify(userFacade).create("ash", "pikachu123", "203.0.113.7");
     }
 
     @Test

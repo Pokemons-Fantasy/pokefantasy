@@ -1,6 +1,8 @@
 package com.villu.pokefantasy.commands.users.create;
 
+import com.villu.pokefantasy.exception.TooManyAttemptsException;
 import com.villu.pokefantasy.mapper.UserMapper;
+import com.villu.pokefantasy.ports.LoginAttemptPort;
 import com.villu.pokefantasy.ports.PasswordHashPort;
 import com.villu.pokefantasy.repository.UserRepository;
 import com.villu.pokefantasy.repository.entity.UserEntity;
@@ -13,6 +15,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Duration;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -24,12 +28,13 @@ class CreateUserCommandHandlerTest {
     @Mock private UserRepository userRepository;
     @Mock private UserMapper userMapper;
     @Mock private PasswordHashPort passwordHashPort;
+    @Mock private LoginAttemptPort loginAttemptPort;
 
     private CreateUserCommandHandler handler;
 
     @BeforeEach
     void setUp() {
-        handler = new CreateUserCommandHandler(userRepository, userMapper, passwordHashPort);
+        handler = new CreateUserCommandHandler(userRepository, userMapper, passwordHashPort, loginAttemptPort);
     }
 
     @Test
@@ -40,25 +45,25 @@ class CreateUserCommandHandlerTest {
 
     @Test
     void handle_nullUsername_throwsIllegalArgument() {
-        assertThatThrownBy(() -> handler.handle(new CreateUserCommand(null, "pass")))
+        assertThatThrownBy(() -> handler.handle(new CreateUserCommand(null, "pass", null)))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     void handle_emptyUsername_throwsIllegalArgument() {
-        assertThatThrownBy(() -> handler.handle(new CreateUserCommand("", "pass")))
+        assertThatThrownBy(() -> handler.handle(new CreateUserCommand("", "pass", null)))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     void handle_nullPassword_throwsIllegalArgument() {
-        assertThatThrownBy(() -> handler.handle(new CreateUserCommand("user", null)))
+        assertThatThrownBy(() -> handler.handle(new CreateUserCommand("user", null, null)))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     void handle_emptyPassword_throwsIllegalArgument() {
-        assertThatThrownBy(() -> handler.handle(new CreateUserCommand("user", "")))
+        assertThatThrownBy(() -> handler.handle(new CreateUserCommand("user", "", null)))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -68,7 +73,7 @@ class CreateUserCommandHandlerTest {
         UserEntity entity = new UserEntity();
         when(userMapper.dtoToEntity(any())).thenReturn(entity);
 
-        handler.handle(new CreateUserCommand("ash", "secret123"));
+        handler.handle(new CreateUserCommand("ash", "secret123", null));
 
         verify(passwordHashPort).encode("secret123");
         verify(userMapper).dtoToEntity(argThat(u -> "ash".equals(u.getName()) && "hashed".equals(u.getPassword())));
@@ -80,7 +85,7 @@ class CreateUserCommandHandlerTest {
         when(passwordHashPort.encode(any())).thenReturn("hashed");
         when(userMapper.dtoToEntity(any())).thenReturn(new UserEntity());
 
-        handler.handle(new CreateUserCommand("ash", "secret123"));
+        handler.handle(new CreateUserCommand("ash", "secret123", null));
 
         ArgumentCaptor<com.villu.pokefantasy.dto.users.User> captor =
                 ArgumentCaptor.forClass(com.villu.pokefantasy.dto.users.User.class);
@@ -93,7 +98,7 @@ class CreateUserCommandHandlerTest {
     @ParameterizedTest
     @ValueSource(strings = {"ab", "abcdefghijklmnopqrstu", "ash ketchum", "ash!", "ásh", "<script>"})
     void handle_invalidUsername_throwsIllegalArgumentWithoutSaving(String username) {
-        assertThatThrownBy(() -> handler.handle(new CreateUserCommand(username, "secret123")))
+        assertThatThrownBy(() -> handler.handle(new CreateUserCommand(username, "secret123", null)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("nombre de usuario");
         verifyNoInteractions(userRepository, passwordHashPort);
@@ -104,14 +109,14 @@ class CreateUserCommandHandlerTest {
     void handle_validUsernames_areAccepted(String username) {
         when(userMapper.dtoToEntity(any())).thenReturn(new UserEntity());
 
-        handler.handle(new CreateUserCommand(username, "secret123"));
+        handler.handle(new CreateUserCommand(username, "secret123", null));
 
         verify(userRepository).saveUser(any());
     }
 
     @Test
     void handle_passwordTooShort_throwsIllegalArgumentWithoutSaving() {
-        assertThatThrownBy(() -> handler.handle(new CreateUserCommand("ash", "1234567")))
+        assertThatThrownBy(() -> handler.handle(new CreateUserCommand("ash", "1234567", null)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("al menos 8");
         verifyNoInteractions(userRepository, passwordHashPort);
@@ -120,7 +125,7 @@ class CreateUserCommandHandlerTest {
     @Test
     void handle_passwordLongerThanBcryptLimit_throwsIllegalArgument() {
         // 37 caracteres de 2 bytes = 74 bytes > 72 que bcrypt realmente usa
-        assertThatThrownBy(() -> handler.handle(new CreateUserCommand("ash", "ñ".repeat(37))))
+        assertThatThrownBy(() -> handler.handle(new CreateUserCommand("ash", "ñ".repeat(37), null)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("demasiado larga");
         verifyNoInteractions(userRepository, passwordHashPort);
@@ -130,7 +135,7 @@ class CreateUserCommandHandlerTest {
     void handle_passwordExactly72Bytes_isAccepted() {
         when(userMapper.dtoToEntity(any())).thenReturn(new UserEntity());
 
-        handler.handle(new CreateUserCommand("ash", "a".repeat(72)));
+        handler.handle(new CreateUserCommand("ash", "a".repeat(72), null));
 
         verify(userRepository).saveUser(any());
     }
@@ -144,9 +149,52 @@ class CreateUserCommandHandlerTest {
     void handle_nameAlreadyTakenIgnoringCase_isAClearConflict() {
         when(userRepository.existsByUsernameIgnoreCase("lobon")).thenReturn(true);
 
-        assertThatThrownBy(() -> handler.handle(new CreateUserCommand("lobon", "pikachu123")))
+        assertThatThrownBy(() -> handler.handle(new CreateUserCommand("lobon", "pikachu123", null)))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("Ese nombre de usuario ya está en uso.");
         verify(userRepository, never()).saveUser(any());
+    }
+
+    // ── Límite de registros por IP ────────────────────────────────────────────
+
+    @Test
+    void handle_ipAtLimit_throwsTooManyAttempts_andDoesNotSave() {
+        when(loginAttemptPort.failureCount("register-ip:1.2.3.4")).thenReturn(3L);
+
+        assertThatThrownBy(() -> handler.handle(new CreateUserCommand("ash", "secret123", "1.2.3.4")))
+                .isInstanceOfSatisfying(TooManyAttemptsException.class,
+                        e -> assertThat(e.getRetryAfter()).isEqualTo(Duration.ofHours(1)));
+        verify(userRepository, never()).saveUser(any());
+        verifyNoInteractions(passwordHashPort);
+    }
+
+    @Test
+    void handle_ipBelowLimit_savesAndRecordsRegistration() {
+        when(loginAttemptPort.failureCount("register-ip:1.2.3.4")).thenReturn(2L);
+        when(userMapper.dtoToEntity(any())).thenReturn(new UserEntity());
+
+        handler.handle(new CreateUserCommand("ash", "secret123", "1.2.3.4"));
+
+        verify(userRepository).saveUser(any());
+        verify(loginAttemptPort).recordFailure("register-ip:1.2.3.4", Duration.ofHours(1));
+    }
+
+    @Test
+    void handle_failedRegistration_doesNotConsumeQuota() {
+        when(userRepository.existsByUsernameIgnoreCase("lobon")).thenReturn(true);
+
+        assertThatThrownBy(() -> handler.handle(new CreateUserCommand("lobon", "pikachu123", "1.2.3.4")))
+                .isInstanceOf(IllegalStateException.class);
+        verify(loginAttemptPort, never()).recordFailure(any(), any());
+    }
+
+    @Test
+    void handle_withoutIp_doesNotTouchRateLimit() {
+        when(userMapper.dtoToEntity(any())).thenReturn(new UserEntity());
+
+        handler.handle(new CreateUserCommand("ash", "secret123", " "));
+
+        verify(userRepository).saveUser(any());
+        verifyNoInteractions(loginAttemptPort);
     }
 }

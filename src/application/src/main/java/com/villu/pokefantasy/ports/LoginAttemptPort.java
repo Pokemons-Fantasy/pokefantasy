@@ -3,8 +3,9 @@ package com.villu.pokefantasy.ports;
 import java.time.Duration;
 
 /**
- * Contador de intentos de login fallidos por clave (usuario o IP) dentro de una ventana de tiempo.
- * La política (cuántos fallos bloquean) vive en {@code LoginUserCommandHandler}.
+ * Contador de intentos por clave dentro de una ventana de tiempo: logins fallidos por usuario o IP y
+ * registros por IP ({@code register-ip:<ip>}). La política (cuántos bloquean) vive en
+ * {@code LoginUserCommandHandler} y {@code CreateUserCommandHandler}.
  */
 public interface LoginAttemptPort {
 
