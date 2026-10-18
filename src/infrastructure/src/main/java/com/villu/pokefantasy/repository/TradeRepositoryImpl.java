@@ -80,18 +80,18 @@ public class TradeRepositoryImpl implements TradeRepository {
     }
 
     @Override
-    public void cancelPending(String leagueId, String username, Instant resolvedAt) {
-        Query query = Query.query(Criteria.where("leagueId").is(leagueId).and("status").is(TradeStatus.PENDING)
+    public void cancelPending(String username, Instant resolvedAt) {
+        Query query = Query.query(Criteria.where("status").is(TradeStatus.PENDING)
                 .orOperator(Criteria.where("proposer").is(username), Criteria.where("responder").is(username)));
         mongoTemplate.updateMulti(query,
                 new Update().set("status", TradeStatus.CANCELLED).set("resolvedAt", resolvedAt), TradeEntity.class);
     }
 
     @Override
-    public void anonymizeUser(String leagueId, String username, String replacement) {
+    public void anonymizeUser(String username, String replacement) {
         for (String field : new String[] {"proposer", "responder"}) {
-            mongoTemplate.updateMulti(Query.query(Criteria.where("leagueId").is(leagueId).and(field).is(username)),
-                    Update.update(field, replacement), TradeEntity.class);
+            mongoTemplate.updateMulti(Query.query(Criteria.where(field).is(username)),
+                    new Update().set(field, replacement).inc("version", 1), TradeEntity.class);
         }
     }
 }

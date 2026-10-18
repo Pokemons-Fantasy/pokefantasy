@@ -16,4 +16,7 @@ public interface LeagueRepository {
     void removeMember(String leagueId, String username);
 
     void deleteById(String leagueId);
+
+    /** Cambia 'username' por 'replacement' como creador de las ligas. */
+    void anonymizeUser(String username, String replacement);
 }

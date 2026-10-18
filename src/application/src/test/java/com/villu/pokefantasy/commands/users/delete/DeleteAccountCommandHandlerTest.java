@@ -150,7 +150,7 @@ class DeleteAccountCommandHandlerTest {
     }
 
     @Test
-    void handle_leagueWithOthers_removesAnonymizesAndReturnsItsId() {
+    void handle_leagueWithOthers_removesHimAndReturnsItsId() {
         LeagueEntity before = league("l1", member("misty", LeagueRole.ADMIN), member("ash", LeagueRole.USER));
         leagueWithOthers(before, league("l1", member("misty", LeagueRole.ADMIN)));
 
@@ -158,10 +158,21 @@ class DeleteAccountCommandHandlerTest {
 
         assertThat(remaining).containsExactly("l1");
         verify(leagueMemberRemoval).remove(before, "ash");
-        verify(tradeRepository).cancelPending(eq("l1"), eq("ash"), any(Instant.class));
-        verify(tradeRepository).anonymizeUser("l1", "ash", GONE);
-        verify(activityEventRepository).anonymizeUser("l1", "ash", GONE);
         verify(leagueRepository, never()).deleteById(any());
+    }
+
+    @Test
+    void handle_anonymizesTheUserEverywhere_alsoInLeaguesHeAlreadyLeft() {
+        // Sin ligas actuales: salir o ser expulsado no anonimiza ni cancela nada, así que se hace sin filtrar por liga.
+        handler.handle(new DeleteAccountCommand("ash", "pikachu123"));
+
+        verify(tradeRepository).cancelPending(eq("ash"), any(Instant.class));
+        verify(tradeRepository).anonymizeUser("ash", GONE);
+        verify(activityEventRepository).anonymizeUser("ash", GONE);
+        verify(scheduleRepository).anonymizeUser("ash", GONE);
+        verify(draftRepository).anonymizeUser("ash", GONE);
+        verify(closedListRepository).anonymizeUser("ash", GONE);
+        verify(leagueRepository).anonymizeUser("ash", GONE);
     }
 
     @Test
@@ -179,17 +190,13 @@ class DeleteAccountCommandHandlerTest {
     }
 
     @Test
-    void handle_createdBy_isAnonymized() {
-        LeagueEntity before = league("l1", member("misty", LeagueRole.ADMIN), member("ash", LeagueRole.USER));
-        LeagueEntity after = league("l1", member("misty", LeagueRole.ADMIN));
-        after.setCreatedBy("ash");
-        leagueWithOthers(before, after);
+    void handle_anotherAdminRemains_leagueIsNotSaved() {
+        LeagueEntity before = league("l1", member("misty", LeagueRole.ADMIN), member("ash", LeagueRole.ADMIN));
+        leagueWithOthers(before, league("l1", member("misty", LeagueRole.ADMIN)));
 
         handler.handle(new DeleteAccountCommand("ash", "pikachu123"));
 
-        ArgumentCaptor<LeagueEntity> saved = ArgumentCaptor.forClass(LeagueEntity.class);
-        verify(leagueRepository).save(saved.capture());
-        assertThat(saved.getValue().getCreatedBy()).isEqualTo(GONE);
+        verify(leagueRepository, never()).save(any());
     }
 
     @Test
@@ -209,47 +216,6 @@ class DeleteAccountCommandHandlerTest {
         verify(closedListRepository).deleteAllByLeagueId("l1");
         verify(draftRepository).delete(draft);
         verifyNoInteractions(leagueMemberRemoval);
-        verify(tradeRepository, never()).anonymizeUser(any(), any(), any());
-    }
-
-    @Test
-    void handle_matchesDraftsAndNominations_areAnonymized() {
-        LeagueEntity before = league("l1", member("misty", LeagueRole.ADMIN), member("ash", LeagueRole.USER));
-        leagueWithOthers(before, league("l1", member("misty", LeagueRole.ADMIN)));
-
-        ScheduleEntity.Match played = new ScheduleEntity.Match();
-        played.setPlayer1("ash");
-        played.setPlayer2("misty");
-        played.setWinnerUsername("ash");
-        ScheduleEntity schedule = new ScheduleEntity();
-        schedule.setJornadas(List.of(new ScheduleEntity.Jornada(1, new ArrayList<>(List.of(played)), null)));
-        when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
-
-        DraftEntity past = new DraftEntity();
-        past.setTurnOrder(new ArrayList<>(List.of("misty", "ash")));
-        past.setPicks(new ArrayList<>(List.of(pick("ash", "pikachu"), pick("misty", "staryu"))));
-        past.setDraftHistory(new ArrayList<>(List.of(pick("ash", "bulbasaur"))));
-        when(draftRepository.findAllByLeagueId("l1")).thenReturn(List.of(past));
-
-        ClosedListEntity nominated = new ClosedListEntity();
-        nominated.setNominatedBy("ash");
-        ClosedListEntity other = new ClosedListEntity();
-        other.setNominatedBy("misty");
-        when(closedListRepository.findAllByLeagueId("l1")).thenReturn(List.of(nominated, other));
-
-        handler.handle(new DeleteAccountCommand("ash", "pikachu123"));
-
-        verify(scheduleRepository).save(schedule);
-        assertThat(played.getPlayer1()).isEqualTo(GONE);
-        assertThat(played.getPlayer2()).isEqualTo("misty");
-        assertThat(played.getWinnerUsername()).isEqualTo(GONE);
-        verify(draftRepository).save(past);
-        assertThat(past.getTurnOrder()).containsExactly("misty", GONE);
-        assertThat(past.getPicks()).extracting(DraftPick::getUsername).containsExactly(GONE, "misty");
-        assertThat(past.getDraftHistory()).extracting(DraftPick::getUsername).containsExactly(GONE);
-        verify(closedListRepository).save(nominated);
-        verify(closedListRepository, never()).save(other);
-        assertThat(nominated.getNominatedBy()).isEqualTo(GONE);
     }
 
     @Test

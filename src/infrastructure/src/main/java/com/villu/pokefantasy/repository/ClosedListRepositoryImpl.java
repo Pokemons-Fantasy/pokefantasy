@@ -90,4 +90,10 @@ public class ClosedListRepositoryImpl implements ClosedListRepository {
     public void deleteAllByLeagueId(String leagueId) {
         mongoTemplate.remove(Query.query(Criteria.where("leagueId").is(leagueId)), ClosedListEntity.class);
     }
+
+    @Override
+    public void anonymizeUser(String username, String replacement) {
+        mongoTemplate.updateMulti(Query.query(Criteria.where("nominatedBy").is(username)),
+                new Update().set("nominatedBy", replacement).inc("version", 1), ClosedListEntity.class);
+    }
 }

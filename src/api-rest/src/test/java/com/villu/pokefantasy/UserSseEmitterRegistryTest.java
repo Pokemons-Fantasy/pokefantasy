@@ -51,4 +51,17 @@ class UserSseEmitterRegistryTest {
         registry.onEvent(new RealtimeEvent(Audience.USER, "misty", "steal", "{}"));
         assertThat(registry.connectionCount("misty")).isEqualTo(1);
     }
+
+    @Test
+    void closeAll_completesAndForgetsTheUsersConnections() {
+        // Cuenta borrada: sus pestañas abiertas no pueden recibir los eventos de quien registre luego el nombre.
+        registry.register("misty");
+        registry.register("misty");
+        registry.register("brock");
+
+        registry.closeAll("misty");
+
+        assertThat(registry.connectionCount("misty")).isZero();
+        assertThat(registry.connectionCount("brock")).isEqualTo(1);
+    }
 }

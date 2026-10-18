@@ -146,6 +146,13 @@ class UserFacadeTest {
     }
 
     @Test
+    void revokeSessions_sendsRevokeSessionsCommand() throws Exception {
+        facade.revokeSessions("ash");
+
+        verify(mediator).send(new com.villu.pokefantasy.commands.users.delete.RevokeSessionsCommand("ash"));
+    }
+
+    @Test
     void unregisterPushToken_sendsUnregisterPushTokenCommand() throws Exception {
         facade.unregisterPushToken("ash", "tok-1");
 

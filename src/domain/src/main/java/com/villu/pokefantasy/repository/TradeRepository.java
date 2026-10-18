@@ -19,9 +19,9 @@ public interface TradeRepository {
 
     void deleteByLeagueId(String leagueId);
 
-    /** Los PENDING de esa liga en los que participa 'username' pasan a CANCELLED. */
-    void cancelPending(String leagueId, String username, Instant resolvedAt);
+    /** Los PENDING en los que participa 'username', en cualquier liga, pasan a CANCELLED. */
+    void cancelPending(String username, Instant resolvedAt);
 
-    /** Cambia 'username' por 'replacement' como proponente y como destinatario en los trades de esa liga. */
-    void anonymizeUser(String leagueId, String username, String replacement);
+    /** Cambia 'username' por 'replacement' como proponente y como destinatario, en cualquier liga. */
+    void anonymizeUser(String username, String replacement);
 }

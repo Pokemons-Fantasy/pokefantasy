@@ -68,4 +68,10 @@ public class LeagueRepositoryImpl implements LeagueRepository {
     public void deleteById(String leagueId) {
         mongoTemplate.remove(Query.query(Criteria.where("_id").is(leagueId)), LeagueEntity.class);
     }
+
+    @Override
+    public void anonymizeUser(String username, String replacement) {
+        mongoTemplate.updateMulti(Query.query(Criteria.where("createdBy").is(username)),
+                new Update().set("createdBy", replacement).inc("version", 1), LeagueEntity.class);
+    }
 }

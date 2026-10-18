@@ -82,14 +82,15 @@ class AccountDeletionRepositoriesTest {
     }
 
     @Test
-    void tradeCancelPending_setsCancelledOnlyOnThisLeaguesPendingTradesOfTheUser() {
+    void tradeCancelPending_setsCancelledOnEveryPendingTradeOfTheUser() {
+        // En todas sus ligas, también en las que ya dejó (salir o ser expulsado no los cancela).
         Instant at = Instant.parse("2026-10-18T10:00:00Z");
 
-        new TradeRepositoryImpl(mongoTemplate).cancelPending("l1", "ash", at);
+        new TradeRepositoryImpl(mongoTemplate).cancelPending("ash", at);
 
         verify(mongoTemplate).updateMulti(query.capture(), update.capture(), eq(TradeEntity.class));
         Document q = query.getValue().getQueryObject();
-        assertThat(q.get("leagueId")).isEqualTo("l1");
+        assertThat(q.containsKey("leagueId")).isFalse();
         assertThat(q.get("status")).isEqualTo(TradeStatus.PENDING);
         assertThat(q.getList("$or", Document.class))
                 .containsExactlyInAnyOrder(new Document("proposer", "ash"), new Document("responder", "ash"));
@@ -98,11 +99,11 @@ class AccountDeletionRepositoriesTest {
     }
 
     @Test
-    void tradeAnonymizeUser_rewritesProposerAndResponderInThatLeague() {
-        new TradeRepositoryImpl(mongoTemplate).anonymizeUser("l1", "ash", "Usuario eliminado");
+    void tradeAnonymizeUser_rewritesProposerAndResponderEverywhere() {
+        new TradeRepositoryImpl(mongoTemplate).anonymizeUser("ash", GONE);
 
         verify(mongoTemplate, times(2)).updateMulti(query.capture(), update.capture(), eq(TradeEntity.class));
-        assertRewrites("proposer", "responder");
+        assertFlatRewrites("proposer", "responder");
     }
 
     @Test
@@ -114,22 +115,73 @@ class AccountDeletionRepositoriesTest {
     }
 
     @Test
-    void activityAnonymizeUser_rewritesActorAndTargetInThatLeague() {
-        new ActivityEventMongoRepository(mongoTemplate).anonymizeUser("l1", "ash", "Usuario eliminado");
+    void activityAnonymizeUser_rewritesActorAndTargetEverywhere() {
+        new ActivityEventMongoRepository(mongoTemplate).anonymizeUser("ash", GONE);
 
         verify(mongoTemplate, times(2))
                 .updateMulti(query.capture(), update.capture(), eq(ActivityEventEntity.class), eq("activity_events"));
-        assertRewrites("actorUsername", "targetUsername");
+        assertFlatRewrites("actorUsername", "targetUsername");
     }
 
-    private void assertRewrites(String... fields) {
+    @Test
+    void leagueAnonymizeUser_rewritesCreatedBy() {
+        new LeagueRepositoryImpl(mongoTemplate).anonymizeUser("ash", GONE);
+
+        verify(mongoTemplate).updateMulti(query.capture(), update.capture(), eq(LeagueEntity.class));
+        assertFlatRewrites("createdBy");
+    }
+
+    @Test
+    void closedListAnonymizeUser_rewritesNominatedBy() {
+        new ClosedListRepositoryImpl(mongoTemplate).anonymizeUser("ash", GONE);
+
+        verify(mongoTemplate).updateMulti(query.capture(), update.capture(), eq(ClosedListEntity.class));
+        assertFlatRewrites("nominatedBy");
+    }
+
+    @Test
+    void scheduleAnonymizeUser_rewritesBothPlayersAndTheWinnerInEveryMatch() {
+        new ScheduleRepositoryImpl(mongoTemplate).anonymizeUser("ash", GONE);
+
+        verify(mongoTemplate, times(3)).updateMulti(query.capture(), update.capture(), eq(ScheduleEntity.class));
+        assertArrayRewrites(
+                new String[] {"jornadas.matches.player1", "jornadas.matches.player2", "jornadas.matches.winnerUsername"},
+                new String[] {"jornadas.$[].matches.$[m].player1", "jornadas.$[].matches.$[m].player2",
+                        "jornadas.$[].matches.$[m].winnerUsername"},
+                new String[] {"m.player1", "m.player2", "m.winnerUsername"});
+    }
+
+    @Test
+    void draftAnonymizeUser_rewritesPicksHistoryAndTurnOrder() {
+        new DraftRepositoryImpl(mongoTemplate).anonymizeUser("ash", GONE);
+
+        verify(mongoTemplate, times(3)).updateMulti(query.capture(), update.capture(), eq(DraftEntity.class));
+        assertArrayRewrites(
+                new String[] {"picks.username", "draftHistory.username", "turnOrder"},
+                new String[] {"picks.$[p].username", "draftHistory.$[p].username", "turnOrder.$[t]"},
+                new String[] {"p.username", "p.username", "t"});
+    }
+
+    private static final String GONE = "Usuario eliminado";
+
+    private void assertFlatRewrites(String... fields) {
         List<Query> queries = query.getAllValues();
         List<Update> updates = update.getAllValues();
         for (int i = 0; i < fields.length; i++) {
-            assertThat(queries.get(i).getQueryObject())
-                    .isEqualTo(new Document("leagueId", "l1").append(fields[i], "ash"));
-            assertThat(updates.get(i).getUpdateObject())
-                    .isEqualTo(new Document("$set", new Document(fields[i], "Usuario eliminado")));
+            assertThat(queries.get(i).getQueryObject()).isEqualTo(new Document(fields[i], "ash"));
+            assertThat(updates.get(i).getUpdateObject().get("$set", Document.class))
+                    .isEqualTo(new Document(fields[i], GONE));
+        }
+    }
+
+    private void assertArrayRewrites(String[] queried, String[] set, String[] filtered) {
+        List<Query> queries = query.getAllValues();
+        List<Update> updates = update.getAllValues();
+        for (int i = 0; i < queried.length; i++) {
+            assertThat(queries.get(i).getQueryObject()).isEqualTo(new Document(queried[i], "ash"));
+            assertThat(updates.get(i).getUpdateObject().get("$set", Document.class)).isEqualTo(new Document(set[i], GONE));
+            assertThat(updates.get(i).getArrayFilters()).extracting(f -> f.asDocument())
+                    .containsExactly(new Document(filtered[i], "ash"));
         }
     }
 }

@@ -19,4 +19,7 @@ public interface DraftRepository {
 
     /** Todos los drafts de la liga, completos (sin proyección): para modificarlos y guardarlos. */
     List<DraftEntity> findAllByLeagueId(String leagueId);
+
+    /** Cambia 'username' por 'replacement' en picks, historial y orden de turnos de todos los drafts. */
+    void anonymizeUser(String username, String replacement);
 }

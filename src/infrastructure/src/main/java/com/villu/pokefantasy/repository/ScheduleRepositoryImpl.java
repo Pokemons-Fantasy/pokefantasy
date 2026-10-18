@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -44,5 +45,16 @@ public class ScheduleRepositoryImpl implements ScheduleRepository {
     @Override
     public void deleteByLeagueId(String leagueId) {
         mongoTemplate.remove(Query.query(Criteria.where("leagueId").is(leagueId)), ScheduleEntity.class);
+    }
+
+    /** Partidos anidados en jornadas: arrayFilters para tocar solo los de ese usuario. */
+    @Override
+    public void anonymizeUser(String username, String replacement) {
+        for (String field : new String[] {"player1", "player2", "winnerUsername"}) {
+            mongoTemplate.updateMulti(Query.query(Criteria.where("jornadas.matches." + field).is(username)),
+                    new Update().set("jornadas.$[].matches.$[m]." + field, replacement)
+                            .filterArray(Criteria.where("m." + field).is(username)).inc("version", 1),
+                    ScheduleEntity.class);
+        }
     }
 }

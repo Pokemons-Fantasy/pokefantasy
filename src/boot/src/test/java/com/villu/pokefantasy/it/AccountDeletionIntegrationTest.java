@@ -2,12 +2,14 @@ package com.villu.pokefantasy.it;
 
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueRole;
+import com.villu.pokefantasy.dto.MatchStatus;
 import com.villu.pokefantasy.dto.TradeStatus;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
 import com.villu.pokefantasy.repository.entity.DraftPick;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import com.villu.pokefantasy.repository.entity.LeagueMember;
 import com.villu.pokefantasy.dto.LeagueSettings;
+import com.villu.pokefantasy.repository.entity.ScheduleEntity;
 import com.villu.pokefantasy.repository.entity.TradeEntity;
 import com.villu.pokefantasy.repository.entity.UserEntity;
 import org.junit.jupiter.api.Test;
@@ -78,6 +80,36 @@ class AccountDeletionIntegrationTest extends IntegrationTest {
         assertThat(mongoTemplate.findOne(Query.query(Criteria.where("name").is("ash")), UserEntity.class)).isNull();
         assertThat(client().post("/v1/user/login", "{\"username\":\"ash\",\"password\":\"" + PASSWORD + "\"}")
                 .statusCode()).isEqualTo(401);
+    }
+
+    @Test
+    void deleteAccount_anonymizesLeaguesHeAlreadyLeft() throws Exception {
+        // ash creó la liga x, jugó y propuso un trade, y luego salió: nada de eso puede seguir con su nombre.
+        ApiClient ash = client().loggedInAs("ash", PASSWORD);
+        client().loggedInAs("misty", "staryu123");
+        league("x", member("misty", LeagueRole.ADMIN));
+        mongoTemplate.updateFirst(Query.query(Criteria.where("_id").is("x")),
+                new org.springframework.data.mongodb.core.query.Update().set("createdBy", "ash"), LeagueEntity.class);
+        mongoTemplate.insert(TradeEntity.builder().id("tx").leagueId("x").proposer("ash").responder("misty")
+                .proposerPokemonName("pikachu").proposerPokemonId(25).responderPokemonName("staryu")
+                .responderPokemonId(120).coinsOffered(0).status(TradeStatus.PENDING).createdAt(Instant.now()).build());
+        ScheduleEntity schedule = new ScheduleEntity();
+        schedule.setLeagueId("x");
+        schedule.setJornadas(new ArrayList<>(List.of(new ScheduleEntity.Jornada(1, new ArrayList<>(List.of(
+                new ScheduleEntity.Match("m1", "ash", "misty", "ash", MatchStatus.COMPLETED))), null))));
+        mongoTemplate.insert(schedule);
+
+        assertThat(ash.delete("/v1/users/me", BODY).statusCode()).isEqualTo(204);
+
+        TradeEntity trade = mongoTemplate.findById("tx", TradeEntity.class);
+        assertThat(trade.getStatus()).isEqualTo(TradeStatus.CANCELLED);
+        assertThat(trade.getProposer()).isEqualTo("Usuario eliminado");
+        ScheduleEntity.Match match = mongoTemplate.findOne(Query.query(Criteria.where("leagueId").is("x")),
+                ScheduleEntity.class).getJornadas().getFirst().getMatches().getFirst();
+        assertThat(match.getPlayer1()).isEqualTo("Usuario eliminado");
+        assertThat(match.getPlayer2()).isEqualTo("misty");
+        assertThat(match.getWinnerUsername()).isEqualTo("Usuario eliminado");
+        assertThat(mongoTemplate.findById("x", LeagueEntity.class).getCreatedBy()).isEqualTo("Usuario eliminado");
     }
 
     @Test

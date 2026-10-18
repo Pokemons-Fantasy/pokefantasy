@@ -39,6 +39,17 @@ public class UserSseEmitterRegistry implements RealtimeEventPort.Listener {
         return emitter;
     }
 
+    /**
+     * Cierra y olvida las conexiones de un usuario (cuenta borrada): si no, sus pestañas abiertas recibirían los
+     * eventos de quien registre después ese nombre. Solo las de esta instancia (Render corre una).
+     */
+    public void closeAll(String username) {
+        List<SseEmitter> list = emitters.remove(username);
+        if (list != null) {
+            list.forEach(SseEmitter::complete);
+        }
+    }
+
     /** Entrega local de los eventos de usuario; para emitir uno usa {@link RealtimeNotifier}. */
     @Override
     public void onEvent(RealtimeEventPort.RealtimeEvent event) {

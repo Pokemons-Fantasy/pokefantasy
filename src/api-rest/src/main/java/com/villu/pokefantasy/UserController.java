@@ -89,7 +89,11 @@ public class UserController {
     public ResponseEntity<Void> deleteAccount(@AuthenticationPrincipal UserDetails userDetails,
                                               @RequestBody DeleteAccountRequest body,
                                               HttpServletResponse response) throws Exception {
-        List<String> leagues = userFacade.deleteAccount(userDetails.getUsername(), body.getPassword());
+        String username = userDetails.getUsername();
+        List<String> leagues = userFacade.deleteAccount(username, body.getPassword());
+        // Ya confirmada la transacción: corta un refresh emitido por un login simultáneo y las pestañas abiertas.
+        userFacade.revokeSessions(username);
+        userSseRegistry.closeAll(username);
         leagues.forEach(realtimeNotifier::draftUpdated);
         response.addHeader(HttpHeaders.SET_COOKIE, AuthCookies.clear(AuthCookies.ACCESS));
         response.addHeader(HttpHeaders.SET_COOKIE, AuthCookies.clear(AuthCookies.REFRESH));

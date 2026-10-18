@@ -19,11 +19,8 @@ import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.ScheduleRepository;
 import com.villu.pokefantasy.repository.TradeRepository;
 import com.villu.pokefantasy.repository.UserRepository;
-import com.villu.pokefantasy.repository.entity.DraftEntity;
-import com.villu.pokefantasy.repository.entity.DraftPick;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import com.villu.pokefantasy.repository.entity.LeagueMember;
-import com.villu.pokefantasy.repository.entity.ScheduleEntity;
 import com.villu.pokefantasy.repository.entity.UserEntity;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.stereotype.Service;
@@ -103,6 +100,15 @@ public class DeleteAccountCommandHandler implements CommandHandler<DeleteAccount
             }
         }
 
+        // Sin filtrar por liga: también en las que ya dejó (salir o ser expulsado no anonimiza ni cancela nada).
+        tradeRepository.cancelPending(username, Instant.now());
+        tradeRepository.anonymizeUser(username, DeletedUser.NAME);
+        activityEventRepository.anonymizeUser(username, DeletedUser.NAME);
+        scheduleRepository.anonymizeUser(username, DeletedUser.NAME);
+        draftRepository.anonymizeUser(username, DeletedUser.NAME);
+        closedListRepository.anonymizeUser(username, DeletedUser.NAME);
+        leagueRepository.anonymizeUser(username, DeletedUser.NAME);
+
         avatarRepository.deleteByUsername(username);
         // Dentro de la transacción, como al cambiar la contraseña: si Mongo fallase después, solo habría que
         // volver a entrar.
@@ -138,78 +144,15 @@ public class DeleteAccountCommandHandler implements CommandHandler<DeleteAccount
     }
 
     private void leaveLeague(LeagueEntity league, String username) {
-        String leagueId = league.getId();
         leagueMemberRemoval.remove(league, username);
-
         // Se relee: removeMember actualiza el documento en Mongo, no la entidad cargada.
-        leagueRepository.findById(leagueId).ifPresent(updated -> {
+        leagueRepository.findById(league.getId()).ifPresent(updated -> {
             List<LeagueMember> members = updated.getMembers();
             if (!members.isEmpty() && members.stream().noneMatch(m -> m.getLeagueRole() == LeagueRole.ADMIN)) {
                 members.get(0).setLeagueRole(LeagueRole.ADMIN);
-            }
-            if (username.equals(updated.getCreatedBy())) {
-                updated.setCreatedBy(DeletedUser.NAME);
-            }
-            leagueRepository.save(updated);
-        });
-
-        tradeRepository.cancelPending(leagueId, username, Instant.now());
-        tradeRepository.anonymizeUser(leagueId, username, DeletedUser.NAME);
-        activityEventRepository.anonymizeUser(leagueId, username, DeletedUser.NAME);
-        anonymizeSchedule(leagueId, username);
-        anonymizeDrafts(leagueId, username);
-        closedListRepository.findAllByLeagueId(leagueId).stream()
-                .filter(entry -> username.equals(entry.getNominatedBy()))
-                .forEach(entry -> {
-                    entry.setNominatedBy(DeletedUser.NAME);
-                    closedListRepository.save(entry);
-                });
-    }
-
-    private void anonymizeSchedule(String leagueId, String username) {
-        scheduleRepository.findByLeagueId(leagueId).ifPresent(schedule -> {
-            boolean changed = false;
-            for (ScheduleEntity.Jornada jornada : schedule.getJornadas()) {
-                for (ScheduleEntity.Match match : jornada.getMatches()) {
-                    if (username.equals(match.getPlayer1())) { match.setPlayer1(DeletedUser.NAME); changed = true; }
-                    if (username.equals(match.getPlayer2())) { match.setPlayer2(DeletedUser.NAME); changed = true; }
-                    if (username.equals(match.getWinnerUsername())) {
-                        match.setWinnerUsername(DeletedUser.NAME);
-                        changed = true;
-                    }
-                }
-            }
-            if (changed) {
-                scheduleRepository.save(schedule);
+                leagueRepository.save(updated);
             }
         });
-    }
-
-    private void anonymizeDrafts(String leagueId, String username) {
-        for (DraftEntity draft : draftRepository.findAllByLeagueId(leagueId)) {
-            boolean changed = anonymizePicks(draft.getPicks(), username)
-                    | anonymizePicks(draft.getDraftHistory(), username);
-            if (draft.getTurnOrder() != null && draft.getTurnOrder().contains(username)) {
-                draft.getTurnOrder().replaceAll(name -> username.equals(name) ? DeletedUser.NAME : name);
-                changed = true;
-            }
-            if (changed) {
-                draftRepository.save(draft);
-            }
-        }
-    }
-
-    private static boolean anonymizePicks(List<DraftPick> picks, String username) {
-        boolean changed = false;
-        if (picks != null) {
-            for (DraftPick pick : picks) {
-                if (username.equals(pick.getUsername())) {
-                    pick.setUsername(DeletedUser.NAME);
-                    changed = true;
-                }
-            }
-        }
-        return changed;
     }
 
     @Override

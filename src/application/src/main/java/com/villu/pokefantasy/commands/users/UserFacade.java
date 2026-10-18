@@ -5,6 +5,7 @@ import com.villu.pokefantasy.commands.users.avatar.GetAvatarCommand;
 import com.villu.pokefantasy.commands.users.avatar.UploadAvatarCommand;
 import com.villu.pokefantasy.commands.users.create.CreateUserCommand;
 import com.villu.pokefantasy.commands.users.delete.DeleteAccountCommand;
+import com.villu.pokefantasy.commands.users.delete.RevokeSessionsCommand;
 import com.villu.pokefantasy.commands.users.login.LoginResult;
 import com.villu.pokefantasy.commands.users.login.LoginUserCommand;
 import com.villu.pokefantasy.commands.users.logout.LogoutUserCommand;
@@ -58,6 +59,11 @@ public class UserFacade {
     /** Borra la cuenta. Devuelve las ligas que siguen existiendo, para avisar a sus miembros. */
     public List<String> deleteAccount(String username, String password) throws Exception {
         return mediator.send(new DeleteAccountCommand(username, password));
+    }
+
+    /** Tras borrar la cuenta, ya con la transacción confirmada: ver {@code RevokeSessionsCommandHandler}. */
+    public void revokeSessions(String username) throws Exception {
+        mediator.send(new RevokeSessionsCommand(username));
     }
 
     public void registerPushToken(String username, String token) throws Exception {

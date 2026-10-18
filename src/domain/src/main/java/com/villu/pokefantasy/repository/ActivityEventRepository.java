@@ -15,6 +15,6 @@ public interface ActivityEventRepository {
 
     void deleteByLeagueId(String leagueId);
 
-    /** Cambia 'username' por 'replacement' como actor y como objetivo en los eventos de esa liga. */
-    void anonymizeUser(String leagueId, String username, String replacement);
+    /** Cambia 'username' por 'replacement' como actor y como objetivo, en cualquier liga. */
+    void anonymizeUser(String username, String replacement);
 }

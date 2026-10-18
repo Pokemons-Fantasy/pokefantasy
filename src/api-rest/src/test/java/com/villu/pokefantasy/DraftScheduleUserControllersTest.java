@@ -243,6 +243,7 @@ class DraftScheduleUserControllersTest extends ControllerTestSupport {
     @Test
     void deleteAccount_returns204ClearsCookiesAndNotifiesLeagues() throws Exception {
         when(userFacade.deleteAccount(ME, "pikachu123")).thenReturn(java.util.List.of("l1"));
+        userRegistry.register(ME); // otra pestaña con el SSE de usuario abierto
 
         MvcResult result = mvc.perform(json(delete("/v1/users/me"), "{\"password\":\"pikachu123\"}"))
                 .andExpect(status().isNoContent()).andReturn();
@@ -251,6 +252,8 @@ class DraftScheduleUserControllersTest extends ControllerTestSupport {
                 .anySatisfy(c -> assertThat(c).startsWith("jwt=;").contains("Max-Age=0"))
                 .anySatisfy(c -> assertThat(c).startsWith("refresh=;").contains("Max-Age=0"));
         verify(notifier).draftUpdated("l1");
+        verify(userFacade).revokeSessions(ME);
+        assertThat(userRegistry.connectionCount(ME)).isZero();
     }
 
     @Test
