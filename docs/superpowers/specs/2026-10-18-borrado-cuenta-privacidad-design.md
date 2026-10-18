@@ -89,7 +89,7 @@ Todo cambio en una liga pasa por el `@Version` de las entidades (regla 6).
   - Sprites desde la CDN de GitHub.
   - Derechos (acceso, rectificación, supresión con el botón de borrar cuenta, oposición, portabilidad) y reclamación ante la AEPD.
   - Edad mínima: 14 años.
-- **`src/legal.ts`:** `LEGAL_CONTROLLER` y `LEGAL_CONTACT_EMAIL`, un único sitio para los datos de contacto. Los usan `/privacy` y `/about`.
+- **`src/legal.ts`** (ya existe, front #127): `/privacy` usa `LEGAL_CONTROLLER` y `LEGAL_CONTACT_EMAIL`.
 - **Enlaces a privacidad:** en `FanDisclaimer` (login y registro), en `/about` y en Mi perfil.
 
 ### Responsable y contacto
@@ -97,7 +97,7 @@ Todo cambio en una liga pasa por el `@Version` de las entidades (regla 6).
 - Responsable: **Adrian Rafael Rego Rodriguez**.
 - Contacto: **villuprise@gmail.com**.
 
-Van en `src/legal.ts` (`LEGAL_CONTROLLER`, `LEGAL_CONTACT_EMAIL`). `legal.test.ts` comprueba que no estén en blanco. `/about` también muestra el contacto (L4, front #127, que se publicó sin él).
+Ya están en `src/legal.ts` (`LEGAL_CONTROLLER`, `LEGAL_CONTACT_EMAIL`) desde front #127, con `legal.test.ts` y el contacto en `/about`. L2 solo los reutiliza en `/privacy`.
 
 ## Compatibilidad
 
@@ -133,7 +133,7 @@ Van en `src/legal.ts` (`LEGAL_CONTROLLER`, `LEGAL_CONTACT_EMAIL`). `legal.test.t
 - `DeleteAccountModal`: pide la contraseña, llama a `deleteAccount`, cierra la sesión y navega; un error se muestra sin cerrar.
 - `RegisterPage`: no envía sin la casilla marcada.
 - `PrivacyPage`: muestra responsable, contacto, encargados y el enlace a borrar cuenta.
-- `legal.test.ts`.
+- (`legal.test.ts` ya existe.)
 
 ## Fuera de alcance
 
