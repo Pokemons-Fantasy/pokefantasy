@@ -2,6 +2,7 @@ package com.villu.pokefantasy.commands.league;
 
 import com.villu.pokefantasy.dto.LeagueRole;
 import com.villu.pokefantasy.dto.LeagueStatus;
+import com.villu.pokefantasy.league.LeagueNamePolicy;
 import com.villu.pokefantasy.mediator.CommandHandler;
 import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
@@ -25,9 +26,7 @@ public class CreateLeagueCommandHandler implements CommandHandler<CreateLeagueCo
 
     @Override
     public String handle(CreateLeagueCommand command) {
-        if (command.name() == null || command.name().isBlank()) {
-            throw new IllegalArgumentException("Indica el nombre de la liga.");
-        }
+        String name = LeagueNamePolicy.normalize(command.name());
         if (command.creatorUsername() == null || command.creatorUsername().isBlank()) {
             throw new IllegalArgumentException("Falta el usuario que crea la liga.");
         }
@@ -37,7 +36,7 @@ public class CreateLeagueCommandHandler implements CommandHandler<CreateLeagueCo
         }
 
         LeagueEntity league = new LeagueEntity();
-        league.setName(command.name());
+        league.setName(name);
         league.setCreatedBy(command.creatorUsername());
         league.setStatus(LeagueStatus.SETUP);
         league.setMembers(new ArrayList<>(List.of(new LeagueMember(command.creatorUsername(), LeagueRole.ADMIN, 0))));

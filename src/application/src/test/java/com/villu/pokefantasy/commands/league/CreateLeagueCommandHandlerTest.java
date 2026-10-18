@@ -54,7 +54,7 @@ class CreateLeagueCommandHandlerTest {
     void handle_blankName_throwsIllegalArgument() {
         assertThatThrownBy(() -> handler.handle(new CreateLeagueCommand("  ", "ash")))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Indica el nombre de la liga");
+                .hasMessage("El nombre de la liga debe tener entre 1 y 40 caracteres.");
     }
 
     @Test
@@ -95,5 +95,25 @@ class CreateLeagueCommandHandlerTest {
     @Test
     void commandType_returnsCorrectClass() {
         assertThat(handler.commandType()).isEqualTo(CreateLeagueCommand.class);
+    }
+
+    @Test
+    void handle_trimsTheName() {
+        LeagueEntity saved = new LeagueEntity();
+        saved.setId("l1");
+        when(leagueRepository.save(any())).thenReturn(saved);
+
+        handler.handle(new CreateLeagueCommand("  Kanto  ", "ash"));
+
+        ArgumentCaptor<LeagueEntity> captor = ArgumentCaptor.forClass(LeagueEntity.class);
+        org.mockito.Mockito.verify(leagueRepository).save(captor.capture());
+        assertThat(captor.getValue().getName()).isEqualTo("Kanto");
+    }
+
+    @Test
+    void handle_tooLongName_isRejected() {
+        assertThatThrownBy(() -> handler.handle(new CreateLeagueCommand("x".repeat(41), "ash")))
+                .isInstanceOf(IllegalArgumentException.class);
+        org.mockito.Mockito.verify(leagueRepository, org.mockito.Mockito.never()).save(any());
     }
 }
