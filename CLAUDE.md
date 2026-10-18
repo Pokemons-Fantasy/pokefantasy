@@ -110,6 +110,7 @@ api-rest ─► application ─► domain ◄─ infrastructure ─► MongoDB A
 | Emitir SSE (vía Redis Pub/Sub) | `RealtimeNotifier` (api-rest) |
 | Enviar push | `PushNotificationPort` |
 | Sesión (JWT + refresh), límite de login | `JwtAuthFilter` + `AuthCookies` + `RefreshTokenPort`, `LoginAttemptPort` |
+| IP real del cliente (nunca `X-Forwarded-For`) | `ClientIpFilter` + `ProxySignaturePort` (proxy firmado de Netlify) |
 | Excepción → HTTP (`ProblemDetail`) | `ApiExceptionHandler` |
 | Índices / migraciones de esquema | `MongoIndexInitializer` / clases `*Migration` |
 | Caché de Pokémon | `PokemonCacheLoader` |
@@ -200,13 +201,14 @@ También parar ante: cambios de contrato de la API que rompan al front actual, m
 | `BadCredentialsException` | 401 | `INVALID_CREDENTIALS` |
 | `AuthenticationException` (sin sesión, desde el entry point de `SecurityConfig`) | 401 | `UNAUTHENTICATED` |
 | `ForbiddenOperationException` | 403 | `FORBIDDEN` |
+| `CsrfException` (escritura con cookie de sesión sin `X-Requested-With`, desde `SecurityConfig`) | 403 | `CSRF_REJECTED` |
 | `IllegalStateException` / `StaleOperationException` (confirma y luego 409) | 409 | `CONFLICT` |
 | `OptimisticLockingFailureException` | 409 | `CONCURRENT_MODIFICATION` |
 | `DuplicateKeyException` | 409 | `DUPLICATE` |
 | `TooManyAttemptsException` | 429 | `TOO_MANY_ATTEMPTS` |
 | `Exception` | 500 | `INTERNAL_ERROR` |
 
-**Seguridad**: sesión por cookies httpOnly (JWT 15 min + refresh en Redis). Públicos solo los de `SecurityConfig.PUBLIC_PATHS` + OpenAPI. CORS en `SecurityConfig.corsConfigurationSource()`: orígenes exactos (web, deploy previews por regex, Android, localhost); nunca comodines de hosting compartido como `*.netlify.app` (con credenciales, cualquier sitio de ahí usaría la sesión de la víctima). Si se añade un dominio propio, actualizarlo. Detalle en `vault/20 Arquitectura/Seguridad y auth.md`.
+**Seguridad**: sesión por cookies httpOnly (JWT 15 min + refresh en Redis). Públicos solo los de `SecurityConfig.PUBLIC_PATHS` + OpenAPI. CORS en `SecurityConfig.corsConfigurationSource()`: orígenes exactos (web, deploy previews por regex, Android, localhost); nunca comodines de hosting compartido como `*.netlify.app` (con credenciales, cualquier sitio de ahí usaría la sesión de la víctima). Si se añade un dominio propio, actualizarlo. CSRF activo (nunca `csrf.disable()`): las escrituras con cookie de sesión exigen la cabecera `X-Requested-With` (`CsrfHeaderRequestMatcher`, ADR-018); cualquier cliente con cookies tiene que mandarla. Detalle en `vault/20 Arquitectura/Seguridad y auth.md`.
 
 ## Tests
 
@@ -225,4 +227,4 @@ Gate JaCoCo 80 % (instrucciones y ramas) en `application`, `infrastructure` y `a
 
 ## Cambios que afectan al frontend
 
-Las reglas del front están en `C:\PokeFantasy\pokefantasy-web\CLAUDE.md`. Desde el backend basta con recordar: **tras cambiar un DTO, enum o endpoint**, en el front `npm run api:spec` → `npm run api:types`, commitear `openapi.json` y `src/api/schema.d.ts`, y arreglar `src/api/contract.ts` si `tsc` falla.
+Las reglas del front están en `C:\PokeFantasy\pokefantasy-web\CLAUDE.md`. Desde el backend basta con recordar: **tras cambiar un DTO, enum o endpoint**, con el back arrancado con `API_DOCS_ENABLED=true` (Swagger y `/v3/api-docs` están apagados por defecto), en el front `npm run api:spec` → `npm run api:types`, commitear `openapi.json` y `src/api/schema.d.ts`, y arreglar `src/api/contract.ts` si `tsc` falla.

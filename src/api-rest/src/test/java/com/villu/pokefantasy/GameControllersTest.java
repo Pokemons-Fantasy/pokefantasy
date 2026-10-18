@@ -5,6 +5,7 @@ import com.villu.pokefantasy.commands.closedlist.ClosedListFacade;
 import com.villu.pokefantasy.commands.pokemons.PokemonFacade;
 import com.villu.pokefantasy.commands.steal.StealFacade;
 import com.villu.pokefantasy.commands.trade.TradeFacade;
+import com.villu.pokefantasy.dto.Tier;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -67,7 +68,13 @@ class GameControllersTest extends ControllerTestSupport {
         mvc.perform(delete("/v1/leagues/l1/closed-list/nominate/mew")).andExpect(status().isOk());
         verify(closedListFacade).denominate(ME, "mew", "l1");
 
+        mvc.perform(json(put("/v1/leagues/l1/closed-list/tiers"), "{\"entryIds\":[\"e1\",\"e2\"],\"tier\":\"A\"}"))
+                .andExpect(status().isOk());
+        verify(closedListFacade).assignTiers(List.of("e1", "e2"), Tier.A, "l1", ME);
+
         mvc.perform(json(put("/v1/leagues/l1/closed-list/e1/tier"), "{\"tier\":\"S\"}")).andExpect(status().isOk());
+        verify(closedListFacade).assignTiers(List.of("e1"), Tier.S, "l1", ME);
+
         mvc.perform(get("/v1/leagues/l1/closed-list")).andExpect(status().isOk());
         verify(closedListFacade).getClosedList("l1", ME);
     }

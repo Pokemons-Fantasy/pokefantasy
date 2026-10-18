@@ -2,6 +2,7 @@ package com.villu.pokefantasy;
 
 import com.villu.pokefantasy.commands.closedlist.ClosedListFacade;
 import com.villu.pokefantasy.request.closedlist.AssignTierRequest;
+import com.villu.pokefantasy.request.closedlist.AssignTiersRequest;
 import com.villu.pokefantasy.request.closedlist.NominatePokemonRequest;
 import com.villu.pokefantasy.response.ClosedListEntryResponse;
 import com.villu.pokefantasy.response.TierAdjustmentResponse;
@@ -38,12 +39,20 @@ public class ClosedListController {
         return ResponseEntity.ok().build();
     }
 
+    @PutMapping("/tiers")
+    public ResponseEntity<TierAdjustmentResponse> assignTiers(@PathVariable String leagueId,
+                                                               @AuthenticationPrincipal UserDetails userDetails,
+                                                               @RequestBody AssignTiersRequest request) throws Exception {
+        return ResponseEntity.ok(closedListFacade.assignTiers(request.getEntryIds(), request.getTier(), leagueId, userDetails.getUsername()));
+    }
+
+    /** Un solo Pokémon: lo siguen llamando las versiones de la app anteriores a la selección múltiple. */
     @PutMapping("/{entryId}/tier")
     public ResponseEntity<TierAdjustmentResponse> assignTier(@PathVariable String leagueId,
                                                               @PathVariable String entryId,
                                                               @AuthenticationPrincipal UserDetails userDetails,
                                                               @RequestBody AssignTierRequest request) throws Exception {
-        return ResponseEntity.ok(closedListFacade.assignTier(entryId, request.getTier(), leagueId, userDetails.getUsername()));
+        return ResponseEntity.ok(closedListFacade.assignTiers(List.of(entryId), request.getTier(), leagueId, userDetails.getUsername()));
     }
 
     @GetMapping

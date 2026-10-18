@@ -303,6 +303,29 @@ class DraftPickCommandHandlerTest {
     }
 
     @Test
+    void handle_lastPickWithSeasonStartDate_datesEveryJornada() {
+        // Sin fechas las jornadas no tienen cierre y el mercado queda abierto hasta que hay resultados
+        DraftEntity draft = activeDraft(List.of(USERNAME), 0, 10, new ArrayList<>());
+        LeagueEntity league = new LeagueEntity();
+        league.setId(LEAGUE_ID);
+        league.setSettings(LeagueSettings.builder().seasonStartDate("2026-10-10").build());
+
+        when(draftRepository.findActiveByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+        when(userRepository.findByUsername(USERNAME)).thenReturn(new UserEntity());
+        when(closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(POKEMON, LEAGUE_ID))
+                .thenReturn(Optional.of(closedListEntry(POKEMON, 25)));
+        when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
+
+        handler.handle(new DraftPickCommand(USERNAME, POKEMON, LEAGUE_ID));
+
+        ArgumentCaptor<ScheduleEntity> scheduleCaptor = ArgumentCaptor.forClass(ScheduleEntity.class);
+        verify(scheduleRepository).save(scheduleCaptor.capture());
+        assertThat(scheduleCaptor.getValue().getJornadas())
+                .extracting(ScheduleEntity.Jornada::getStartDate)
+                .containsExactly("2026-10-10", "2026-10-17");
+    }
+
+    @Test
     void handle_endOfRoundNotLastRound_incrementsRoundAndResetsIndex() {
         // 1 player, round 3 → completing round wraps to round 4
         DraftEntity draft = activeDraft(List.of(USERNAME), 0, 3, new ArrayList<>());
@@ -352,6 +375,8 @@ class DraftPickCommandHandlerTest {
         // BYE match is excluded → 0 real matches per jornada (just 2 empty jornadas structure)
         // What matters is that the schedule is persisted for the league
         assertThat(savedSchedule.getJornadas()).hasSize(2);
+        // Sin seasonStartDate configurada, las jornadas quedan sin fecha
+        assertThat(savedSchedule.getJornadas()).allMatch(j -> j.getStartDate() == null);
     }
 
     @Test

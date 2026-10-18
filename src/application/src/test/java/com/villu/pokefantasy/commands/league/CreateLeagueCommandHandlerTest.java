@@ -14,6 +14,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -26,6 +28,26 @@ class CreateLeagueCommandHandlerTest {
     @BeforeEach
     void setUp() {
         handler = new CreateLeagueCommandHandler(leagueRepository);
+    }
+
+    @Test
+    void handle_userAtLeagueLimit_throwsConflict_andDoesNotSave() {
+        when(leagueRepository.countByCreatedBy("ash")).thenReturn(10L);
+
+        assertThatThrownBy(() -> handler.handle(new CreateLeagueCommand("Liga", "ash")))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Has llegado al máximo de 10 ligas creadas.");
+        verify(leagueRepository, never()).save(any());
+    }
+
+    @Test
+    void handle_userBelowLeagueLimit_createsLeague() {
+        when(leagueRepository.countByCreatedBy("ash")).thenReturn(9L);
+        LeagueEntity saved = new LeagueEntity();
+        saved.setId("l1");
+        when(leagueRepository.save(any())).thenReturn(saved);
+
+        assertThat(handler.handle(new CreateLeagueCommand("Liga", "ash"))).isEqualTo("l1");
     }
 
     @Test

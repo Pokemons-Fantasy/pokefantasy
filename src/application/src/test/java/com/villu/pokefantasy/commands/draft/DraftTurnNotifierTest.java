@@ -14,6 +14,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -61,7 +62,7 @@ class DraftTurnNotifierTest {
         notifier.notifyCurrentTurn(draft, league);
 
         verify(pushNotificationPort).send(List.of("brock-phone"), PushMessage.draftTurn("l1", "¡Te toca en el draft!",
-                "Liga Kanto · ronda 3: elige tu Pokémon. Tienes 2 min."));
+                "Liga Kanto · ronda 3: elige tu Pokémon. Tienes 2 min.", Duration.ofSeconds(120)));
     }
 
     @Test
@@ -69,7 +70,7 @@ class DraftTurnNotifierTest {
         notifier.notifyCurrentTurn(draft, null);
 
         verify(pushNotificationPort).send(List.of("brock-phone"), PushMessage.draftTurn("l1", "¡Te toca en el draft!",
-                "Tu liga · ronda 3: elige tu Pokémon."));
+                "Tu liga · ronda 3: elige tu Pokémon.", DraftTurnNotifier.TTL_WITHOUT_TIMER));
     }
 
     @Test

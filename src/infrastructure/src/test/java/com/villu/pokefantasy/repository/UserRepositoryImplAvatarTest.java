@@ -68,4 +68,15 @@ class UserRepositoryImplAvatarTest {
         assertThat(query.getValue().getQueryObject()).isEqualTo(new Document("name", "ash").append("fcmTokens", "tok-1"));
         assertThat(update.getValue().getUpdateObject().get("$pull", Document.class)).containsEntry("fcmTokens", "tok-1");
     }
+
+    @Test
+    void existsByUsernameIgnoreCase_queriesTheLowercaseName() {
+        when(mongoTemplate.exists(any(Query.class), eq(UserEntity.class))).thenReturn(true);
+
+        assertThat(repository.existsByUsernameIgnoreCase("Lobon")).isTrue();
+
+        ArgumentCaptor<Query> query = ArgumentCaptor.forClass(Query.class);
+        verify(mongoTemplate).exists(query.capture(), eq(UserEntity.class));
+        assertThat(query.getValue().getQueryObject()).isEqualTo(new Document("nameLower", "lobon"));
+    }
 }

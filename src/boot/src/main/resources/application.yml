@@ -67,3 +67,14 @@ sentry:
 pokefantasy:
   # Web (Netlify) a la que llevan los avisos push en el navegador. En local, WEB_URL=http://localhost:5173
   web-url: ${WEB_URL:https://pokefantasy.netlify.app}
+  # Secreto del proxy firmado de Netlify (API_SIGNATURE_TOKEN en Netlify): con él, la IP del cliente de la web
+  # solo se acepta si la petición viene firmada (ClientIpFilter). Al menos 32 caracteres.
+  netlify-proxy-secret: ${NETLIFY_PROXY_SECRET:}
+
+# Swagger UI y /v3/api-docs apagados salvo API_DOCS_ENABLED=true (en local, para "npm run api:spec" del front;
+# la CI genera openapi.json en OpenApiIntegrationTest).
+springdoc:
+  api-docs:
+    enabled: ${API_DOCS_ENABLED:false}
+  swagger-ui:
+    enabled: ${API_DOCS_ENABLED:false}

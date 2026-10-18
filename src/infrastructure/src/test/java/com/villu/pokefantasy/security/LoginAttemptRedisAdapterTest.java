@@ -74,7 +74,7 @@ class LoginAttemptRedisAdapterTest {
         when(valueOps.increment(REDIS_KEY)).thenReturn(3L);
         when(redisTemplate.getExpire(REDIS_KEY)).thenReturn(600L);
 
-        adapter.recordFailure(KEY, WINDOW);
+        assertThat(adapter.recordFailure(KEY, WINDOW)).isEqualTo(3L);
 
         verify(redisTemplate, never()).expire(anyString(), any(Duration.class));
     }
@@ -94,7 +94,7 @@ class LoginAttemptRedisAdapterTest {
     void recordFailure_redisDown_doesNotThrow() {
         when(valueOps.increment(anyString())).thenThrow(new RedisConnectionFailureException("down"));
 
-        assertThatCode(() -> adapter.recordFailure(KEY, WINDOW)).doesNotThrowAnyException();
+        assertThat(adapter.recordFailure(KEY, WINDOW)).isZero();
     }
 
     @Test
@@ -109,5 +109,30 @@ class LoginAttemptRedisAdapterTest {
         when(redisTemplate.delete(anyString())).thenThrow(new RedisConnectionFailureException("down"));
 
         assertThatCode(() -> adapter.clearFailures(KEY)).doesNotThrowAnyException();
+    }
+
+    @Test
+    void markTrusted_storesTheKeyWithItsTtl() {
+        adapter.markTrusted("user:ash|1.2.3.4", Duration.ofDays(30));
+
+        verify(valueOps).set(LoginAttemptRedisAdapter.TRUSTED_PREFIX + "user:ash|1.2.3.4", "1", Duration.ofDays(30));
+    }
+
+    @Test
+    void isTrusted_readsTheKey() {
+        when(redisTemplate.hasKey(LoginAttemptRedisAdapter.TRUSTED_PREFIX + "user:ash|1.2.3.4")).thenReturn(true);
+
+        assertThat(adapter.isTrusted("user:ash|1.2.3.4")).isTrue();
+        assertThat(adapter.isTrusted("user:ash|9.9.9.9")).isFalse();
+    }
+
+    @Test
+    void trustedIps_redisDown_notTrustedAndNoException() {
+        when(redisTemplate.hasKey(anyString())).thenThrow(new RedisConnectionFailureException("down"));
+        org.mockito.Mockito.doThrow(new RedisConnectionFailureException("down"))
+                .when(valueOps).set(anyString(), anyString(), any(Duration.class));
+
+        assertThat(adapter.isTrusted("user:ash|1.2.3.4")).isFalse();
+        assertThatCode(() -> adapter.markTrusted("user:ash|1.2.3.4", Duration.ofDays(30))).doesNotThrowAnyException();
     }
 }

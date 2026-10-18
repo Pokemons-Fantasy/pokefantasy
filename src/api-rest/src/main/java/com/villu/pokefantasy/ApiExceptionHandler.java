@@ -15,6 +15,7 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.web.csrf.CsrfException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
@@ -33,6 +34,8 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
  * Los errores propios de Spring MVC (método no soportado, JSON mal formado, parámetro ausente, ruta
  * inexistente…) los resuelve {@link ResponseEntityExceptionHandler} con su código HTTP correcto
  * (405, 400, 404…) en vez de acabar como 500.
+ * <p>{@code IllegalArgumentException} e {@code IllegalStateException} llevan el texto que pusimos nosotros (el
+ * frontend lo enseña); si las lanzó una librería, su texto es interno y sale uno genérico ({@link #ownMessage}).
  */
 @RestControllerAdvice
 public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
@@ -59,6 +62,24 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.status(status).body(problem(status, code, detail));
     }
 
+    static final String GENERIC_BAD_REQUEST = "La petición no es válida.";
+    static final String GENERIC_CONFLICT = "No se puede hacer ahora mismo. Recarga e inténtalo de nuevo.";
+    static final String GENERIC_DUPLICATE = "Ya existe un registro con esos datos.";
+
+    /**
+     * El texto de la excepción si la lanzó nuestro código (el primer marco de la traza es de
+     * {@code com.villu.pokefantasy}); si no, {@code fallback}, y el original queda en el log.
+     */
+    static String ownMessage(RuntimeException exception, String fallback) {
+        StackTraceElement[] trace = exception.getStackTrace();
+        boolean ours = trace.length > 0 && trace[0].getClassName().startsWith("com.villu.pokefantasy.");
+        if (ours && exception.getMessage() != null) {
+            return exception.getMessage();
+        }
+        log.warn("Error de una librería, se responde con un texto genérico", exception);
+        return fallback;
+    }
+
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<ProblemDetail> handleBadCredentials() {
         return respond(HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS", "Usuario o contraseña incorrectos");
@@ -68,6 +89,12 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ProblemDetail> handleUnauthenticated() {
         return respond(HttpStatus.UNAUTHORIZED, "UNAUTHENTICATED", "Sesión no iniciada o caducada");
+    }
+
+    /** Escritura con cookie de sesión sin {@code X-Requested-With}: llega desde el CSRF de Spring Security. */
+    @ExceptionHandler(CsrfException.class)
+    public ResponseEntity<ProblemDetail> handleCsrf() {
+        return respond(HttpStatus.FORBIDDEN, "CSRF_REJECTED", "Petición rechazada: falta la cabecera X-Requested-With");
     }
 
     @ExceptionHandler(TooManyAttemptsException.class)
@@ -84,12 +111,12 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ProblemDetail> handleBadRequest(IllegalArgumentException exception) {
-        return respond(HttpStatus.BAD_REQUEST, "BAD_REQUEST", exception.getMessage());
+        return respond(HttpStatus.BAD_REQUEST, "BAD_REQUEST", ownMessage(exception, GENERIC_BAD_REQUEST));
     }
 
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<ProblemDetail> handleConflict(IllegalStateException exception) {
-        return respond(HttpStatus.CONFLICT, "CONFLICT", exception.getMessage());
+        return respond(HttpStatus.CONFLICT, "CONFLICT", ownMessage(exception, GENERIC_CONFLICT));
     }
 
     @ExceptionHandler(OptimisticLockingFailureException.class)
@@ -98,9 +125,11 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
                 "Otro jugador modificó los datos al mismo tiempo. Inténtalo de nuevo.");
     }
 
+    /** Siempre de Mongo (índice único): su texto lleva colecciones y valores. */
     @ExceptionHandler(DuplicateKeyException.class)
     public ResponseEntity<ProblemDetail> handleDuplicateKey(DuplicateKeyException exception) {
-        return respond(HttpStatus.CONFLICT, "DUPLICATE", exception.getMessage());
+        log.warn("Clave duplicada", exception);
+        return respond(HttpStatus.CONFLICT, "DUPLICATE", GENERIC_DUPLICATE);
     }
 
     @ExceptionHandler(ClientAbortException.class)

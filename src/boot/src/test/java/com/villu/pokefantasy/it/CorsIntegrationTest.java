@@ -48,4 +48,20 @@ class CorsIntegrationTest extends IntegrationTest {
                 .build();
         return HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
     }
+
+    @Test
+    void simplePostFromAnotherSite_isRejectedBeforeReachingTheController() throws Exception {
+        // Un formulario de otra web (sin preflight) con la sesión de la víctima: Spring lo corta por el Origin.
+        // Por eso las cookies pueden seguir con SameSite=None (la app Android llama desde otro sitio).
+        for (String origin : new String[] {"https://evil.example", "null"}) {
+            HttpResponse<String> response = HttpClient.newHttpClient().send(HttpRequest.newBuilder()
+                    .uri(URI.create("http://localhost:" + port + "/v1/leagues/invite/no-existe/redeem"))
+                    .header("Origin", origin)
+                    .header("Content-Type", "text/plain")
+                    .POST(HttpRequest.BodyPublishers.noBody())
+                    .build(), HttpResponse.BodyHandlers.ofString());
+
+            assertThat(response.statusCode()).as(origin).isEqualTo(403);
+        }
+    }
 }

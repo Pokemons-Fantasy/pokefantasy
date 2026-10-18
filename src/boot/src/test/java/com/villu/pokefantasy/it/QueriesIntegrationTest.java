@@ -1,6 +1,7 @@
 package com.villu.pokefantasy.it;
 
 import com.villu.pokefantasy.dto.TradeStatus;
+import com.villu.pokefantasy.migration.MongoIndexInitializer;
 import com.villu.pokefantasy.migration.UserNameLowerMigration;
 import com.villu.pokefantasy.repository.TradeRepository;
 import com.villu.pokefantasy.repository.UserRepository;
@@ -9,6 +10,8 @@ import com.villu.pokefantasy.repository.entity.UserEntity;
 import org.bson.Document;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.mongodb.core.index.Index;
 
 import java.time.Instant;
 import java.util.List;
@@ -22,12 +25,21 @@ class QueriesIntegrationTest extends IntegrationTest {
     @Autowired private UserRepository userRepository;
     @Autowired private TradeRepository tradeRepository;
     @Autowired private UserNameLowerMigration userNameLowerMigration;
+    @Autowired private MongoIndexInitializer mongoIndexInitializer;
 
     private void user(String name) {
         UserEntity user = new UserEntity();
         user.setName(name);
         user.setPassword("x");
         userRepository.saveUser(user);
+    }
+
+    @Test
+    void fcmTokens_keepOnlyTheNewestThree() {
+        user("ash");
+        List.of("a", "b", "c", "d").forEach(token -> userRepository.addFcmToken("ash", token, 3));
+
+        assertThat(userRepository.findByUsername("ash").getFcmTokens()).containsExactly("b", "c", "d");
     }
 
     @Test
@@ -87,5 +99,29 @@ class QueriesIntegrationTest extends IntegrationTest {
         user("ash");
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> user("ash"))
                 .isInstanceOf(org.springframework.dao.DuplicateKeyException.class);
+    }
+
+    @Test
+    void caseInsensitiveDuplicate_isRejectedByTheIndex() {
+        user("Lobon");
+
+        // Aunque se cuele la comprobación del registro (carrera), el índice único de nameLower lo impide.
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> user("lobon"))
+                .isInstanceOf(org.springframework.dao.DuplicateKeyException.class);
+    }
+
+    @Test
+    void existingNonUniqueNameLowerIndex_isUpgradedToUnique() {
+        // Como estaba producción antes: índice nameLower sin unique.
+        mongoTemplate.indexOps(UserEntity.class).dropIndex("nameLower");
+        mongoTemplate.indexOps(UserEntity.class).createIndex(
+                new Index("nameLower", Sort.Direction.ASC).named("nameLower"));
+
+        mongoIndexInitializer.createIndexes();
+
+        assertThat(mongoTemplate.indexOps(UserEntity.class).getIndexInfo())
+                .filteredOn(index -> index.getName().equals("nameLower"))
+                .singleElement()
+                .satisfies(index -> assertThat(index.isUnique()).isTrue());
     }
 }

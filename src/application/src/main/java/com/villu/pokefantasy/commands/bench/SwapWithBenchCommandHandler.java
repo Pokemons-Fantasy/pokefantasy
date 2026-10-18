@@ -92,7 +92,7 @@ public class SwapWithBenchCommandHandler implements CommandHandler<SwapWithBench
             leagueRepository.save(league);
         }
 
-        teamTransferService.replaceWithBench(draft, givenPick, benchEntry);
+        teamTransferService.replaceWithBench(draft, givenPick, benchEntry, Instant.now());
         draftRepository.save(draft);
 
         activityEventRepository.save(ActivityEventEntity.builder()

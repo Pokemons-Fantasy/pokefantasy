@@ -33,6 +33,11 @@ public class LeagueRepositoryImpl implements LeagueRepository {
     }
 
     @Override
+    public long countByCreatedBy(String username) {
+        return mongoTemplate.count(new Query(Criteria.where("createdBy").is(username)), LeagueEntity.class);
+    }
+
+    @Override
     public List<LeagueEntity> findByMemberUsername(String username) {
         Query query = new Query(Criteria.where("members.username").is(username));
         return mongoTemplate.find(query, LeagueEntity.class);

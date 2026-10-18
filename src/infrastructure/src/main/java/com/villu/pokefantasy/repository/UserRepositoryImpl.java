@@ -40,6 +40,12 @@ public class UserRepositoryImpl implements UserRepository {
     }
 
     @Override
+    public boolean existsByUsernameIgnoreCase(String username) {
+        return mongoTemplate.exists(
+                Query.query(Criteria.where("nameLower").is(username.toLowerCase(Locale.ROOT))), UserEntity.class);
+    }
+
+    @Override
     public UserEntity findByUsername(String username) {
         try {
             return mongoTemplate.findOne(
@@ -79,10 +85,12 @@ public class UserRepositoryImpl implements UserRepository {
     }
 
     @Override
-    public void addFcmToken(String username, String token) {
+    public void addFcmToken(String username, String token, int maxTokens) {
         Query query = new Query(Criteria.where("name").is(username));
+        // $push en vez de $addToSet: quien llama ya quitó el token a todos, así que no duplica, y $slice negativo
+        // deja solo los maxTokens más recientes (descarta el más antiguo) en la misma operación atómica.
         // Incrementa version para que un save() posterior con el usuario desactualizado no borre el token.
-        Update update = new Update().addToSet("fcmTokens", token).inc("version", 1);
+        Update update = new Update().push("fcmTokens").slice(-maxTokens).each(token).inc("version", 1);
         mongoTemplate.updateFirst(query, update, UserEntity.class);
     }
 

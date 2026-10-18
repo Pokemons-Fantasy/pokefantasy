@@ -20,6 +20,10 @@ public class ApiClient {
     private final HttpClient http = HttpClient.newHttpClient();
     private final String baseUrl;
     private final Map<String, String> cookies = new LinkedHashMap<>();
+    /** IP con la que llega cada petición, como la pone Cloudflare delante de Render (ClientIpFilter). */
+    private String clientIp;
+    /** Como el {@code apiClient} del front: {@code X-Requested-With} en todas las peticiones (CSRF). */
+    private boolean csrfHeader = true;
 
     ApiClient(int port) {
         this.baseUrl = "http://localhost:" + port;
@@ -53,6 +57,18 @@ public class ApiClient {
         if (login.statusCode() != 200) {
             throw new IllegalStateException("login failed: " + login.statusCode() + " " + login.body());
         }
+        return this;
+    }
+
+    /** Las peticiones de este cliente llegan desde {@code ip}. */
+    public ApiClient from(String ip) {
+        this.clientIp = ip;
+        return this;
+    }
+
+    /** Las peticiones de este cliente no llevan {@code X-Requested-With}, como las que lanza otra web. */
+    public ApiClient withoutCsrfHeader() {
+        this.csrfHeader = false;
         return this;
     }
 
@@ -92,6 +108,12 @@ public class ApiClient {
     }
 
     private <T> HttpResponse<T> send(HttpRequest.Builder builder, HttpResponse.BodyHandler<T> bodyHandler) throws Exception {
+        if (clientIp != null) {
+            builder.header("CF-Connecting-IP", clientIp);
+        }
+        if (csrfHeader) {
+            builder.header("X-Requested-With", "XMLHttpRequest");
+        }
         if (!cookies.isEmpty()) {
             builder.header("Cookie", cookies.entrySet().stream()
                     .map(e -> e.getKey() + "=" + e.getValue())

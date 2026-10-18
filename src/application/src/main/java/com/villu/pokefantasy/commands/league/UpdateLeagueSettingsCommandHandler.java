@@ -105,9 +105,12 @@ public class UpdateLeagueSettingsCommandHandler
         leagueRepository.save(league);
 
         // Recalcular los tiers del pool con los nuevos porcentajes (no hace nada si el pool está vacío).
-        // En preparación los tiers los reparte el admin a mano: no se pisan.
-        boolean draftInSetup = latestDraft.map(d -> d.getStatus() == DraftStatus.PENDING).orElse(false);
-        if (!draftInSetup) {
+        // En preparación los tiers los reparte el admin a mano, y con el draft completado fijan precios y
+        // cláusulas de la temporada: en ninguno de los dos casos se pisan.
+        boolean tiersFixed = latestDraft
+                .map(d -> d.getStatus() == DraftStatus.PENDING || d.getStatus() == DraftStatus.COMPLETED)
+                .orElse(false);
+        if (!tiersFixed) {
             tierAssignmentService.assignTiersToPool(command.leagueId(), league.getSettings());
         }
 

@@ -9,6 +9,7 @@ import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import com.villu.pokefantasy.repository.entity.UserEntity;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 
@@ -18,6 +19,9 @@ import java.util.Optional;
  */
 @Service
 public class DraftTurnNotifier {
+
+    /** Turno sin temporizador: el aviso sirve como mucho medio día; con temporizador, caduca con el turno. */
+    static final Duration TTL_WITHOUT_TIMER = Duration.ofHours(12);
 
     private final UserRepository userRepository;
     private final PushNotificationPort pushNotificationPort;
@@ -37,13 +41,13 @@ public class DraftTurnNotifier {
             return;
         }
         String leagueName = league != null && league.getName() != null ? league.getName() : "Tu liga";
-        String timer = Optional.ofNullable(league)
+        Optional<Long> turnSeconds = Optional.ofNullable(league)
                 .flatMap(l -> DraftTurnTimeoutService.turnDeadline(draft, l))
-                .map(deadline -> " Tienes " + describe(draft.getCurrentTurnStartedAt().until(deadline,
-                        ChronoUnit.SECONDS)) + ".")
-                .orElse("");
+                .map(deadline -> draft.getCurrentTurnStartedAt().until(deadline, ChronoUnit.SECONDS));
+        String timer = turnSeconds.map(seconds -> " Tienes " + describe(seconds) + ".").orElse("");
+        Duration ttl = turnSeconds.map(Duration::ofSeconds).orElse(TTL_WITHOUT_TIMER);
         pushNotificationPort.send(user.getFcmTokens(), PushMessage.draftTurn(draft.getLeagueId(), "¡Te toca en el draft!",
-                leagueName + " · ronda " + draft.getCurrentRound() + ": elige tu Pokémon." + timer));
+                leagueName + " · ronda " + draft.getCurrentRound() + ": elige tu Pokémon." + timer, ttl));
     }
 
     static String describe(long seconds) {
