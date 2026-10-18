@@ -9,6 +9,7 @@ import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.InsufficientAuthenticationException;
+import org.springframework.security.web.csrf.MissingCsrfTokenException;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -47,6 +48,7 @@ class ApiExceptionHandlerTest {
                 case "lock" -> new OptimisticLockingFailureException("stale");
                 case "duplicate" -> new DuplicateKeyException("Ya existe un usuario con name=ash");
                 case "abort" -> new ClientAbortException();
+                case "csrf" -> new MissingCsrfTokenException(null);
                 case "library-bad" -> libraryError(() -> Integer.parseInt("x"));
                 case "library-conflict" -> libraryError(() -> {
                     java.util.Scanner scanner = new java.util.Scanner("a");
@@ -123,6 +125,12 @@ class ApiExceptionHandlerTest {
         problem("unauthenticated", 401, "UNAUTHENTICATED")
                 .andExpect(jsonPath("$.message").value("Sesión no iniciada o caducada"));
         problem("credentials", 401, "INVALID_CREDENTIALS");
+    }
+
+    @Test
+    void csrfRejection_isForbiddenWithCode() throws Exception {
+        problem("csrf", 403, "CSRF_REJECTED")
+                .andExpect(jsonPath("$.message").value("Petición rechazada: falta la cabecera X-Requested-With"));
     }
 
     @Test

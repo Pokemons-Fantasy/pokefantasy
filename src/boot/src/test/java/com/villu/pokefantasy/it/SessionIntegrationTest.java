@@ -104,6 +104,22 @@ class SessionIntegrationTest extends IntegrationTest {
         assertThat(client().from("198.51.100.1").post("/v1/user/login", right).statusCode()).isEqualTo(200);
     }
 
+    @Test
+    void registrations_areRateLimitedPerIp_butOtherIpsCanRegister() throws Exception {
+        ApiClient sameIp = client().from("198.51.100.7");
+        for (int i = 1; i <= 3; i++) {
+            String body = "{\"username\":\"trainer" + i + "\",\"password\":\"pikachu123\"}";
+            assertThat(sameIp.post("/v1/user", body).statusCode()).isEqualTo(200);
+        }
+        String fourth = "{\"username\":\"trainer4\",\"password\":\"pikachu123\"}";
+
+        HttpResponse<String> blocked = sameIp.post("/v1/user", fourth);
+
+        assertThat(blocked.statusCode()).isEqualTo(429);
+        assertThat(blocked.headers().firstValue("Retry-After")).contains("3600");
+        assertThat(client().from("198.51.100.8").post("/v1/user", fourth).statusCode()).isEqualTo(200);
+    }
+
     private static HttpResponse<String> sendWithRefresh(ApiClient client, String refresh) throws Exception {
         java.net.http.HttpClient http = java.net.http.HttpClient.newHttpClient();
         return http.send(java.net.http.HttpRequest.newBuilder(

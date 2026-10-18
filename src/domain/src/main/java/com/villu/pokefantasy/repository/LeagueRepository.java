@@ -11,6 +11,7 @@ public interface LeagueRepository {
     Optional<LeagueEntity> findById(String id);
     List<LeagueEntity> findByMemberUsername(String username);
     List<LeagueEntity> findAll();
+    long countByCreatedBy(String username);
     void addMember(String leagueId, LeagueMember member);
     void removeMember(String leagueId, String username);
 }

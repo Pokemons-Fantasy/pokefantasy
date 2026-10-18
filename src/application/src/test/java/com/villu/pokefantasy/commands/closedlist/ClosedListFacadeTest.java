@@ -50,12 +50,12 @@ class ClosedListFacadeTest {
     }
 
     @Test
-    void assignTier_sendsAssignTierCommand() throws Exception {
-        facade.assignTier("e1", Tier.S, "l1", "ash");
+    void assignTiers_sendsAssignTierCommand() throws Exception {
+        facade.assignTiers(List.of("e1", "e2"), Tier.S, "l1", "ash");
 
         ArgumentCaptor<AssignTierCommand> captor = ArgumentCaptor.forClass(AssignTierCommand.class);
         verify(mediator).send(captor.capture());
-        assertThat(captor.getValue().entryId()).isEqualTo("e1");
+        assertThat(captor.getValue().entryIds()).containsExactly("e1", "e2");
         assertThat(captor.getValue().tier()).isEqualTo(Tier.S);
         assertThat(captor.getValue().leagueId()).isEqualTo("l1");
         assertThat(captor.getValue().requestingUsername()).isEqualTo("ash");

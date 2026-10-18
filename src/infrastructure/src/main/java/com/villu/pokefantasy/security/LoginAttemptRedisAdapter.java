@@ -39,7 +39,7 @@ public class LoginAttemptRedisAdapter implements LoginAttemptPort {
     }
 
     @Override
-    public void recordFailure(String key, Duration window) {
+    public long recordFailure(String key, Duration window) {
         String redisKey = PREFIX + key;
         try {
             Long count = redisTemplate.opsForValue().increment(redisKey);
@@ -49,8 +49,10 @@ public class LoginAttemptRedisAdapter implements LoginAttemptPort {
             if ((count != null && count == 1) || ttl == null || ttl < 0) {
                 redisTemplate.expire(redisKey, window);
             }
+            return count == null ? 0 : count;
         } catch (RuntimeException exception) {
             log.warn("Could not record login failure for {}: {}", key, exception.getMessage());
+            return 0;
         }
     }
 

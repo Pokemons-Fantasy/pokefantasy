@@ -213,13 +213,26 @@ class UpdateLeagueSettingsCommandHandlerTest {
     }
 
     @Test
-    void handle_validCommand_recalculatesPoolTiers() {
+    void handle_draftCompleted_keepsPoolTiers() {
+        // Los tiers ajustados a mano al preparar el draft fijan precios y cláusulas: guardar no los pisa
         LeagueEntity league = leagueWithAdmin("ash");
         when(leagueAdminGuard.requireLeagueAdmin("l1", "ash")).thenReturn(league);
 
         DraftEntity draft = new DraftEntity();
         draft.setStatus(DraftStatus.COMPLETED);
         when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.of(draft));
+
+        handler.handle(validCmd());
+
+        verify(leagueRepository).save(league);
+        verify(tierAssignmentService, never()).assignTiersToPool(any(), any());
+    }
+
+    @Test
+    void handle_noDraftYet_recalculatesPoolTiers() {
+        LeagueEntity league = leagueWithAdmin("ash");
+        when(leagueAdminGuard.requireLeagueAdmin("l1", "ash")).thenReturn(league);
+        when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.empty());
 
         handler.handle(validCmd());
 
