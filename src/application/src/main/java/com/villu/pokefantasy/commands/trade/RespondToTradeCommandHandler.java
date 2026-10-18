@@ -44,7 +44,9 @@ public class RespondToTradeCommandHandler implements CommandHandler<RespondToTra
 
     @Override
     public Void handle(RespondToTradeCommand command) {
+        // Un trade de otra liga cuenta como inexistente: la pertenencia se comprobó sobre la liga de la ruta.
         TradeEntity trade = tradeRepository.findById(command.tradeId())
+                .filter(found -> found.getLeagueId().equals(command.leagueId()))
                 .orElseThrow(() -> new IllegalArgumentException("Propuesta no encontrada"));
 
         if (trade.getStatus() != TradeStatus.PENDING) {

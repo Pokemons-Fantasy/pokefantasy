@@ -145,6 +145,17 @@ class RespondToTradeCommandHandlerTest {
     }
 
     @Test
+    void handle_tradeFromAnotherLeague_isNotFound() {
+        // La ruta dice l2 y el trade es de l1: se responde igual que si no existiera, sin revelarlo.
+        when(tradeRepository.findById("t1")).thenReturn(Optional.of(pendingTrade()));
+
+        assertThatThrownBy(() -> handler.handle(new RespondToTradeCommand("l2", "t1", "brock", false)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Propuesta no encontrada");
+        verify(tradeRepository, never()).save(any());
+    }
+
+    @Test
     void handle_tradeNotPending_throwsIllegalState() {
         TradeEntity trade = pendingTrade();
         trade.setStatus(TradeStatus.ACCEPTED);

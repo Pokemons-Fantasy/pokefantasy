@@ -1,5 +1,6 @@
 package com.villu.pokefantasy.commands.users.login;
 
+import com.villu.pokefantasy.auth.RateLimitIp;
 import com.villu.pokefantasy.dto.users.User;
 import com.villu.pokefantasy.mapper.UserMapper;
 import com.villu.pokefantasy.exception.TooManyAttemptsException;
@@ -13,6 +14,7 @@ import org.springframework.security.authentication.BadCredentialsException;
 
 import java.time.Duration;
 import java.util.Locale;
+import java.util.UUID;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -24,6 +26,8 @@ public class LoginUserCommandHandler implements CommandHandler<LoginUserCommand,
     private final TokenPort tokenPort;
     private final LoginAttemptPort loginAttemptPort;
     private final RefreshTokenPort refreshTokenPort;
+    /** Hash con el que se compara cuando el usuario no existe; se calcula la primera vez que hace falta. */
+    private volatile String dummyHash;
 
     /** Fallos por usuario antes de bloquearlo: frena la fuerza bruta contra una cuenta. */
     public static final int MAX_FAILURES_PER_USER = 5;
@@ -53,7 +57,7 @@ public class LoginUserCommandHandler implements CommandHandler<LoginUserCommand,
 
         String userKey = "user:" + command.username().toLowerCase(Locale.ROOT);
         boolean hasIp = command.clientIp() != null && !command.clientIp().isBlank();
-        String ipKey = hasIp ? "ip:" + command.clientIp() : null;
+        String ipKey = hasIp ? "ip:" + RateLimitIp.of(command.clientIp()) : null;
         String trustedKey = hasIp ? userKey + "|" + command.clientIp() : null;
         // Desde una IP desde la que ya entró, el bloqueo por usuario no aplica ni cuenta sus fallos: si no,
         // cualquiera que conozca su nombre (sale en las ligas) le dejaría sin entrar con 5 intentos.
@@ -69,7 +73,12 @@ public class LoginUserCommandHandler implements CommandHandler<LoginUserCommand,
         }
 
         User user = userMapper.entityToDto(userRepository.findByUsername(command.username()));
-        if (user == null || !passwordHashPort.matches(command.password(), user.getPassword())) {
+        if (user == null) {
+            // Mismo coste de bcrypt que con un usuario real: si no, por el tiempo de respuesta se sabría qué
+            // nombres existen.
+            passwordHashPort.matches(command.password(), dummyHash());
+        }
+        if (user == null ||!passwordHashPort.matches(command.password(), user.getPassword())) {
             if (!knownIp) {
                 loginAttemptPort.recordFailure(userKey, LOCKOUT_WINDOW);
             }
@@ -85,6 +94,13 @@ public class LoginUserCommandHandler implements CommandHandler<LoginUserCommand,
         }
         return new LoginResult(tokenPort.generateToken(command.username()), tokenPort.accessTokenTtl(),
                 refreshTokenPort.issue(command.username()), refreshTokenPort.ttl());
+    }
+
+    private String dummyHash() {
+        if (dummyHash == null) {
+            dummyHash = passwordHashPort.encode(UUID.randomUUID().toString());
+        }
+        return dummyHash;
     }
 
     @Override

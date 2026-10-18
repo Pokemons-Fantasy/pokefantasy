@@ -36,6 +36,8 @@ class CsrfIntegrationTest extends IntegrationTest {
 
         assertThat(response.statusCode()).isEqualTo(403);
         assertThat(response.body()).contains("\"code\":\"CSRF_REJECTED\"");
+        // El CSRF va antes que JwtAuthFilter: una petición rechazada no renueva la sesión con el refresh.
+        assertThat(response.headers().allValues("Set-Cookie")).isEmpty();
     }
 
     @Test
