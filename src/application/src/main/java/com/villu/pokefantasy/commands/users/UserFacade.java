@@ -34,8 +34,8 @@ public class UserFacade {
     }
 
 
-    public void create(String username, String password) throws Exception {
-        mediator.send(new CreateUserCommand(username, password));
+    public void create(String username, String password, String clientIp) throws Exception {
+        mediator.send(new CreateUserCommand(username, password, clientIp));
     }
 
     public LoginResult login(String username, String password, String clientIp) throws Exception {

@@ -44,12 +44,13 @@ class UserFacadeTest {
 
     @Test
     void create_sendsCreateUserCommand() throws Exception {
-        facade.create("ash", "password123");
+        facade.create("ash", "password123", "1.2.3.4");
 
         ArgumentCaptor<CreateUserCommand> captor = ArgumentCaptor.forClass(CreateUserCommand.class);
         verify(mediator).send(captor.capture());
         assertThat(captor.getValue().username()).isEqualTo("ash");
         assertThat(captor.getValue().password()).isEqualTo("password123");
+        assertThat(captor.getValue().clientIp()).isEqualTo("1.2.3.4");
     }
 
     @Test

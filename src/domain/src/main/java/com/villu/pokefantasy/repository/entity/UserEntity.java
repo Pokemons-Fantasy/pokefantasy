@@ -18,11 +18,12 @@ public class UserEntity {
     @Indexed(unique = true)
     private String name;
     /**
-     * {@code name} en minúsculas, indexado: la búsqueda por prefijo sin distinguir mayúsculas usa el
-     * índice (un regex con la opción "i" no puede). Lo rellena {@code UserRepository.saveUser} y, para
-     * usuarios antiguos, {@code UserNameLowerMigration}.
+     * {@code name} en minúsculas, con índice único: no pueden coexistir "Lobon" y "lobon" (suplantación
+     * visual), y la búsqueda por prefijo sin distinguir mayúsculas usa el índice (un regex con la opción
+     * "i" no puede). Lo rellena {@code UserRepository.saveUser} y, para usuarios antiguos,
+     * {@code UserNameLowerMigration}.
      */
-    @Indexed
+    @Indexed(unique = true)
     private String nameLower;
     private String password;
     private Role role;

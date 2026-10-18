@@ -74,7 +74,7 @@ class LoginAttemptRedisAdapterTest {
         when(valueOps.increment(REDIS_KEY)).thenReturn(3L);
         when(redisTemplate.getExpire(REDIS_KEY)).thenReturn(600L);
 
-        adapter.recordFailure(KEY, WINDOW);
+        assertThat(adapter.recordFailure(KEY, WINDOW)).isEqualTo(3L);
 
         verify(redisTemplate, never()).expire(anyString(), any(Duration.class));
     }
@@ -94,7 +94,7 @@ class LoginAttemptRedisAdapterTest {
     void recordFailure_redisDown_doesNotThrow() {
         when(valueOps.increment(anyString())).thenThrow(new RedisConnectionFailureException("down"));
 
-        assertThatCode(() -> adapter.recordFailure(KEY, WINDOW)).doesNotThrowAnyException();
+        assertThat(adapter.recordFailure(KEY, WINDOW)).isZero();
     }
 
     @Test
