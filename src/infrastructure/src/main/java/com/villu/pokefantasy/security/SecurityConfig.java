@@ -71,6 +71,9 @@ public class SecurityConfig {
                         // Métricas: solo administradores de la app (rol global ADMIN, no de liga).
                         .requestMatchers(request -> request.getServletPath().startsWith("/actuator/metrics"))
                         .hasRole("ADMIN")
+                        // Moderación (L5): solo el admin global.
+                        .requestMatchers(request -> request.getServletPath().startsWith("/v1/admin/"))
+                        .hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
