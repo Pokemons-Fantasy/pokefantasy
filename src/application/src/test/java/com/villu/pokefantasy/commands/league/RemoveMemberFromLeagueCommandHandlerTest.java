@@ -7,6 +7,7 @@ import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueRole;
 import com.villu.pokefantasy.dto.Tier;
 import com.villu.pokefantasy.exception.ForbiddenOperationException;
+import com.villu.pokefantasy.league.LeagueMemberRemoval;
 import com.villu.pokefantasy.repository.ClosedListRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
@@ -41,8 +42,9 @@ class RemoveMemberFromLeagueCommandHandlerTest {
 
     @BeforeEach
     void setUp() {
-        handler = new RemoveMemberFromLeagueCommandHandler(leagueRepository, draftRepository, closedListRepository,
-                new DraftTurnService(), draftCompletionService);
+        // Servicio real sobre los mismos mocks: estos tests cubren la expulsión entera, también LeagueMemberRemoval.
+        handler = new RemoveMemberFromLeagueCommandHandler(leagueRepository, new LeagueMemberRemoval(
+                leagueRepository, draftRepository, closedListRepository, new DraftTurnService(), draftCompletionService));
     }
 
     private LeagueEntity leagueWith(String id, LeagueMember... members) {

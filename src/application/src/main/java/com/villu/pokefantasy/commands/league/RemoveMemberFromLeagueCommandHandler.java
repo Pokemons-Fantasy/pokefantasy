@@ -1,39 +1,23 @@
 package com.villu.pokefantasy.commands.league;
 
-import com.villu.pokefantasy.commands.draft.DraftCompletionService;
-import com.villu.pokefantasy.commands.draft.DraftTurnService;
-import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueRole;
 import com.villu.pokefantasy.exception.ForbiddenOperationException;
+import com.villu.pokefantasy.league.LeagueMemberRemoval;
 import com.villu.pokefantasy.mediator.CommandHandler;
-import com.villu.pokefantasy.repository.ClosedListRepository;
-import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
-import com.villu.pokefantasy.repository.entity.ClosedListEntity;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import org.springframework.stereotype.Service;
-
-import java.util.List;
 
 @Service
 public class RemoveMemberFromLeagueCommandHandler implements CommandHandler<RemoveMemberFromLeagueCommand, Void> {
 
     private final LeagueRepository leagueRepository;
-    private final DraftRepository draftRepository;
-    private final ClosedListRepository closedListRepository;
-    private final DraftTurnService draftTurnService;
-    private final DraftCompletionService draftCompletionService;
+    private final LeagueMemberRemoval leagueMemberRemoval;
 
     public RemoveMemberFromLeagueCommandHandler(LeagueRepository leagueRepository,
-                                                DraftRepository draftRepository,
-                                                ClosedListRepository closedListRepository,
-                                                DraftTurnService draftTurnService,
-                                                DraftCompletionService draftCompletionService) {
+                                                LeagueMemberRemoval leagueMemberRemoval) {
         this.leagueRepository = leagueRepository;
-        this.draftRepository = draftRepository;
-        this.closedListRepository = closedListRepository;
-        this.draftTurnService = draftTurnService;
-        this.draftCompletionService = draftCompletionService;
+        this.leagueMemberRemoval = leagueMemberRemoval;
     }
 
     @Override
@@ -64,23 +48,7 @@ public class RemoveMemberFromLeagueCommandHandler implements CommandHandler<Remo
             }
         }
 
-        leagueRepository.removeMember(command.leagueId(), command.targetUsername());
-
-        draftRepository.findActiveByLeagueId(command.leagueId()).ifPresent(draft -> {
-            // Sus Pokémon vuelven al pool antes de decidir a quién le toca.
-            draft.getPicks().removeIf(pick -> pick.getUsername().equals(command.targetUsername()));
-            List<ClosedListEntity> available = draft.getConfig() == null ? List.of()
-                    : draftTurnService.available(draft, closedListRepository.findAllByLeagueId(command.leagueId()));
-            draftTurnService.removePlayer(draft, command.targetUsername(), available,
-                    draftTurnService.maxTeamSize(league));
-            draftRepository.save(draft);
-            if (draft.getStatus() == DraftStatus.COMPLETED) {
-                // La liga se relee: la entidad cargada arriba aún tiene al expulsado entre los miembros.
-                draftCompletionService.complete(command.leagueId(),
-                        leagueRepository.findById(command.leagueId()).orElse(null), draft);
-            }
-        });
-
+        leagueMemberRemoval.remove(league, command.targetUsername());
         return null;
     }
 
