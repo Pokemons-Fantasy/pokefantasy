@@ -14,4 +14,6 @@ public interface LeagueRepository {
     long countByCreatedBy(String username);
     void addMember(String leagueId, LeagueMember member);
     void removeMember(String leagueId, String username);
+
+    void deleteById(String leagueId);
 }

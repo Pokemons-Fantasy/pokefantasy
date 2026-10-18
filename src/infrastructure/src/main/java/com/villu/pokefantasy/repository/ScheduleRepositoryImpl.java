@@ -40,4 +40,9 @@ public class ScheduleRepositoryImpl implements ScheduleRepository {
     public List<ScheduleEntity> findAll() {
         return mongoTemplate.findAll(ScheduleEntity.class);
     }
+
+    @Override
+    public void deleteByLeagueId(String leagueId) {
+        mongoTemplate.remove(Query.query(Criteria.where("leagueId").is(leagueId)), ScheduleEntity.class);
+    }
 }

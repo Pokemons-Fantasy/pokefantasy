@@ -18,4 +18,6 @@ public interface ClosedListRepository {
     boolean existsByPokemonNameAndLeagueId(String pokemonName, String leagueId);
     Optional<ClosedListEntity> findByPokemonNameIgnoreCaseAndLeagueId(String pokemonName, String leagueId);
     void deleteByPokemonNameAndNominatedByAndLeagueId(String pokemonName, String username, String leagueId);
+
+    void deleteAllByLeagueId(String leagueId);
 }

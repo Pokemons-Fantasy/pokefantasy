@@ -9,4 +9,6 @@ public interface ScheduleRepository {
     void save(ScheduleEntity schedule);
     Optional<ScheduleEntity> findByLeagueId(String leagueId);
     List<ScheduleEntity> findAll();
+
+    void deleteByLeagueId(String leagueId);
 }

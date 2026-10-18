@@ -85,4 +85,9 @@ public class ClosedListRepositoryImpl implements ClosedListRepository {
                 .and("leagueId").is(leagueId));
         mongoTemplate.remove(query, ClosedListEntity.class);
     }
+
+    @Override
+    public void deleteAllByLeagueId(String leagueId) {
+        mongoTemplate.remove(Query.query(Criteria.where("leagueId").is(leagueId)), ClosedListEntity.class);
+    }
 }

@@ -1,5 +1,7 @@
 package com.villu.pokefantasy.repository;
 
+import java.time.Instant;
+import org.springframework.data.mongodb.core.query.Update;
 import com.villu.pokefantasy.dto.TradeStatus;
 import com.villu.pokefantasy.repository.entity.TradeEntity;
 import lombok.extern.slf4j.Slf4j;
@@ -70,5 +72,26 @@ public class TradeRepositoryImpl implements TradeRepository {
         Query query = new Query(Criteria.where("responder").is(username)
                 .and("status").is(TradeStatus.PENDING));
         return mongoTemplate.find(query, TradeEntity.class);
+    }
+
+    @Override
+    public void deleteByLeagueId(String leagueId) {
+        mongoTemplate.remove(Query.query(Criteria.where("leagueId").is(leagueId)), TradeEntity.class);
+    }
+
+    @Override
+    public void cancelPending(String leagueId, String username, Instant resolvedAt) {
+        Query query = Query.query(Criteria.where("leagueId").is(leagueId).and("status").is(TradeStatus.PENDING)
+                .orOperator(Criteria.where("proposer").is(username), Criteria.where("responder").is(username)));
+        mongoTemplate.updateMulti(query,
+                new Update().set("status", TradeStatus.CANCELLED).set("resolvedAt", resolvedAt), TradeEntity.class);
+    }
+
+    @Override
+    public void anonymizeUser(String leagueId, String username, String replacement) {
+        for (String field : new String[] {"proposer", "responder"}) {
+            mongoTemplate.updateMulti(Query.query(Criteria.where("leagueId").is(leagueId).and(field).is(username)),
+                    Update.update(field, replacement), TradeEntity.class);
+        }
     }
 }

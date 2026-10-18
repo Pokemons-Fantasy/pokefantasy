@@ -63,4 +63,9 @@ public class LeagueRepositoryImpl implements LeagueRepository {
                 .inc("version", 1);
         mongoTemplate.updateFirst(query, update, LeagueEntity.class);
     }
+
+    @Override
+    public void deleteById(String leagueId) {
+        mongoTemplate.remove(Query.query(Criteria.where("_id").is(leagueId)), LeagueEntity.class);
+    }
 }
