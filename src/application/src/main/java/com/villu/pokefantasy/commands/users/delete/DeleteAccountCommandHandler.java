@@ -88,6 +88,10 @@ public class DeleteAccountCommandHandler implements CommandHandler<DeleteAccount
         }
         String username = command.username();
         checkPassword(username, command.password());
+        // Lo primero: el JWT de acceso solo lleva el nombre y no se puede revocar, así que hasta que caduque nadie
+        // puede registrarse con ese nombre (si no, ese JWT entraría en la cuenta nueva). Si no se puede reservar,
+        // lanza antes de tocar nada.
+        deletedUsernamePort.reserve(username, tokenPort.accessTokenTtl());
 
         List<String> remaining = new ArrayList<>();
         for (LeagueEntity league : leagueRepository.findByMemberUsername(username)) {
@@ -104,9 +108,6 @@ public class DeleteAccountCommandHandler implements CommandHandler<DeleteAccount
         // volver a entrar.
         refreshTokenPort.revokeAll(username);
         userRepository.deleteByUsername(username);
-        // El JWT de acceso solo lleva el nombre y no se puede revocar: hasta que caduque, nadie puede
-        // registrarse con ese nombre (si no, ese JWT entraría en la cuenta nueva).
-        deletedUsernamePort.reserve(username, tokenPort.accessTokenTtl());
         return remaining;
     }
 

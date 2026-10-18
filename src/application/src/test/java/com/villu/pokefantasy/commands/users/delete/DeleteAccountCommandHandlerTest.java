@@ -128,6 +128,16 @@ class DeleteAccountCommandHandlerTest {
     }
 
     @Test
+    void handle_cannotReserveTheName_deletesNothing() {
+        doThrow(new IllegalStateException("redis down")).when(deletedUsernamePort).reserve(any(), any());
+
+        assertThatThrownBy(() -> handler.handle(new DeleteAccountCommand("ash", "pikachu123")))
+                .isInstanceOf(IllegalStateException.class);
+        verify(leagueRepository, never()).findByMemberUsername(any());
+        verify(userRepository, never()).deleteByUsername(any());
+    }
+
+    @Test
     void handle_userWithoutLeagues_deletesAvatarSessionsAndUser() {
         List<String> remaining = handler.handle(new DeleteAccountCommand("ash", "pikachu123"));
 

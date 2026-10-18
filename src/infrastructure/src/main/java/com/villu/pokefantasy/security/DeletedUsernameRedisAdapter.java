@@ -8,7 +8,11 @@ import org.springframework.stereotype.Component;
 import java.time.Duration;
 import java.util.Locale;
 
-/** Claves {@code deleted-user:<nombre en minúsculas>} con la vida del JWT de acceso. */
+/**
+ * Claves {@code deleted-user:<nombre en minúsculas>} con la vida del JWT de acceso. Falla cerrado: sin Redis el
+ * borrado de cuenta se aborta y el registro de cualquier nombre se rechaza, porque sin la reserva un JWT vivo de
+ * una cuenta borrada entraría en la cuenta nueva.
+ */
 @Component
 @Slf4j
 public class DeletedUsernameRedisAdapter implements DeletedUsernamePort {
@@ -26,7 +30,8 @@ public class DeletedUsernameRedisAdapter implements DeletedUsernamePort {
         try {
             redisTemplate.opsForValue().set(key(username), "1", ttl);
         } catch (RuntimeException exception) {
-            log.warn("Could not reserve deleted username {}: {}", username, exception.getMessage());
+            throw new IllegalStateException("No se ha podido borrar la cuenta ahora. Inténtalo dentro de un rato.",
+                    exception);
         }
     }
 
@@ -35,8 +40,9 @@ public class DeletedUsernameRedisAdapter implements DeletedUsernamePort {
         try {
             return Boolean.TRUE.equals(redisTemplate.hasKey(key(username)));
         } catch (RuntimeException exception) {
-            log.warn("Could not check deleted username {}: {}", username, exception.getMessage());
-            return false;
+            log.warn("Could not check deleted username {}, treating it as reserved: {}", username,
+                    exception.getMessage());
+            return true;
         }
     }
 
