@@ -24,7 +24,7 @@ public class RenameLeagueCommandHandler implements CommandHandler<RenameLeagueCo
                 .orElseThrow(() -> new IllegalArgumentException("Liga no encontrada"));
         String name = LeagueNamePolicy.normalize(command.name());
         log.info("Admin {} renamed league {} from '{}' to '{}'", command.adminUsername(), command.leagueId(),
-                league.getName(), name);
+                LeagueNamePolicy.forLog(league.getName()), name);
         league.setName(name);
         leagueRepository.save(league);
         return null;

@@ -18,6 +18,21 @@ class LeagueNamePolicyTest {
     }
 
     @Test
+    void normalize_rejectsControlCharacters() {
+        // Un salto de línea en el nombre falsearía líneas del log y se pintaría raro en la web.
+        assertThatThrownBy(() -> LeagueNamePolicy.normalize("Kanto\nINFO Admin root deleted user ash"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("El nombre de la liga no puede tener saltos de línea ni caracteres de control.");
+        assertThatThrownBy(() -> LeagueNamePolicy.normalize("Kan\u0000to")).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void forLog_replacesControlCharactersOfOldNames() {
+        assertThat(LeagueNamePolicy.forLog("Kanto\r\nfalso")).isEqualTo("Kanto??falso");
+        assertThat(LeagueNamePolicy.forLog(null)).isEqualTo("null");
+    }
+
+    @Test
     void normalize_rejectsBlankNullAndTooLong() {
         for (String name : new String[] {" ", null, "x".repeat(41)}) {
             assertThatThrownBy(() -> LeagueNamePolicy.normalize(name))
