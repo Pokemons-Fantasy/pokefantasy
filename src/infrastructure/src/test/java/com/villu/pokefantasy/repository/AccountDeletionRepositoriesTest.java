@@ -3,6 +3,7 @@ package com.villu.pokefantasy.repository;
 import com.villu.pokefantasy.dto.TradeStatus;
 import com.villu.pokefantasy.repository.entity.ActivityEventEntity;
 import com.villu.pokefantasy.repository.entity.ClosedListEntity;
+import com.villu.pokefantasy.repository.entity.DraftEntity;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity;
 import com.villu.pokefantasy.repository.entity.TradeEntity;
@@ -36,6 +37,16 @@ class AccountDeletionRepositoriesTest {
 
         verify(mongoTemplate).remove(query.capture(), eq(UserEntity.class));
         assertThat(query.getValue().getQueryObject()).isEqualTo(new Document("name", "ash"));
+    }
+
+    @Test
+    void draftFindAllByLeagueId_loadsWholeDocuments() {
+        // Sin proyección: el borrado de cuenta guarda estos drafts y una proyección perdería los picks.
+        new DraftRepositoryImpl(mongoTemplate).findAllByLeagueId("l1");
+
+        verify(mongoTemplate).find(query.capture(), eq(DraftEntity.class));
+        assertThat(query.getValue().getQueryObject()).isEqualTo(new Document("leagueId", "l1"));
+        assertThat(query.getValue().getFieldsObject()).isEmpty();
     }
 
     @Test

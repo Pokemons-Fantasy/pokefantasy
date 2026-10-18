@@ -40,7 +40,7 @@ public class LeagueMemberRemoval {
         String leagueId = league.getId();
         leagueRepository.removeMember(leagueId, username);
 
-        draftRepository.findActiveByLeagueId(leagueId).ifPresent(draft -> {
+        draftRepository.findActiveByLeagueId(leagueId).ifPresentOrElse(draft -> {
             // Sus Pokémon vuelven al pool antes de decidir a quién le toca.
             draft.getPicks().removeIf(pick -> pick.getUsername().equals(username));
             List<ClosedListEntity> available = draft.getConfig() == null ? List.of()
@@ -51,6 +51,14 @@ public class LeagueMemberRemoval {
                 // La liga se relee: la entidad recibida aún tiene al miembro que sale.
                 draftCompletionService.complete(leagueId, leagueRepository.findById(leagueId).orElse(null), draft);
             }
-        });
+        }, () -> returnPicksOfCompletedDraft(leagueId, username));
+    }
+
+    /** Temporada en marcha (draft ya cerrado): sus Pokémon no pueden seguir siendo de quien se va. */
+    private void returnPicksOfCompletedDraft(String leagueId, String username) {
+        draftRepository.findLatestByLeagueId(leagueId)
+                .filter(draft -> draft.getStatus() == DraftStatus.COMPLETED)
+                .filter(draft -> draft.getPicks().removeIf(pick -> pick.getUsername().equals(username)))
+                .ifPresent(draftRepository::save);
     }
 }

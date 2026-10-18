@@ -45,6 +45,12 @@ public class ApiClient {
                 .PUT(HttpRequest.BodyPublishers.ofString(json)));
     }
 
+    public HttpResponse<String> delete(String path, String json) throws Exception {
+        return send(HttpRequest.newBuilder(URI.create(baseUrl + path))
+                .header("Content-Type", "application/json")
+                .method("DELETE", HttpRequest.BodyPublishers.ofString(json)));
+    }
+
     public HttpResponse<String> delete(String path) throws Exception {
         return send(HttpRequest.newBuilder(URI.create(baseUrl + path)).DELETE());
     }

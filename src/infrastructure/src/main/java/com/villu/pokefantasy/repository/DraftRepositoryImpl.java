@@ -58,4 +58,9 @@ public class DraftRepositoryImpl implements DraftRepository {
         query.fields().include("leagueId", "status");
         return mongoTemplate.find(query, DraftEntity.class);
     }
+
+    @Override
+    public List<DraftEntity> findAllByLeagueId(String leagueId) {
+        return mongoTemplate.find(Query.query(Criteria.where("leagueId").is(leagueId)), DraftEntity.class);
+    }
 }

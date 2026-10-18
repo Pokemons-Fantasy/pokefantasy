@@ -5,9 +5,11 @@ import com.villu.pokefantasy.commands.users.login.LoginUserCommandHandler;
 import com.villu.pokefantasy.dto.LeagueRole;
 import com.villu.pokefantasy.exception.TooManyAttemptsException;
 import com.villu.pokefantasy.league.LeagueMemberRemoval;
+import com.villu.pokefantasy.ports.DeletedUsernamePort;
 import com.villu.pokefantasy.ports.LoginAttemptPort;
 import com.villu.pokefantasy.ports.PasswordHashPort;
 import com.villu.pokefantasy.ports.RefreshTokenPort;
+import com.villu.pokefantasy.ports.TokenPort;
 import com.villu.pokefantasy.repository.ActivityEventRepository;
 import com.villu.pokefantasy.repository.AvatarRepository;
 import com.villu.pokefantasy.repository.ClosedListRepository;
@@ -62,6 +64,8 @@ class DeleteAccountCommandHandlerTest {
     @Mock private TradeRepository tradeRepository;
     @Mock private ActivityEventRepository activityEventRepository;
     @Mock private ClosedListRepository closedListRepository;
+    @Mock private DeletedUsernamePort deletedUsernamePort;
+    @Mock private TokenPort tokenPort;
 
     private DeleteAccountCommandHandler handler;
 
@@ -69,7 +73,8 @@ class DeleteAccountCommandHandlerTest {
     void setUp() {
         handler = new DeleteAccountCommandHandler(userRepository, passwordHashPort, loginAttemptPort, refreshTokenPort,
                 avatarRepository, leagueRepository, leagueMemberRemoval, draftRepository, scheduleRepository,
-                tradeRepository, activityEventRepository, closedListRepository);
+                tradeRepository, activityEventRepository, closedListRepository, deletedUsernamePort, tokenPort);
+        when(tokenPort.accessTokenTtl()).thenReturn(java.time.Duration.ofMinutes(15));
         UserEntity ash = new UserEntity();
         ash.setName("ash");
         ash.setPassword("hash");
@@ -131,6 +136,7 @@ class DeleteAccountCommandHandlerTest {
         verify(avatarRepository).deleteByUsername("ash");
         verify(refreshTokenPort).revokeAll("ash");
         verify(userRepository).deleteByUsername("ash");
+        verify(deletedUsernamePort).reserve("ash", java.time.Duration.ofMinutes(15));
     }
 
     @Test
@@ -181,7 +187,7 @@ class DeleteAccountCommandHandlerTest {
         when(leagueRepository.findByMemberUsername("ash"))
                 .thenReturn(List.of(league("l1", member("ash", LeagueRole.ADMIN))));
         DraftEntity draft = new DraftEntity();
-        when(draftRepository.findAllByLeagueIdsNewestFirst(List.of("l1"))).thenReturn(List.of(draft));
+        when(draftRepository.findAllByLeagueId("l1")).thenReturn(List.of(draft));
 
         List<String> remaining = handler.handle(new DeleteAccountCommand("ash", "pikachu123"));
 
@@ -213,7 +219,7 @@ class DeleteAccountCommandHandlerTest {
         past.setTurnOrder(new ArrayList<>(List.of("misty", "ash")));
         past.setPicks(new ArrayList<>(List.of(pick("ash", "pikachu"), pick("misty", "staryu"))));
         past.setDraftHistory(new ArrayList<>(List.of(pick("ash", "bulbasaur"))));
-        when(draftRepository.findAllByLeagueIdsNewestFirst(List.of("l1"))).thenReturn(List.of(past));
+        when(draftRepository.findAllByLeagueId("l1")).thenReturn(List.of(past));
 
         ClosedListEntity nominated = new ClosedListEntity();
         nominated.setNominatedBy("ash");

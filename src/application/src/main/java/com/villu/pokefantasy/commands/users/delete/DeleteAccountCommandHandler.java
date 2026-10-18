@@ -6,9 +6,11 @@ import com.villu.pokefantasy.dto.LeagueRole;
 import com.villu.pokefantasy.exception.TooManyAttemptsException;
 import com.villu.pokefantasy.league.LeagueMemberRemoval;
 import com.villu.pokefantasy.mediator.CommandHandler;
+import com.villu.pokefantasy.ports.DeletedUsernamePort;
 import com.villu.pokefantasy.ports.LoginAttemptPort;
 import com.villu.pokefantasy.ports.PasswordHashPort;
 import com.villu.pokefantasy.ports.RefreshTokenPort;
+import com.villu.pokefantasy.ports.TokenPort;
 import com.villu.pokefantasy.repository.ActivityEventRepository;
 import com.villu.pokefantasy.repository.AvatarRepository;
 import com.villu.pokefantasy.repository.ClosedListRepository;
@@ -52,6 +54,8 @@ public class DeleteAccountCommandHandler implements CommandHandler<DeleteAccount
     private final TradeRepository tradeRepository;
     private final ActivityEventRepository activityEventRepository;
     private final ClosedListRepository closedListRepository;
+    private final DeletedUsernamePort deletedUsernamePort;
+    private final TokenPort tokenPort;
 
     public DeleteAccountCommandHandler(UserRepository userRepository, PasswordHashPort passwordHashPort,
                                        LoginAttemptPort loginAttemptPort, RefreshTokenPort refreshTokenPort,
@@ -59,7 +63,8 @@ public class DeleteAccountCommandHandler implements CommandHandler<DeleteAccount
                                        LeagueMemberRemoval leagueMemberRemoval, DraftRepository draftRepository,
                                        ScheduleRepository scheduleRepository, TradeRepository tradeRepository,
                                        ActivityEventRepository activityEventRepository,
-                                       ClosedListRepository closedListRepository) {
+                                       ClosedListRepository closedListRepository,
+                                       DeletedUsernamePort deletedUsernamePort, TokenPort tokenPort) {
         this.userRepository = userRepository;
         this.passwordHashPort = passwordHashPort;
         this.loginAttemptPort = loginAttemptPort;
@@ -72,6 +77,8 @@ public class DeleteAccountCommandHandler implements CommandHandler<DeleteAccount
         this.tradeRepository = tradeRepository;
         this.activityEventRepository = activityEventRepository;
         this.closedListRepository = closedListRepository;
+        this.deletedUsernamePort = deletedUsernamePort;
+        this.tokenPort = tokenPort;
     }
 
     @Override
@@ -97,6 +104,9 @@ public class DeleteAccountCommandHandler implements CommandHandler<DeleteAccount
         // volver a entrar.
         refreshTokenPort.revokeAll(username);
         userRepository.deleteByUsername(username);
+        // El JWT de acceso solo lleva el nombre y no se puede revocar: hasta que caduque, nadie puede
+        // registrarse con ese nombre (si no, ese JWT entraría en la cuenta nueva).
+        deletedUsernamePort.reserve(username, tokenPort.accessTokenTtl());
         return remaining;
     }
 
@@ -118,7 +128,7 @@ public class DeleteAccountCommandHandler implements CommandHandler<DeleteAccount
     }
 
     private void deleteLeague(String leagueId) {
-        draftRepository.findAllByLeagueIdsNewestFirst(List.of(leagueId)).forEach(draftRepository::delete);
+        draftRepository.findAllByLeagueId(leagueId).forEach(draftRepository::delete);
         scheduleRepository.deleteByLeagueId(leagueId);
         tradeRepository.deleteByLeagueId(leagueId);
         activityEventRepository.deleteByLeagueId(leagueId);
@@ -175,7 +185,7 @@ public class DeleteAccountCommandHandler implements CommandHandler<DeleteAccount
     }
 
     private void anonymizeDrafts(String leagueId, String username) {
-        for (DraftEntity draft : draftRepository.findAllByLeagueIdsNewestFirst(List.of(leagueId))) {
+        for (DraftEntity draft : draftRepository.findAllByLeagueId(leagueId)) {
             boolean changed = anonymizePicks(draft.getPicks(), username)
                     | anonymizePicks(draft.getDraftHistory(), username);
             if (draft.getTurnOrder() != null && draft.getTurnOrder().contains(username)) {
