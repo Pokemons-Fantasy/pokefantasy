@@ -8,6 +8,9 @@ import org.springframework.stereotype.Service;
 public class RegisterPushTokenCommandHandler
         implements CommandHandler<RegisterPushTokenCommand, Void> {
 
+    /** Dispositivos con avisos por usuario; al pasar, se descarta el token más antiguo. */
+    static final int MAX_FCM_TOKENS = 3;
+
     private final UserRepository userRepository;
 
     public RegisterPushTokenCommandHandler(UserRepository userRepository) {
@@ -22,7 +25,7 @@ public class RegisterPushTokenCommandHandler
         // Un token es de un dispositivo y de quien lo registra: si otra cuenta lo tenía (mismo navegador,
         // sesión caducada sin cerrar), deja de recibir los avisos de esta.
         userRepository.removeFcmToken(command.token());
-        userRepository.addFcmToken(command.username(), command.token());
+        userRepository.addFcmToken(command.username(), command.token(), MAX_FCM_TOKENS);
         return null;
     }
 
