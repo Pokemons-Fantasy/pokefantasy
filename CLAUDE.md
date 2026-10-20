@@ -30,25 +30,12 @@ Toda la documentación y el conocimiento del proyecto (back y front) vive en el 
 
 ## Git workflow (mandatory)
 
-1. **Revisar PRs abiertos** en ambos repos antes de crear ramas o tocar código:
-   ```powershell
-   $h = @{ Authorization = "Bearer $env:GITHUB_TOKEN"; Accept = "application/vnd.github+json" }
-   Invoke-RestMethod "https://api.github.com/repos/Pokemons-Fantasy/pokefantasy-web/pulls?state=open" -Headers $h | Select number,title,@{n='branch';e={$_.head.ref}}
-   Invoke-RestMethod "https://api.github.com/repos/Pokemons-Fantasy/pokefantasy/pulls?state=open"    -Headers $h | Select number,title,@{n='branch';e={$_.head.ref}}
-   ```
-   Si hay PRs abiertos, mencionarlos al usuario antes de continuar.
+1. **Revisar PRs abiertos** en ambos repos antes de crear ramas o tocar código. Si hay PRs abiertos, mencionarlos al usuario antes de continuar.
 2. **Siempre invocar el skill `brainstorming`** antes de implementar cualquier feature nueva, aunque parezca simple.
 3. Never push directly to `develop` or `main`: `feature/...` or `fix/...` → commit → push → PR. Backend PRs target `develop` (only releases and hotfixes go to `main`); frontend PRs target `main`.
 4. Si un cambio toca back y front, el front debe tolerar el back viejo (campos opcionales) y el back no romper el front viejo: así da igual el orden de los merges.
 
-There is no `gh` CLI — create PRs via GitHub API:
-
-```powershell
-$token = $env:GITHUB_TOKEN   # set in your shell, never hardcode
-$headers = @{ Authorization = "Bearer $token"; Accept = "application/vnd.github+json" }
-$pr = @{ title = "..."; head = "feature/..."; base = "develop"; body = "..." } | ConvertTo-Json
-Invoke-RestMethod -Uri "https://api.github.com/repos/Pokemons-Fantasy/pokefantasy/pulls" -Method Post -Headers $headers -Body $pr -ContentType "application/json; charset=utf-8"
-```
+GitHub (PRs, PRs abiertos, issues): **solo con la integración de GitHub**. Nada de token, API REST desde PowerShell ni `gh` CLI.
 
 Shell: PowerShell on Windows. Git Bash also available via Bash tool (use paths like `/c/PokeFantasy/...`).
 
