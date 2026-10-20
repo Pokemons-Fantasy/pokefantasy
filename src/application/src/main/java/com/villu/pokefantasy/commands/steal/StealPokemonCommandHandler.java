@@ -72,7 +72,7 @@ public class StealPokemonCommandHandler implements CommandHandler<StealPokemonCo
 
         String victim = targetPick.getUsername();
 
-        teamTransferService.requireUnlocked(targetPick);
+        teamTransferService.requireUnlocked(targetPick, market.schedule());
 
         int stealPrice = stealClauseService.currentClause(league, targetPick);
 
@@ -83,7 +83,7 @@ public class StealPokemonCommandHandler implements CommandHandler<StealPokemonCo
         victimMember.setCoinBalance(victimMember.getCoinBalance() + stealPrice);
         leagueRepository.save(league);
 
-        teamTransferService.transfer(targetPick, stealer, Instant.now());
+        teamTransferService.transfer(targetPick, stealer, teamTransferService.currentJornada(market.schedule()), Instant.now());
         draftRepository.save(draft);
 
         activityEventRepository.save(ActivityEventEntity.builder()

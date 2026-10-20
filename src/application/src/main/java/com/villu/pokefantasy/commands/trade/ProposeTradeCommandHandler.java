@@ -8,6 +8,7 @@ import com.villu.pokefantasy.team.TeamTransferService;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.PushNotificationPort;
+import com.villu.pokefantasy.repository.ScheduleRepository;
 import com.villu.pokefantasy.repository.TradeRepository;
 import com.villu.pokefantasy.repository.UserRepository;
 import com.villu.pokefantasy.repository.entity.UserEntity;
@@ -15,6 +16,7 @@ import com.villu.pokefantasy.repository.entity.DraftEntity;
 import com.villu.pokefantasy.repository.entity.DraftPick;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import com.villu.pokefantasy.repository.entity.LeagueMember;
+import com.villu.pokefantasy.repository.entity.ScheduleEntity;
 import com.villu.pokefantasy.repository.entity.TradeEntity;
 import org.springframework.stereotype.Service;
 
@@ -26,6 +28,7 @@ public class ProposeTradeCommandHandler implements CommandHandler<ProposeTradeCo
     private final TradeRepository tradeRepository;
     private final DraftRepository draftRepository;
     private final LeagueRepository leagueRepository;
+    private final ScheduleRepository scheduleRepository;
     private final UserRepository userRepository;
     private final PushNotificationPort pushNotificationPort;
     private final TeamTransferService teamTransferService;
@@ -33,12 +36,14 @@ public class ProposeTradeCommandHandler implements CommandHandler<ProposeTradeCo
     public ProposeTradeCommandHandler(TradeRepository tradeRepository,
                                       DraftRepository draftRepository,
                                       LeagueRepository leagueRepository,
+                                      ScheduleRepository scheduleRepository,
                                       UserRepository userRepository,
                                       PushNotificationPort pushNotificationPort,
                                       TeamTransferService teamTransferService) {
         this.tradeRepository = tradeRepository;
         this.draftRepository = draftRepository;
         this.leagueRepository = leagueRepository;
+        this.scheduleRepository = scheduleRepository;
         this.userRepository = userRepository;
         this.pushNotificationPort = pushNotificationPort;
         this.teamTransferService = teamTransferService;
@@ -74,8 +79,10 @@ public class ProposeTradeCommandHandler implements CommandHandler<ProposeTradeCo
         DraftPick proposerPick = findPick(draft, proposer, proposerPokemonName);
         DraftPick responderPick = findPick(draft, responder, responderPokemonName);
 
-        teamTransferService.requireUnlocked(proposerPick);
-        teamTransferService.requireUnlocked(responderPick);
+        // Proponer no exige ventana, pero sí que ninguno de los dos siga bloqueado (sin calendario: nada lo está)
+        ScheduleEntity schedule = scheduleRepository.findByLeagueId(leagueId).orElse(null);
+        teamTransferService.requireUnlocked(proposerPick, schedule);
+        teamTransferService.requireUnlocked(responderPick, schedule);
 
         if (proposerMember.getCoinBalance() < coinsOffered) {
             throw new IllegalStateException("No tienes suficientes monedas para esta oferta. Necesitas "

@@ -30,6 +30,7 @@ class GetDraftStatusCommandHandlerTest {
     @Mock private DraftRepository draftRepository;
     @Mock private LeagueRepository leagueRepository;
     @Mock private LeagueMembershipGuard leagueMembershipGuard;
+    @Mock private com.villu.pokefantasy.repository.ScheduleRepository scheduleRepository;
 
     private GetDraftStatusCommandHandler handler;
 
@@ -38,7 +39,9 @@ class GetDraftStatusCommandHandlerTest {
     @BeforeEach
     void setUp() {
         handler = new GetDraftStatusCommandHandler(draftRepository, leagueRepository, leagueMembershipGuard,
-                new DraftTurnService());
+                new DraftTurnService(), scheduleRepository,
+                new com.villu.pokefantasy.team.TeamTransferService(draftRepository, scheduleRepository, leagueRepository,
+                        new com.villu.pokefantasy.commands.schedule.JornadaWindowService()));
     }
 
     @Test
@@ -101,6 +104,38 @@ class GetDraftStatusCommandHandlerTest {
         assertThat(response.getPicks().get(0).getPokemonId()).isEqualTo(25);
         assertThat(response.getPicks().get(0).getRound()).isEqualTo(1);
         assertThat(response.getPicks().get(0).getPickedAt()).isEqualTo(now);
+    }
+
+    @Test
+    void handle_completedDraft_lockedSegunLaJornada() {
+        DraftPick pendiente = new DraftPick("ash", "pikachu", 25, 1, Instant.now(), null, null);
+        pendiente.setLockedThroughJornada(2);
+        DraftPick terminada = new DraftPick("ash", "onix", 95, 1, Instant.now(), null, null);
+        terminada.setLockedThroughJornada(1);
+        DraftPick libre = new DraftPick("ash", "eevee", 133, 1, Instant.now(), null, null);
+        DraftEntity draft = buildDraft(DraftStatus.COMPLETED, List.of("ash"), 0, 10, List.of(pendiente, terminada, libre));
+        when(draftRepository.findActiveByLeagueId(LEAGUE_ID)).thenReturn(Optional.empty());
+        when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+        when(scheduleRepository.findByLeagueId(LEAGUE_ID))
+                .thenReturn(Optional.of(com.villu.pokefantasy.team.LockFixtures.scheduleWithActiveJornada(LEAGUE_ID, 2)));
+
+        List<DraftPickResponse> picks = handler.handle(new GetDraftStatusCommand(LEAGUE_ID, "ash")).getPicks();
+
+        assertThat(picks).extracting(DraftPickResponse::isLocked).containsExactly(true, false, false);
+        assertThat(picks).extracting(DraftPickResponse::getLockedThroughJornada).containsExactly(2, 1, null);
+    }
+
+    @Test
+    void handle_draftEnCurso_nadaBloqueadoYSinCalendario() {
+        DraftPick pick = new DraftPick("ash", "pikachu", 25, 1, Instant.now(), null, null);
+        pick.setLockedThroughJornada(1);
+        DraftEntity draft = buildDraft(DraftStatus.IN_PROGRESS, List.of("ash"), 0, 1, List.of(pick));
+        when(draftRepository.findActiveByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
+
+        DraftStatusResponse response = handler.handle(new GetDraftStatusCommand(LEAGUE_ID, "ash"));
+
+        assertThat(response.getPicks()).extracting(DraftPickResponse::isLocked).containsExactly(false);
+        org.mockito.Mockito.verifyNoInteractions(scheduleRepository);
     }
 
     @Test
