@@ -57,13 +57,14 @@ class ReleasePokemonCommandHandlerTest {
 
     @BeforeEach
     void setUp() {
+        com.villu.pokefantasy.team.LockFixtures.realJornadaRules(jornadaWindowService);
         handler = new ReleasePokemonCommandHandler(
                 draftRepository, closedListRepository, leagueRepository,
                 new com.villu.pokefantasy.team.TeamTransferService(draftRepository, scheduleRepository, leagueRepository, jornadaWindowService), activityEventRepository,
                 new TierPricingService());
 
         lenient().when(scheduleRepository.findByLeagueId(LEAGUE_ID))
-                .thenReturn(Optional.of(new ScheduleEntity()));
+                .thenReturn(Optional.of(com.villu.pokefantasy.team.LockFixtures.scheduleWithActiveJornada(LEAGUE_ID, 1)));
         lenient().when(jornadaWindowService.isSwapWindowOpen(any(), any())).thenReturn(true);
         lenient().when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(leagueWithMember(USERNAME, 500)));
     }
@@ -148,19 +149,21 @@ class ReleasePokemonCommandHandlerTest {
 
     @Test
     void handle_pokemonLocked_throwsIllegalState() {
-        DraftPick locked = pick(USERNAME, POKEMON, Instant.now().plusSeconds(3600));
+        DraftPick locked = pick(USERNAME, POKEMON, 1);
         DraftEntity draft = draftWithPicks(new ArrayList<>(List.of(locked)));
         when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
 
         assertThatThrownBy(() -> handler.handle(new ReleasePokemonCommand(LEAGUE_ID, USERNAME, POKEMON)))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("bloqueado");
+                .hasMessage("'" + POKEMON + "' está bloqueado hasta que termine la jornada 1.");
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────
 
-    private DraftPick pick(String username, String pokemonName, Instant lockedUntil) {
-        return new DraftPick(username, pokemonName, POKEMON_ID, 1, Instant.now(), null, lockedUntil);
+    private DraftPick pick(String username, String pokemonName, Integer lockedThroughJornada) {
+        DraftPick pick = new DraftPick(username, pokemonName, POKEMON_ID, 1, Instant.now(), null, null);
+        pick.setLockedThroughJornada(lockedThroughJornada);
+        return pick;
     }
 
     private DraftEntity draftWithPicks(List<DraftPick> picks) {

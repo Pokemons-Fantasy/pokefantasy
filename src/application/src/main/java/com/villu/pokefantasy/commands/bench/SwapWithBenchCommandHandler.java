@@ -64,7 +64,7 @@ public class SwapWithBenchCommandHandler implements CommandHandler<SwapWithBench
                 .orElseThrow(() -> new IllegalArgumentException(
                         "'" + pokemonToGive + "' no está en tu equipo en esta liga"));
         // Como al liberarlo: un Pokémon recién robado o intercambiado no vuelve a la banca hasta que se desbloquea
-        teamTransferService.requireUnlocked(givenPick);
+        teamTransferService.requireUnlocked(givenPick, market.schedule());
 
         ClosedListEntity benchEntry = closedListRepository.findByPokemonNameIgnoreCaseAndLeagueId(pokemonToTake, leagueId)
                 .orElseThrow(() -> new IllegalArgumentException("'" + pokemonToTake + "' no está en el pool de esta liga"));
@@ -92,7 +92,7 @@ public class SwapWithBenchCommandHandler implements CommandHandler<SwapWithBench
             leagueRepository.save(league);
         }
 
-        teamTransferService.replaceWithBench(draft, givenPick, benchEntry, Instant.now());
+        teamTransferService.replaceWithBench(draft, givenPick, benchEntry, teamTransferService.currentJornada(market.schedule()));
         draftRepository.save(draft);
 
         activityEventRepository.save(ActivityEventEntity.builder()

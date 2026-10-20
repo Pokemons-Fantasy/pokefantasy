@@ -114,7 +114,7 @@ public class DraftPickCommandHandler implements CommandHandler<DraftPickCommand,
         }
         DraftPick historyPick = new DraftPick(pick.getUsername(), pick.getPokemonName(),
                 pick.getPokemonId(), pick.getRound(), pick.getPickedAt(),
-                pick.getCustomStealPrice(), pick.getLockedUntil());
+                pick.getCustomStealPrice(), null);
         historyPick.setPrice(paid);
         draft.getDraftHistory().add(historyPick);
 
