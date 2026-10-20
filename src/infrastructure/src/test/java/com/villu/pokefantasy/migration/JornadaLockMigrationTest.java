@@ -10,6 +10,7 @@ import com.villu.pokefantasy.repository.entity.ScheduleEntity;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity.Jornada;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity.Match;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Query;
 
@@ -19,6 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -84,6 +86,28 @@ class JornadaLockMigrationTest {
         verify(mongoTemplate).save(draft);
         assertThat(draft.getPicks()).extracting(DraftPick::getLockedThroughJornada).containsExactly(null, 3, null);
         assertThat(draft.getPicks()).extracting(DraftPick::getLockedUntil).containsOnlyNulls();
+    }
+
+    @Test
+    void migrate_conflictoDeVersion_noImpideArrancarYSigueConLosDemas() {
+        // Otra instancia (solape del despliegue) guardó el draft entre el find y el save
+        MongoTemplate mongoTemplate = mock(MongoTemplate.class);
+        DraftEntity enConflicto = draftWith("l1", pick("crustle", NOW.plus(Duration.ofDays(1))));
+        DraftEntity otro = draftWith("l2", pick("golurk", NOW.plus(Duration.ofDays(1))));
+        when(mongoTemplate.find(any(Query.class), eq(DraftEntity.class))).thenReturn(List.of(enConflicto, otro));
+        when(mongoTemplate.findOne(any(Query.class), eq(ScheduleEntity.class))).thenReturn(scheduleWithActive(3));
+        when(mongoTemplate.save(enConflicto)).thenThrow(new OptimisticLockingFailureException("version"));
+
+        assertThatCode(() -> new JornadaLockMigration(mongoTemplate, new JornadaWindowService()).migrate(NOW))
+                .doesNotThrowAnyException();
+        verify(mongoTemplate).save(otro);
+    }
+
+    private static DraftEntity draftWith(String leagueId, DraftPick pick) {
+        DraftEntity draft = new DraftEntity();
+        draft.setLeagueId(leagueId);
+        draft.setPicks(new ArrayList<>(List.of(pick)));
+        return draft;
     }
 
     @Test

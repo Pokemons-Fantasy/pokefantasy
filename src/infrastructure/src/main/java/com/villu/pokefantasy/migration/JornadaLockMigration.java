@@ -8,6 +8,7 @@ import com.villu.pokefantasy.repository.entity.DraftPick;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
@@ -61,8 +62,14 @@ public class JornadaLockMigration {
                 pick.setLockedThroughJornada(lockedThroughJornada(pick.getLockedUntil(), active, previousClosedAt, now));
                 pick.setLockedUntil(null);
             }
-            mongoTemplate.save(draft);
-            drafts++;
+            try {
+                mongoTemplate.save(draft);
+                drafts++;
+            } catch (OptimisticLockingFailureException e) {
+                // Otra instancia lo guardó mientras tanto (solape del despliegue): conserva lockedUntil y se
+                // migra en el siguiente arranque. No tumbar el arranque por esto.
+                log.warn("Draft {} changed during lockedUntil migration; retrying on next startup", draft.getId());
+            }
         }
         if (drafts > 0) {
             log.info("Migrated legacy lockedUntil to lockedThroughJornada in {} drafts", drafts);
