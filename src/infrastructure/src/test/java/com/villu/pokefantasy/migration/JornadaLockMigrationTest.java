@@ -96,15 +96,37 @@ class JornadaLockMigrationTest {
         DraftEntity otro = draftWith("l2", pick("golurk", NOW.plus(Duration.ofDays(1))));
         when(mongoTemplate.find(any(Query.class), eq(DraftEntity.class))).thenReturn(List.of(enConflicto, otro));
         when(mongoTemplate.findOne(any(Query.class), eq(ScheduleEntity.class))).thenReturn(scheduleWithActive(3));
+        when(mongoTemplate.findById("d-l1", DraftEntity.class)).thenReturn(enConflicto);
         when(mongoTemplate.save(enConflicto)).thenThrow(new OptimisticLockingFailureException("version"));
 
         assertThatCode(() -> new JornadaLockMigration(mongoTemplate, new JornadaWindowService()).migrate(NOW))
                 .doesNotThrowAnyException();
+        verify(mongoTemplate, org.mockito.Mockito.times(JornadaLockMigration.MAX_ATTEMPTS)).save(enConflicto);
         verify(mongoTemplate).save(otro);
+    }
+
+    @Test
+    void migrate_conflictoDeVersion_releeYReintenta() {
+        // El primer save choca; se relee el draft (con el cambio de la otra instancia) y se migra esa versión
+        MongoTemplate mongoTemplate = mock(MongoTemplate.class);
+        DraftEntity leido = draftWith("l1", pick("crustle", NOW.plus(Duration.ofDays(1))));
+        DraftEntity releido = draftWith("l1", pick("crustle", NOW.plus(Duration.ofDays(1))));
+        releido.setVersion(2L); // la otra instancia subió la versión
+        when(mongoTemplate.find(any(Query.class), eq(DraftEntity.class))).thenReturn(List.of(leido));
+        when(mongoTemplate.findOne(any(Query.class), eq(ScheduleEntity.class))).thenReturn(scheduleWithActive(3));
+        when(mongoTemplate.save(leido)).thenThrow(new OptimisticLockingFailureException("version"));
+        when(mongoTemplate.findById("d-l1", DraftEntity.class)).thenReturn(releido);
+
+        new JornadaLockMigration(mongoTemplate, new JornadaWindowService()).migrate(NOW);
+
+        verify(mongoTemplate).save(releido);
+        assertThat(releido.getPicks().getFirst().getLockedThroughJornada()).isEqualTo(3);
+        assertThat(releido.getPicks().getFirst().getLockedUntil()).isNull();
     }
 
     private static DraftEntity draftWith(String leagueId, DraftPick pick) {
         DraftEntity draft = new DraftEntity();
+        draft.setId("d-" + leagueId);
         draft.setLeagueId(leagueId);
         draft.setPicks(new ArrayList<>(List.of(pick)));
         return draft;
