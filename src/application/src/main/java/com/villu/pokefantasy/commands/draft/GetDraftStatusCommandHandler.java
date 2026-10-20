@@ -6,10 +6,13 @@ import com.villu.pokefantasy.league.LeagueMembershipGuard;
 import com.villu.pokefantasy.mediator.CommandHandler;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
+import com.villu.pokefantasy.repository.ScheduleRepository;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
 import com.villu.pokefantasy.repository.entity.DraftPick;
+import com.villu.pokefantasy.repository.entity.ScheduleEntity;
 import com.villu.pokefantasy.response.DraftPickResponse;
 import com.villu.pokefantasy.response.DraftStatusResponse;
+import com.villu.pokefantasy.team.TeamTransferService;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -25,15 +28,21 @@ public class GetDraftStatusCommandHandler implements CommandHandler<GetDraftStat
     private final LeagueRepository leagueRepository;
     private final LeagueMembershipGuard leagueMembershipGuard;
     private final DraftTurnService draftTurnService;
+    private final ScheduleRepository scheduleRepository;
+    private final TeamTransferService teamTransferService;
 
     public GetDraftStatusCommandHandler(DraftRepository draftRepository,
                                         LeagueRepository leagueRepository,
                                         LeagueMembershipGuard leagueMembershipGuard,
-                                        DraftTurnService draftTurnService) {
+                                        DraftTurnService draftTurnService,
+                                        ScheduleRepository scheduleRepository,
+                                        TeamTransferService teamTransferService) {
         this.draftRepository = draftRepository;
         this.leagueRepository = leagueRepository;
         this.leagueMembershipGuard = leagueMembershipGuard;
         this.draftTurnService = draftTurnService;
+        this.scheduleRepository = scheduleRepository;
+        this.teamTransferService = teamTransferService;
     }
 
     @Override
@@ -60,21 +69,27 @@ public class GetDraftStatusCommandHandler implements CommandHandler<GetDraftStat
             }
         }
 
+        // Solo con el draft completado hay calendario y bloqueos (ADR-003: el front no los deduce)
+        ScheduleEntity schedule = draft.getStatus() == DraftStatus.COMPLETED
+                ? scheduleRepository.findByLeagueId(draft.getLeagueId()).orElse(null)
+                : null;
+
         return DraftStatusResponse.builder()
                 .id(draft.getId())
                 .status(draft.getStatus())
                 .turnOrder(draft.getTurnOrder())
                 .currentTurn(currentTurn)
                 .currentRound(draft.getCurrentRound())
-                .picks(mapPicks(draft.getPicks()))
-                .draftHistory(mapPicks(draft.getDraftHistory()))
+                .picks(mapPicks(draft.getPicks(), schedule))
+                .draftHistory(mapPicks(draft.getDraftHistory(), null))
                 .turnDeadline(turnDeadline)
                 .config(draft.getConfig())
                 .budgets(budgets(draft))
                 .build();
     }
 
-    private List<DraftPickResponse> mapPicks(List<DraftPick> picks) {
+    /** {@code schedule} null (draft sin completar o historial del draft): nada sale bloqueado. */
+    private List<DraftPickResponse> mapPicks(List<DraftPick> picks, ScheduleEntity schedule) {
         return picks == null ? Collections.emptyList() : picks.stream()
                 .map(pick -> DraftPickResponse.builder()
                         .username(pick.getUsername())
@@ -83,7 +98,8 @@ public class GetDraftStatusCommandHandler implements CommandHandler<GetDraftStat
                         .round(pick.getRound())
                         .pickedAt(pick.getPickedAt())
                         .customStealPrice(pick.getCustomStealPrice())
-                        .lockedUntil(pick.getLockedUntil())
+                        .lockedThroughJornada(pick.getLockedThroughJornada())
+                        .locked(schedule != null && teamTransferService.isLocked(pick, schedule))
                         .price(pick.getPrice())
                         .build())
                 .toList();
