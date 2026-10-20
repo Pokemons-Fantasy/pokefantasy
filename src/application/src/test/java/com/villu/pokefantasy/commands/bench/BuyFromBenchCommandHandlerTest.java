@@ -61,6 +61,7 @@ class BuyFromBenchCommandHandlerTest {
 
     @BeforeEach
     void setUp() {
+        com.villu.pokefantasy.team.LockFixtures.realJornadaRules(jornadaWindowService);
         handler = new BuyFromBenchCommandHandler(
                 draftRepository, closedListRepository, leagueRepository,
                 new com.villu.pokefantasy.team.TeamTransferService(draftRepository, scheduleRepository, leagueRepository, jornadaWindowService), activityEventRepository,
@@ -261,10 +262,9 @@ class BuyFromBenchCommandHandlerTest {
         Instant before = Instant.now();
         handler.handle(cmd());
 
-        // Recién fichado de la banca: nadie lo puede robar ni tradear durante TRANSFER_LOCK
+        // Recién fichado de la banca: nadie lo puede robar ni tradear hasta que termine la jornada activa (1)
         assertThat(draft.getPicks()).singleElement()
-                .satisfies(p -> assertThat(p.getLockedUntil())
-                        .isAfterOrEqualTo(before.plus(TeamTransferService.TRANSFER_LOCK)));
+                .satisfies(p -> assertThat(p.getLockedThroughJornada()).isEqualTo(1));
     }
 
     @Test

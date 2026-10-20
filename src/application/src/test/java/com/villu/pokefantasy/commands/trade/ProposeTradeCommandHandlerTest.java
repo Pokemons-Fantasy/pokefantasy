@@ -46,15 +46,17 @@ class ProposeTradeCommandHandlerTest {
     @Mock private LeagueRepository leagueRepository;
     @Mock private UserRepository userRepository;
     @Mock private PushNotificationPort pushNotificationPort;
+    @Mock private com.villu.pokefantasy.repository.ScheduleRepository scheduleRepository;
 
     private ProposeTradeCommandHandler handler;
 
     @BeforeEach
     void setUp() {
         handler = new ProposeTradeCommandHandler(
-                tradeRepository, draftRepository, leagueRepository,
+                tradeRepository, draftRepository, leagueRepository, scheduleRepository,
                 userRepository, pushNotificationPort,
-                new com.villu.pokefantasy.team.TeamTransferService(draftRepository, null, leagueRepository, null));
+                new com.villu.pokefantasy.team.TeamTransferService(draftRepository, scheduleRepository, leagueRepository,
+                        new com.villu.pokefantasy.commands.schedule.JornadaWindowService()));
     }
 
     @Test
@@ -214,10 +216,13 @@ class ProposeTradeCommandHandlerTest {
     void handle_pokemonLocked_throwsIllegalState() {
         DraftEntity draft = new DraftEntity();
         draft.setStatus(DraftStatus.COMPLETED);
-        // ash's pikachu is locked until 1 hour from now
+        // pikachu de ash entró en la jornada 2, que sigue pendiente
+        DraftPick locked = new DraftPick("ash", "pikachu", 25, 1, Instant.now(), null, null);
+        locked.setLockedThroughJornada(2);
+        when(scheduleRepository.findByLeagueId("l1"))
+                .thenReturn(Optional.of(com.villu.pokefantasy.team.LockFixtures.scheduleWithActiveJornada("l1", 2)));
         draft.setPicks(new ArrayList<>(List.of(
-                new DraftPick("ash", "pikachu", 25, 1, Instant.now(), null,
-                        Instant.now().plus(1, ChronoUnit.HOURS)),
+                locked,
                 new DraftPick("brock", "onix", 95, 1, Instant.now(), null, null))));
         when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.of(draft));
 
@@ -230,7 +235,7 @@ class ProposeTradeCommandHandlerTest {
         assertThatThrownBy(() -> handler.handle(
                 new ProposeTradeCommand("l1", "ash", "brock", "pikachu", "onix", 0)))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("bloqueado");
+                .hasMessage("'pikachu' está bloqueado hasta que termine la jornada 2.");
     }
 
     @Test
