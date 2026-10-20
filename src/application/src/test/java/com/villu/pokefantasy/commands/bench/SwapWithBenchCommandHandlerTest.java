@@ -61,6 +61,7 @@ class SwapWithBenchCommandHandlerTest {
 
     @BeforeEach
     void setUp() {
+        com.villu.pokefantasy.team.LockFixtures.realJornadaRules(jornadaWindowService);
         handler = new SwapWithBenchCommandHandler(
                 draftRepository, closedListRepository, leagueRepository,
                 new com.villu.pokefantasy.team.TeamTransferService(draftRepository, scheduleRepository, leagueRepository, jornadaWindowService), activityEventRepository,
@@ -200,10 +201,9 @@ class SwapWithBenchCommandHandlerTest {
         Instant before = Instant.now();
         handler.handle(new SwapWithBenchCommand(LEAGUE_ID, USERNAME, GIVE, TAKE));
 
-        // El que sale de la banca queda bloqueado TRANSFER_LOCK, como uno robado
+        // El que sale de la banca queda bloqueado hasta que termine la jornada activa (1), como uno robado
         assertThat(draft.getPicks()).singleElement()
-                .satisfies(p -> assertThat(p.getLockedUntil())
-                        .isAfterOrEqualTo(before.plus(TeamTransferService.TRANSFER_LOCK)));
+                .satisfies(p -> assertThat(p.getLockedThroughJornada()).isEqualTo(1));
     }
 
     @Test
@@ -295,14 +295,14 @@ class SwapWithBenchCommandHandlerTest {
 
     @Test
     void handle_lockedPick_throwsIllegalState() {
-        // Recién robado o intercambiado: bloqueado 7 días, igual que para liberarlo
+        // Recién robado o intercambiado en la jornada 1, que sigue pendiente: igual que para liberarlo
         DraftEntity draft = completedDraftWithPick(USERNAME, GIVE, 6);
-        draft.getPicks().get(0).setLockedUntil(Instant.now().plusSeconds(3600));
+        draft.getPicks().get(0).setLockedThroughJornada(1);
         when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
 
         assertThatThrownBy(() -> handler.handle(new SwapWithBenchCommand(LEAGUE_ID, USERNAME, GIVE, TAKE)))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("está bloqueado");
+                .hasMessage("'" + GIVE + "' está bloqueado hasta que termine la jornada 1.");
         verify(draftRepository, never()).save(any());
     }
 

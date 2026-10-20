@@ -59,6 +59,7 @@ class RespondToTradeCommandHandlerTest {
 
     @BeforeEach
     void setUp() {
+        com.villu.pokefantasy.team.LockFixtures.realJornadaRules(jornadaWindowService);
         handler = new RespondToTradeCommandHandler(
                 tradeRepository, draftRepository, leagueRepository,
                 new com.villu.pokefantasy.team.TeamTransferService(draftRepository, scheduleRepository, leagueRepository, jornadaWindowService),
@@ -104,7 +105,7 @@ class RespondToTradeCommandHandlerTest {
         draft.setPicks(new ArrayList<>(List.of(ashPick, brockPick)));
         when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.of(draft));
 
-        ScheduleEntity schedule = new ScheduleEntity();
+        ScheduleEntity schedule = com.villu.pokefantasy.team.LockFixtures.scheduleWithActiveJornada("l1", 2);
         when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
         LeagueEntity league = new LeagueEntity();
         league.setMembers(List.of(
@@ -117,13 +118,11 @@ class RespondToTradeCommandHandlerTest {
 
         handler.handle(new RespondToTradeCommand("l1", "t1", "brock", true));
 
-        // picks intercambiados y bloqueados 7 días
+        // picks intercambiados y bloqueados hasta que termine la jornada activa (2)
         assertThat(ashPick.getUsername()).isEqualTo("brock");
         assertThat(brockPick.getUsername()).isEqualTo("ash");
-        assertThat(ashPick.getLockedUntil()).isNotNull();
-        assertThat(ashPick.getLockedUntil()).isAfter(Instant.now().plus(6, ChronoUnit.DAYS));
-        assertThat(brockPick.getLockedUntil()).isNotNull();
-        assertThat(brockPick.getLockedUntil()).isAfter(Instant.now().plus(6, ChronoUnit.DAYS));
+        assertThat(ashPick.getLockedThroughJornada()).isEqualTo(2);
+        assertThat(brockPick.getLockedThroughJornada()).isEqualTo(2);
         // monedas: ash paga 100, brock recibe 100
         assertThat(league.getMembers().get(0).getCoinBalance()).isEqualTo(400);
         assertThat(league.getMembers().get(1).getCoinBalance()).isEqualTo(300);
@@ -207,7 +206,7 @@ class RespondToTradeCommandHandlerTest {
         draft.setStatus(DraftStatus.COMPLETED);
         draft.setPicks(new ArrayList<>());
         when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.of(draft));
-        ScheduleEntity schedule = new ScheduleEntity();
+        ScheduleEntity schedule = com.villu.pokefantasy.team.LockFixtures.scheduleWithActiveJornada("l1", 2);
         when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
         LeagueEntity league = new LeagueEntity();
         when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
@@ -227,7 +226,7 @@ class RespondToTradeCommandHandlerTest {
         draft.setPicks(new ArrayList<>(List.of(
                 new DraftPick("brock", "onix", 95, 1, Instant.now(), null, null))));
         when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.of(draft));
-        ScheduleEntity schedule = new ScheduleEntity();
+        ScheduleEntity schedule = com.villu.pokefantasy.team.LockFixtures.scheduleWithActiveJornada("l1", 2);
         when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
         LeagueEntity league = new LeagueEntity();
         league.setMembers(List.of(
@@ -248,14 +247,14 @@ class RespondToTradeCommandHandlerTest {
         when(tradeRepository.findById("t1")).thenReturn(Optional.of(pendingTrade()));
         DraftEntity draft = new DraftEntity();
         draft.setStatus(DraftStatus.COMPLETED);
-        // ash's pikachu locked until 1 hour from now
-        DraftPick ashPick = new DraftPick("ash", "pikachu", 25, 1, Instant.now(), null,
-                Instant.now().plus(1, ChronoUnit.HOURS));
+        // pikachu de ash entró en la jornada 2, que sigue pendiente
+        DraftPick ashPick = new DraftPick("ash", "pikachu", 25, 1, Instant.now(), null, null);
+        ashPick.setLockedThroughJornada(2);
         DraftPick brockPick = new DraftPick("brock", "onix", 95, 1, Instant.now(), null, null);
         draft.setPicks(new ArrayList<>(List.of(ashPick, brockPick)));
         when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.of(draft));
 
-        ScheduleEntity schedule = new ScheduleEntity();
+        ScheduleEntity schedule = com.villu.pokefantasy.team.LockFixtures.scheduleWithActiveJornada("l1", 2);
         when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
         LeagueEntity league = new LeagueEntity();
         league.setMembers(List.of(
@@ -266,7 +265,7 @@ class RespondToTradeCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new RespondToTradeCommand("l1", "t1", "brock", true)))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("bloqueado");
+                .hasMessage("'pikachu' está bloqueado hasta que termine la jornada 2.");
     }
 
     @Test
@@ -279,7 +278,7 @@ class RespondToTradeCommandHandlerTest {
         DraftPick brockPick = new DraftPick("brock", "onix", 95, 1, Instant.now(), null, null);
         draft.setPicks(new ArrayList<>(List.of(ashPick, brockPick)));
         when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.of(draft));
-        ScheduleEntity schedule = new ScheduleEntity();
+        ScheduleEntity schedule = com.villu.pokefantasy.team.LockFixtures.scheduleWithActiveJornada("l1", 2);
         when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
         LeagueEntity league = new LeagueEntity();
         league.setMembers(List.of(
@@ -305,7 +304,7 @@ class RespondToTradeCommandHandlerTest {
         draft.setPicks(new ArrayList<>(List.of(ashPick, brockPick)));
         when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.of(draft));
 
-        ScheduleEntity schedule = new ScheduleEntity();
+        ScheduleEntity schedule = com.villu.pokefantasy.team.LockFixtures.scheduleWithActiveJornada("l1", 2);
         when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
         LeagueEntity league = new LeagueEntity();
         league.setMembers(List.of(
@@ -341,7 +340,7 @@ class RespondToTradeCommandHandlerTest {
         draft.setPicks(new ArrayList<>(List.of(ashPick, brockPick)));
         when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.of(draft));
 
-        ScheduleEntity schedule = new ScheduleEntity();
+        ScheduleEntity schedule = com.villu.pokefantasy.team.LockFixtures.scheduleWithActiveJornada("l1", 2);
         when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
         LeagueEntity league = new LeagueEntity();
         league.setMembers(List.of(
@@ -381,7 +380,7 @@ class RespondToTradeCommandHandlerTest {
                 new DraftPick("ash", "pikachu", 25, 1, Instant.now(), null, null),
                 new DraftPick("brock", "onix", 95, 1, Instant.now(), null, null))));
         when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.of(draft));
-        ScheduleEntity schedule = new ScheduleEntity();
+        ScheduleEntity schedule = com.villu.pokefantasy.team.LockFixtures.scheduleWithActiveJornada("l1", 2);
         when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
         LeagueEntity league = new LeagueEntity();
         league.setMembers(List.of(
@@ -405,14 +404,14 @@ class RespondToTradeCommandHandlerTest {
         when(tradeRepository.findById("t1")).thenReturn(Optional.of(pendingTrade()));
         DraftEntity draft = new DraftEntity();
         draft.setStatus(DraftStatus.COMPLETED);
-        // ash's pikachu locked until 1 hour from now
-        DraftPick ashPick = new DraftPick("ash", "pikachu", 25, 1, Instant.now(), null,
-                Instant.now().plus(1, ChronoUnit.HOURS));
+        // pikachu de ash entró en la jornada 2, que sigue pendiente
+        DraftPick ashPick = new DraftPick("ash", "pikachu", 25, 1, Instant.now(), null, null);
+        ashPick.setLockedThroughJornada(2);
         DraftPick brockPick = new DraftPick("brock", "onix", 95, 1, Instant.now(), null, null);
         draft.setPicks(new ArrayList<>(List.of(ashPick, brockPick)));
         when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.of(draft));
 
-        ScheduleEntity schedule = new ScheduleEntity();
+        ScheduleEntity schedule = com.villu.pokefantasy.team.LockFixtures.scheduleWithActiveJornada("l1", 2);
         when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
         LeagueEntity league = new LeagueEntity();
         league.setMembers(List.of(
@@ -423,7 +422,7 @@ class RespondToTradeCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new RespondToTradeCommand("l1", "t1", "brock", true)))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("bloqueado");
+                .hasMessage("'pikachu' está bloqueado hasta que termine la jornada 2.");
     }
 
     // ── Concurrencia: draft.save falla → se propaga sin compensar ─
@@ -440,7 +439,7 @@ class RespondToTradeCommandHandlerTest {
         draft.setPicks(new ArrayList<>(List.of(ashPick, brockPick)));
         when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.of(draft));
 
-        ScheduleEntity schedule = new ScheduleEntity();
+        ScheduleEntity schedule = com.villu.pokefantasy.team.LockFixtures.scheduleWithActiveJornada("l1", 2);
         when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
         LeagueEntity league = new LeagueEntity();
         league.setMembers(List.of(

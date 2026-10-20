@@ -15,8 +15,10 @@ public class DraftPickResponse {
     private Instant pickedAt;
     /** Custom steal price set by owner. null = use priceTierX default. */
     private Integer customStealPrice;
-    /** Timestamp hasta el que este pokémon está bloqueado. null = libre. */
-    private Instant lockedUntil;
+    /** Jornada en la que entró al equipo; bloqueado hasta que tenga todos sus resultados. null = nunca bloqueado. */
+    private Integer lockedThroughJornada;
+    /** Calculado en el back con el calendario: no se puede robar, tradear, intercambiar ni liberar. */
+    private boolean locked;
     /** Monedas pagadas en el draft. null en drafts sin presupuesto. */
     private Integer price;
 }

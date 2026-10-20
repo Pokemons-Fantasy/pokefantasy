@@ -3,6 +3,7 @@ package com.villu.pokefantasy.team;
 import com.villu.pokefantasy.commands.schedule.JornadaWindowService;
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueRole;
+import com.villu.pokefantasy.dto.MatchStatus;
 import com.villu.pokefantasy.exception.ForbiddenOperationException;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
@@ -120,17 +121,87 @@ class TeamTransferServiceTest {
         assertThatThrownBy(() -> service.requireMember(league, "gary")).isInstanceOf(ForbiddenOperationException.class);
     }
 
-    @Test
-    void requireUnlocked() {
+    // ── bloqueo hasta fin de jornada (regla real del calendario) ────────────
+
+    /** Servicio con el {@link JornadaWindowService} real: el bloqueo se deriva del calendario. */
+    private TeamTransferService withRealWindows() {
+        return new TeamTransferService(draftRepository, scheduleRepository, leagueRepository, new JornadaWindowService());
+    }
+
+    private static ScheduleEntity.Jornada jornada(int round, MatchStatus... statuses) {
+        List<ScheduleEntity.Match> matches = new ArrayList<>();
+        for (int i = 0; i < statuses.length; i++) {
+            matches.add(new ScheduleEntity.Match("m" + round + i, "ash", "brock",
+                    statuses[i] == MatchStatus.COMPLETED ? "ash" : null, statuses[i]));
+        }
+        return new ScheduleEntity.Jornada(round, matches, null);
+    }
+
+    private static ScheduleEntity schedule(ScheduleEntity.Jornada... jornadas) {
+        ScheduleEntity schedule = new ScheduleEntity();
+        schedule.setJornadas(new ArrayList<>(List.of(jornadas)));
+        return schedule;
+    }
+
+    private DraftPick lockedThrough(Integer jornada) {
         DraftPick pick = draft.getPicks().getFirst();
-        assertThatCode(() -> service.requireUnlocked(pick)).doesNotThrowAnyException();
+        pick.setLockedThroughJornada(jornada);
+        return pick;
+    }
 
-        pick.setLockedUntil(Instant.now().minusSeconds(1));
-        assertThatCode(() -> service.requireUnlocked(pick)).doesNotThrowAnyException();
+    @Test
+    void isLocked_jornadaPendiente_true() {
+        ScheduleEntity schedule = schedule(jornada(1, MatchStatus.COMPLETED), jornada(2, MatchStatus.COMPLETED, MatchStatus.PENDING));
+        assertThat(withRealWindows().isLocked(lockedThrough(2), schedule)).isTrue();
+    }
 
-        pick.setLockedUntil(Instant.now().plusSeconds(60));
-        assertThatThrownBy(() -> service.requireUnlocked(pick))
-                .isInstanceOf(IllegalStateException.class).hasMessageContaining("'pikachu' está bloqueado");
+    @Test
+    void isLocked_jornadaCompletada_false() {
+        ScheduleEntity schedule = schedule(jornada(1, MatchStatus.COMPLETED), jornada(2, MatchStatus.COMPLETED, MatchStatus.COMPLETED));
+        assertThat(withRealWindows().isLocked(lockedThrough(2), schedule)).isFalse();
+    }
+
+    @Test
+    void isLocked_resultadoDeshecho_vuelveABloquear() {
+        ScheduleEntity schedule = schedule(jornada(1, MatchStatus.COMPLETED), jornada(2, MatchStatus.COMPLETED));
+        DraftPick pick = lockedThrough(2);
+        TeamTransferService real = withRealWindows();
+        assertThat(real.isLocked(pick, schedule)).isFalse();
+
+        schedule.getJornadas().get(1).getMatches().getFirst().setStatus(MatchStatus.PENDING);
+        assertThat(real.isLocked(pick, schedule)).isTrue();
+    }
+
+    @Test
+    void isLocked_sinJornada_false() {
+        ScheduleEntity schedule = schedule(jornada(1, MatchStatus.PENDING));
+        assertThat(withRealWindows().isLocked(lockedThrough(null), schedule)).isFalse();
+    }
+
+    @Test
+    void isLocked_jornadaInexistente_false() {
+        ScheduleEntity schedule = schedule(jornada(1, MatchStatus.PENDING), jornada(2, MatchStatus.PENDING));
+        assertThat(withRealWindows().isLocked(lockedThrough(9), schedule)).isFalse();
+    }
+
+    @Test
+    void requireUnlocked_bloqueado_mensaje() {
+        ScheduleEntity schedule = schedule(jornada(1, MatchStatus.COMPLETED), jornada(2, MatchStatus.PENDING));
+        DraftPick pick = lockedThrough(2);
+        pick.setPokemonName("Lapras");
+
+        assertThatThrownBy(() -> withRealWindows().requireUnlocked(pick, schedule))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("'Lapras' está bloqueado hasta que termine la jornada 2.");
+        assertThatCode(() -> withRealWindows().requireUnlocked(lockedThrough(1), schedule)).doesNotThrowAnyException();
+    }
+
+    @Test
+    void currentJornada() {
+        TeamTransferService real = withRealWindows();
+        assertThat(real.currentJornada(schedule(jornada(1, MatchStatus.COMPLETED), jornada(2, MatchStatus.PENDING)))).isEqualTo(2);
+        assertThatThrownBy(() -> real.currentJornada(schedule(jornada(1, MatchStatus.COMPLETED))))
+                .isInstanceOf(IllegalStateException.class).hasMessage("La temporada ha terminado");
     }
 
     @Test
@@ -158,11 +229,14 @@ class TeamTransferServiceTest {
         DraftPick rattata = draft.getPicks().get(1);
         Instant now = Instant.parse("2026-09-25T10:00:00Z");
 
-        service.transfer(rattata, "misty", now);
+        rattata.setLockedUntil(now);
+
+        service.transfer(rattata, "misty", 3, now);
 
         assertThat(rattata.getUsername()).isEqualTo("misty");
         assertThat(rattata.getPickedAt()).isEqualTo(now);
-        assertThat(rattata.getLockedUntil()).isEqualTo(now.plus(TeamTransferService.TRANSFER_LOCK));
+        assertThat(rattata.getLockedThroughJornada()).isEqualTo(3);
+        assertThat(rattata.getLockedUntil()).isNull();
         assertThat(rattata.getCustomStealPrice()).isEqualTo(300);
     }
 
@@ -173,22 +247,24 @@ class TeamTransferServiceTest {
         eevee.setPokemonId(133);
         Instant now = Instant.now();
 
-        DraftPick bought = service.addFromBench(draft, "ash", eevee, now);
+        DraftPick bought = service.addFromBench(draft, "ash", eevee, 3, now);
         assertThat(bought.getRound()).isEqualTo(TeamTransferService.BENCH_PURCHASE_ROUND);
         assertThat(draft.getPicks()).contains(bought);
-        assertThat(bought.getLockedUntil()).isEqualTo(now.plus(TeamTransferService.TRANSFER_LOCK));
+        assertThat(bought.getLockedThroughJornada()).isEqualTo(3);
+        assertThat(bought.getLockedUntil()).isNull();
 
         DraftPick rattata = draft.getPicks().get(1);
         ClosedListEntity pidgey = new ClosedListEntity();
         pidgey.setPokemonName("pidgey");
         pidgey.setPokemonId(16);
-        service.replaceWithBench(draft, rattata, pidgey, now);
+        service.replaceWithBench(draft, rattata, pidgey, 3);
         DraftPick replaced = draft.getPicks().get(1);
         assertThat(replaced.getPokemonName()).isEqualTo("pidgey");
         assertThat(replaced.getUsername()).isEqualTo("ash");
         assertThat(replaced.getRound()).isEqualTo(2);
         assertThat(replaced.getCustomStealPrice()).isNull();
-        assertThat(replaced.getLockedUntil()).isEqualTo(now.plus(TeamTransferService.TRANSFER_LOCK));
+        assertThat(replaced.getLockedThroughJornada()).isEqualTo(3);
+        assertThat(replaced.getLockedUntil()).isNull();
 
         service.releaseToBench(draft, replaced);
         assertThat(draft.ownedPokemonNames()).containsExactlyInAnyOrder("pikachu", "eevee");

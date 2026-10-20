@@ -99,6 +99,19 @@ public class JornadaWindowService {
                 .findFirst();
     }
 
+    /**
+     * {@code true} si la jornada {@code roundNumber} tiene todos sus partidos completados, o si no existe en el
+     * calendario (no puede bloquear nada).
+     */
+    public boolean isJornadaCompleted(ScheduleEntity schedule, int roundNumber) {
+        if (schedule == null || schedule.getJornadas() == null) {
+            return true;
+        }
+        return schedule.getJornadas().stream()
+                .filter(j -> j.getRoundNumber() == roundNumber)
+                .allMatch(this::allCompleted);
+    }
+
     // -------------------------------------------------------------------------
     // Window checks
     // -------------------------------------------------------------------------
