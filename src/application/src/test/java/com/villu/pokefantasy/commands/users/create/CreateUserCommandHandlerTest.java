@@ -2,6 +2,7 @@ package com.villu.pokefantasy.commands.users.create;
 
 import com.villu.pokefantasy.exception.TooManyAttemptsException;
 import com.villu.pokefantasy.mapper.UserMapper;
+import com.villu.pokefantasy.ports.DeletedUsernamePort;
 import com.villu.pokefantasy.ports.LoginAttemptPort;
 import com.villu.pokefantasy.ports.PasswordHashPort;
 import com.villu.pokefantasy.repository.UserRepository;
@@ -29,12 +30,14 @@ class CreateUserCommandHandlerTest {
     @Mock private UserMapper userMapper;
     @Mock private PasswordHashPort passwordHashPort;
     @Mock private LoginAttemptPort loginAttemptPort;
+    @Mock private DeletedUsernamePort deletedUsernamePort;
 
     private CreateUserCommandHandler handler;
 
     @BeforeEach
     void setUp() {
-        handler = new CreateUserCommandHandler(userRepository, userMapper, passwordHashPort, loginAttemptPort);
+        handler = new CreateUserCommandHandler(userRepository, userMapper, passwordHashPort, loginAttemptPort,
+                deletedUsernamePort);
     }
 
     @Test
@@ -169,6 +172,15 @@ class CreateUserCommandHandlerTest {
     }
 
     @Test
+    void handle_ipv6_limitCountsByItsSlash64() {
+        when(loginAttemptPort.failureCount("register-ip:2001:db8:1:2::/64")).thenReturn(3L);
+
+        assertThatThrownBy(() -> handler.handle(new CreateUserCommand("ash", "secret123", "2001:db8:1:2::77")))
+                .isInstanceOf(TooManyAttemptsException.class);
+        verify(userRepository, never()).saveUser(any());
+    }
+
+    @Test
     void handle_ipBelowLimit_savesAndRecordsRegistration() {
         when(loginAttemptPort.failureCount("register-ip:1.2.3.4")).thenReturn(2L);
         when(loginAttemptPort.recordFailure("register-ip:1.2.3.4", Duration.ofHours(1))).thenReturn(3L);
@@ -189,6 +201,17 @@ class CreateUserCommandHandlerTest {
                 .isInstanceOf(TooManyAttemptsException.class);
         verify(userRepository, never()).saveUser(any());
         verifyNoInteractions(passwordHashPort);
+    }
+
+    @Test
+    void handle_recentlyDeletedName_isNotAvailableYet() {
+        // Un JWT de la cuenta borrada sigue vivo hasta 15 min: con el mismo nombre entraría en la cuenta nueva.
+        when(deletedUsernamePort.isReserved("Ash")).thenReturn(true);
+
+        assertThatThrownBy(() -> handler.handle(new CreateUserCommand("Ash", "secret123", null)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Ese nombre de usuario no está disponible todavía. Prueba dentro de unos minutos.");
+        verify(userRepository, never()).saveUser(any());
     }
 
     @Test

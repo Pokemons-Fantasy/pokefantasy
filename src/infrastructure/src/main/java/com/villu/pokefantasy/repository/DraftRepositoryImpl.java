@@ -6,6 +6,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Component;
 
 import java.util.Collection;
@@ -57,5 +58,24 @@ public class DraftRepositoryImpl implements DraftRepository {
         // Solo lo necesario para decidir el estado: los picks de cada draft pesan
         query.fields().include("leagueId", "status");
         return mongoTemplate.find(query, DraftEntity.class);
+    }
+
+    @Override
+    public List<DraftEntity> findAllByLeagueId(String leagueId) {
+        return mongoTemplate.find(Query.query(Criteria.where("leagueId").is(leagueId)), DraftEntity.class);
+    }
+
+    @Override
+    public void anonymizeUser(String username, String replacement) {
+        for (String list : new String[] {"picks", "draftHistory"}) {
+            mongoTemplate.updateMulti(Query.query(Criteria.where(list + ".username").is(username)),
+                    new Update().set(list + ".$[p].username", replacement)
+                            .filterArray(Criteria.where("p.username").is(username)).inc("version", 1),
+                    DraftEntity.class);
+        }
+        mongoTemplate.updateMulti(Query.query(Criteria.where("turnOrder").is(username)),
+                new Update().set("turnOrder.$[t]", replacement)
+                        .filterArray(Criteria.where("t").is(username)).inc("version", 1),
+                DraftEntity.class);
     }
 }

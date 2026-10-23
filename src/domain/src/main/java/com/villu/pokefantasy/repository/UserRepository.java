@@ -21,4 +21,6 @@ public interface UserRepository {
 
     /** Quita el token solo a ese usuario (dar de baja un navegador). */
     void removeFcmToken(String username, String token);
+
+    void deleteByUsername(String username);
 }

@@ -4,6 +4,7 @@ import com.villu.pokefantasy.auth.AuthCookies;
 import com.villu.pokefantasy.commands.users.UserFacade;
 import com.villu.pokefantasy.commands.users.login.LoginResult;
 import com.villu.pokefantasy.request.user.ChangePasswordRequest;
+import com.villu.pokefantasy.request.user.DeleteAccountRequest;
 import com.villu.pokefantasy.request.user.RegisterPushTokenRequest;
 import com.villu.pokefantasy.request.user.UserRequest;
 import com.villu.pokefantasy.response.AvatarImageResponse;
@@ -39,11 +40,14 @@ public class UserController {
 
     private final UserFacade userFacade;
     private final UserSseEmitterRegistry userSseRegistry;
+    private final RealtimeNotifier realtimeNotifier;
 
     public UserController(UserFacade userFacade,
-                          UserSseEmitterRegistry userSseRegistry) {
+                          UserSseEmitterRegistry userSseRegistry,
+                          RealtimeNotifier realtimeNotifier) {
         this.userFacade = userFacade;
         this.userSseRegistry = userSseRegistry;
+        this.realtimeNotifier = realtimeNotifier;
     }
 
     @PostMapping("/user")
@@ -73,6 +77,26 @@ public class UserController {
         LoginResult session = userFacade.changePassword(
                 userDetails.getUsername(), body.getCurrentPassword(), body.getNewPassword());
         setSessionCookies(response, session);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Borra la cuenta (RGPD art. 17). Pide la contraseña. Fuera de {@code /v1/user}, que es ruta pública:
+     * aquí la sesión es obligatoria y el usuario sale del token. Los demás miembros de sus ligas ven al momento
+     * los Pokémon que vuelven a la banca.
+     */
+    @DeleteMapping("/users/me")
+    public ResponseEntity<Void> deleteAccount(@AuthenticationPrincipal UserDetails userDetails,
+                                              @RequestBody DeleteAccountRequest body,
+                                              HttpServletResponse response) throws Exception {
+        String username = userDetails.getUsername();
+        List<String> leagues = userFacade.deleteAccount(username, body.getPassword());
+        // Ya confirmada la transacción: corta un refresh emitido por un login simultáneo y las pestañas abiertas.
+        userFacade.revokeSessions(username);
+        userSseRegistry.closeAll(username);
+        leagues.forEach(realtimeNotifier::draftUpdated);
+        response.addHeader(HttpHeaders.SET_COOKIE, AuthCookies.clear(AuthCookies.ACCESS));
+        response.addHeader(HttpHeaders.SET_COOKIE, AuthCookies.clear(AuthCookies.REFRESH));
         return ResponseEntity.noContent().build();
     }
 

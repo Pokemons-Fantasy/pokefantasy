@@ -2,6 +2,7 @@ package com.villu.pokefantasy.repository;
 
 import com.villu.pokefantasy.repository.entity.TradeEntity;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -15,4 +16,12 @@ public interface TradeRepository {
     List<TradeEntity> findPendingByLeagueId(String leagueId);
     /** Trades PENDING donde el usuario es el responder, en cualquier liga. */
     List<TradeEntity> findPendingByResponder(String username);
+
+    void deleteByLeagueId(String leagueId);
+
+    /** Los PENDING en los que participa 'username', en cualquier liga, pasan a CANCELLED. */
+    void cancelPending(String username, Instant resolvedAt);
+
+    /** Cambia 'username' por 'replacement' como proponente y como destinatario, en cualquier liga. */
+    void anonymizeUser(String username, String replacement);
 }

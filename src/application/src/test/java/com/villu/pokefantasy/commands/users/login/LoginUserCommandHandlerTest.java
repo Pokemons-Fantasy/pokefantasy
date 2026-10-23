@@ -126,6 +126,32 @@ class LoginUserCommandHandlerTest {
     }
 
     @Test
+    void handle_failedLoginsFromTheSameIpv6Slash64_shareTheIpCounter() {
+        when(userRepository.findByUsername("ghost")).thenReturn(null);
+        when(userMapper.entityToDto(null)).thenReturn(null);
+
+        for (String ip : new String[] {"2001:db8:1:2::a", "2001:db8:1:2:ffff::b"}) {
+            assertThatThrownBy(() -> handler.handle(new LoginUserCommand("ghost", "pass", ip)))
+                    .isInstanceOf(BadCredentialsException.class);
+        }
+
+        assertThat(attempts.failureCount("ip:2001:db8:1:2::/64")).isEqualTo(2);
+    }
+
+    @Test
+    void handle_unknownUser_stillComparesAPasswordHash() {
+        // Sin esto el login respondería antes cuando el usuario no existe y se sabría qué nombres hay.
+        when(userRepository.findByUsername("ghost")).thenReturn(null);
+        when(userMapper.entityToDto(null)).thenReturn(null);
+        when(passwordHashPort.encode(anyString())).thenReturn("dummy-hash");
+
+        assertThatThrownBy(() -> handler.handle(new LoginUserCommand("ghost", "pass", IP)))
+                .isInstanceOf(BadCredentialsException.class);
+
+        verify(passwordHashPort).matches("pass", "dummy-hash");
+    }
+
+    @Test
     void handle_unknownUser_alsoCountsAsFailure() {
         when(userRepository.findByUsername("ghost")).thenReturn(null);
         when(userMapper.entityToDto(null)).thenReturn(null);

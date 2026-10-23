@@ -105,6 +105,10 @@ api-rest ─► application ─► domain ◄─ infrastructure ─► MongoDB A
 | Preparación del draft (admin + draft en `PENDING`) / orden de turnos válido | `DraftSetupGuard` / `TurnOrderPolicy` |
 | Cierre del draft (ajustes por defecto, sobrante del presupuesto al saldo, calendario) | `DraftCompletionService` |
 | Push de turno / de cierre de ventana | `DraftTurnNotifier` / `WindowReminderService` |
+| Sacar a un miembro de una liga (expulsión y borrado de cuenta): sus Pokémon vuelven a la banca, también con el draft ya completado | `LeagueMemberRemoval` |
+| Borrado de cuenta (propio o por el admin): ligas, nuevo admin, anonimización a `DeletedUser.NAME`, nombre reservado mientras viva su JWT | `AccountDeletionService` + `DeletedUsernamePort` |
+| Nombre de liga válido (crear y renombrar: 1-40 caracteres, sin control) | `LeagueNamePolicy` |
+| Moderación del admin global (buscar, quitar foto, renombrar liga, borrar usuario) | `AdminController` → `AdminFacade` (`/v1/admin/**`, solo rol `ADMIN`) |
 | Admin de liga / pertenencia a liga | `LeagueAdminGuard` / `LeagueMemberService`, `LeagueMembershipGuard` (incl. `sharesLeague`) |
 | Qué foto de perfil se acepta (JPEG, tamaño, dimensiones) | `AvatarImagePolicy` (ADR-014) |
 | Emitir SSE (vía Redis Pub/Sub) | `RealtimeNotifier` (api-rest) |
@@ -208,7 +212,7 @@ También parar ante: cambios de contrato de la API que rompan al front actual, m
 | `TooManyAttemptsException` | 429 | `TOO_MANY_ATTEMPTS` |
 | `Exception` | 500 | `INTERNAL_ERROR` |
 
-**Seguridad**: sesión por cookies httpOnly (JWT 15 min + refresh en Redis). Públicos solo los de `SecurityConfig.PUBLIC_PATHS` + OpenAPI. CORS en `SecurityConfig.corsConfigurationSource()`: orígenes exactos (web, deploy previews por regex, Android, localhost); nunca comodines de hosting compartido como `*.netlify.app` (con credenciales, cualquier sitio de ahí usaría la sesión de la víctima). Si se añade un dominio propio, actualizarlo. CSRF activo (nunca `csrf.disable()`): las escrituras con cookie de sesión exigen la cabecera `X-Requested-With` (`CsrfHeaderRequestMatcher`, ADR-018); cualquier cliente con cookies tiene que mandarla. Detalle en `vault/20 Arquitectura/Seguridad y auth.md`.
+**Seguridad**: sesión por cookies httpOnly (JWT 15 min + refresh en Redis). Públicos solo los de `SecurityConfig.PUBLIC_PATHS` + OpenAPI. CORS en `SecurityConfig.corsConfigurationSource()`: orígenes exactos (web, deploy previews por regex, Android, localhost); nunca comodines de hosting compartido como `*.netlify.app` (con credenciales, cualquier sitio de ahí usaría la sesión de la víctima). Si se añade un dominio propio, actualizarlo. CSRF activo (nunca `csrf.disable()`): las escrituras con cookie de sesión exigen la cabecera `X-Requested-With` (`CsrfHeaderRequestMatcher`, ADR-018); cualquier cliente con cookies tiene que mandarla. Borrado de cuenta en `DELETE /v1/users/me` (pide la contraseña). `/v1/admin/**` solo para el rol global `ADMIN` (se asigna a mano en Atlas). No va en `/v1/user`, que es ruta pública sin distinguir método. Detalle en `vault/20 Arquitectura/Seguridad y auth.md`.
 
 ## Tests
 
