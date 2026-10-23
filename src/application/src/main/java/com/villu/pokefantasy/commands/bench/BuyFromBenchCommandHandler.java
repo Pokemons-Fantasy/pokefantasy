@@ -78,7 +78,7 @@ public class BuyFromBenchCommandHandler implements CommandHandler<BuyFromBenchCo
         teamTransferService.charge(buyerMember, price);
         leagueRepository.save(league);
 
-        teamTransferService.addFromBench(draft, username, benchEntry, Instant.now());
+        teamTransferService.addFromBench(draft, username, benchEntry, teamTransferService.currentJornada(market.schedule()), Instant.now());
         draftRepository.save(draft);
 
         // Log activity event

@@ -44,7 +44,9 @@ public class RespondToTradeCommandHandler implements CommandHandler<RespondToTra
 
     @Override
     public Void handle(RespondToTradeCommand command) {
+        // Un trade de otra liga cuenta como inexistente: la pertenencia se comprobó sobre la liga de la ruta.
         TradeEntity trade = tradeRepository.findById(command.tradeId())
+                .filter(found -> found.getLeagueId().equals(command.leagueId()))
                 .orElseThrow(() -> new IllegalArgumentException("Propuesta no encontrada"));
 
         if (trade.getStatus() != TradeStatus.PENDING) {
@@ -77,8 +79,8 @@ public class RespondToTradeCommandHandler implements CommandHandler<RespondToTra
         DraftPick responderPick = findPickOrInvalidate(draft, trade,
                 trade.getResponder(), trade.getResponderPokemonName());
 
-        teamTransferService.requireUnlocked(proposerPick);
-        teamTransferService.requireUnlocked(responderPick);
+        teamTransferService.requireUnlocked(proposerPick, market.schedule());
+        teamTransferService.requireUnlocked(responderPick, market.schedule());
 
         LeagueMember proposerMember = getMember(league, trade.getProposer());
         LeagueMember responderMember = getMember(league, trade.getResponder());
@@ -94,8 +96,9 @@ public class RespondToTradeCommandHandler implements CommandHandler<RespondToTra
 
         // 2. DraftPicks: intercambio de dueño + bloqueo
         Instant now = Instant.now();
-        teamTransferService.transfer(proposerPick, trade.getResponder(), now);
-        teamTransferService.transfer(responderPick, trade.getProposer(), now);
+        int jornada = teamTransferService.currentJornada(market.schedule());
+        teamTransferService.transfer(proposerPick, trade.getResponder(), jornada, now);
+        teamTransferService.transfer(responderPick, trade.getProposer(), jornada, now);
 
         draftRepository.save(draft);
 

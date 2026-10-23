@@ -3,6 +3,8 @@ package com.villu.pokefantasy.security;
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -41,6 +43,8 @@ import java.util.regex.Pattern;
 @EnableWebSecurity
 @EnableMethodSecurity
 public class SecurityConfig {
+
+    private static final Logger log = LoggerFactory.getLogger(SecurityConfig.class);
 
     private static final Set<String> PUBLIC_PATHS = Set.of(
             "/v1/user", "/v1/user/login", "/v1/user/logout",
@@ -90,6 +94,8 @@ public class SecurityConfig {
     static AccessDeniedHandler accessDeniedHandler(HandlerExceptionResolver resolver) {
         AccessDeniedHandler fallback = new AccessDeniedHandlerImpl();
         AccessDeniedHandler csrf = (request, response, exception) -> {
+            // Tras ADR-018 solo debería llegar desde clientes viejos (APKs sin la cabecera) o desde otra web.
+            log.warn("CSRF rejected: {} {}", request.getMethod(), request.getRequestURI());
             if (resolver.resolveException(request, response, null, exception) == null) {
                 fallback.handle(request, response, exception);
             }

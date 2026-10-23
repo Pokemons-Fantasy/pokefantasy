@@ -93,7 +93,7 @@ api-rest ─► application ─► domain ◄─ infrastructure ─► MongoDB A
 | Responsabilidad | Dueño |
 |---|---|
 | Transacción, reintentos y métricas de cada comando | `SpringMediator` (+ `TransactionPort`, `CommandMetricsPort`) |
-| Movimientos de equipo (robo, trade, swap, compra, liberar): mercado abierto, bloqueo 7 días, cobro, banca | `TeamTransferService` + `TeamOperation` |
+| Movimientos de equipo (robo, trade, swap, compra, liberar): mercado abierto, bloqueo hasta fin de jornada, cobro, banca | `TeamTransferService` + `TeamOperation` |
 | Ventanas de robo / swap (hora de Madrid) | `JornadaWindowService` |
 | Registrar / corregir / deshacer resultados, monedas por partido y sus eventos | `MatchResultService` |
 | Precio de un tier | `TierPricingService` |
@@ -132,7 +132,7 @@ Parecen raras o mejorables pero son a propósito. Antes de cambiarlas, leer la n
 - **JWT de 15 min + refresh en Redis**, renovación transparente en el filtro; fail-closed si Redis cae (ADR-009).
 - **La autenticación se guarda en la petición** (`SecurityContextRepository` = `RequestAttributeSecurityContextRepository`, sin sesión): Spring Security autoriza cada dispatch y el ASYNC que cierra un SSE no pasa por `JwtAuthFilter` (ADR-011).
 - **Ventanas evaluadas en `Europe/Madrid`** aunque Render corra en UTC (ADR-003).
-- **Bloqueo por timestamp** (`lockedUntil`, 7 días), no por jornada (ADR-004).
+- **Bloqueo hasta fin de jornada** (`lockedThroughJornada`): lo que entra en un equipo queda bloqueado hasta que la jornada activa tenga todos sus resultados; `locked` lo calcula el back (ADR-020, sustituye a ADR-004).
 - **Tipos del front generados desde OpenAPI**: cambiar un DTO obliga a regenerarlos en el front (ADR-010).
 - Deshacer un resultado devuelve **las monedas que se dieron**, aunque el saldo quede negativo.
 

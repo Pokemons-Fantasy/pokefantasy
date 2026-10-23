@@ -14,30 +14,22 @@ import com.villu.pokefantasy.repository.entity.LeagueMember;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity;
 import org.springframework.stereotype.Service;
 
-import java.time.Duration;
 import java.time.Instant;
-import java.time.format.DateTimeFormatter;
 
 /**
  * Reglas comunes a todo lo que mueve Pokémon entre equipos y banca después del draft (robo, trade,
  * swap, compra y liberación). Los equipos viven solo en {@code draft.picks}: aquí se modifican los
  * picks en memoria y cada handler guarda draft y liga dentro de su transacción.
+ * <p>
+ * Un Pokémon que entra en un equipo después del draft (robo, trade, compra o swap con la banca) no puede
+ * cambiar de dueño ni volver a la banca hasta que termine la jornada en la que entró
+ * ({@link DraftPick#getLockedThroughJornada()}): se libera al registrarse su último resultado.
  */
 @Service
 public class TeamTransferService {
 
-    /**
-     * Un Pokémon que entra en un equipo después del draft (robo, trade, compra o swap con la banca) no puede
-     * cambiar de dueño ni volver a la banca durante este tiempo.
-     */
-    public static final Duration TRANSFER_LOCK = Duration.ofDays(7);
-
     /** {@code round} de los picks comprados en la banca (las rondas del draft empiezan en 1). */
     public static final int BENCH_PURCHASE_ROUND = 0;
-
-    /** "04/06 a las 23:59", en la hora de la liga. */
-    private static final DateTimeFormatter LOCKED_UNTIL =
-            DateTimeFormatter.ofPattern("dd/MM 'a las' HH:mm").withZone(JornadaWindowService.LEAGUE_ZONE);
 
     private final DraftRepository draftRepository;
     private final ScheduleRepository scheduleRepository;
@@ -52,8 +44,8 @@ public class TeamTransferService {
         this.jornadaWindowService = jornadaWindowService;
     }
 
-    /** Draft completado y liga, leídos de BD, con la ventana de {@code operation} ya comprobada. */
-    public record Market(DraftEntity draft, LeagueEntity league) {}
+    /** Draft completado, liga y calendario, leídos de BD, con la ventana de {@code operation} ya comprobada. */
+    public record Market(DraftEntity draft, LeagueEntity league, ScheduleEntity schedule) {}
 
     public Market openMarket(String leagueId, TeamOperation operation) {
         DraftEntity draft = draftRepository.findLatestByLeagueId(leagueId)
@@ -70,7 +62,7 @@ public class TeamTransferService {
         if (!open) {
             throw new IllegalStateException(operation.windowClosedMessage);
         }
-        return new Market(draft, league);
+        return new Market(draft, league, schedule);
     }
 
     /** Miembro de la liga que hace la operación; 403 si no lo es. */
@@ -82,11 +74,25 @@ public class TeamTransferService {
                         "No eres miembro de esta liga"));
     }
 
-    public void requireUnlocked(DraftPick pick) {
-        if (pick.getLockedUntil() != null && Instant.now().isBefore(pick.getLockedUntil())) {
-            throw new IllegalStateException(
-                    "'" + pick.getPokemonName() + "' está bloqueado hasta el " + LOCKED_UNTIL.format(pick.getLockedUntil()) + ".");
+    /** Bloqueado mientras la jornada en la que entró al equipo tenga algún resultado pendiente. */
+    public boolean isLocked(DraftPick pick, ScheduleEntity schedule) {
+        Integer jornada = pick.getLockedThroughJornada();
+        return jornada != null && !jornadaWindowService.isJornadaCompleted(schedule, jornada);
+    }
+
+    /** 409 si {@code pick} sigue bloqueado (ver {@link #isLocked}). */
+    public void requireUnlocked(DraftPick pick, ScheduleEntity schedule) {
+        if (isLocked(pick, schedule)) {
+            throw new IllegalStateException("'" + pick.getPokemonName() + "' está bloqueado hasta que termine la jornada "
+                    + pick.getLockedThroughJornada() + ".");
         }
+    }
+
+    /** Jornada activa, a la que se ata el bloqueo de lo que entra ahora en un equipo; 409 si la temporada acabó. */
+    public int currentJornada(ScheduleEntity schedule) {
+        return jornadaWindowService.getActiveJornada(schedule)
+                .map(ScheduleEntity.Jornada::getRoundNumber)
+                .orElseThrow(() -> new IllegalStateException("La temporada ha terminado"));
     }
 
     /** Cobra {@code amount} monedas, o 409 si no le llegan. */
@@ -106,31 +112,39 @@ public class TeamTransferService {
     }
 
     /**
-     * Cambia de dueño un pick (robo, trade) y lo bloquea {@link #TRANSFER_LOCK}. Conserva el precio de
-     * robo personalizado, que hereda el nuevo dueño.
+     * Cambia de dueño un pick (robo, trade) y lo bloquea hasta que termine {@code jornada}. Conserva el precio
+     * de robo personalizado, que hereda el nuevo dueño.
      */
-    public void transfer(DraftPick pick, String newOwner, Instant now) {
+    public void transfer(DraftPick pick, String newOwner, int jornada, Instant now) {
         pick.setUsername(newOwner);
-        pick.setLockedUntil(now.plus(TRANSFER_LOCK));
+        lock(pick, jornada);
         pick.setPickedAt(now);
     }
 
-    /** Pokémon de la banca al equipo de {@code username} (compra), bloqueado {@link #TRANSFER_LOCK}. */
-    public DraftPick addFromBench(DraftEntity draft, String username, ClosedListEntity entry, Instant now) {
+    /** Pokémon de la banca al equipo de {@code username} (compra), bloqueado hasta que termine {@code jornada}. */
+    public DraftPick addFromBench(DraftEntity draft, String username, ClosedListEntity entry, int jornada, Instant now) {
         DraftPick pick = new DraftPick(username, entry.getPokemonName(), entry.getPokemonId(),
-                BENCH_PURCHASE_ROUND, now, null, now.plus(TRANSFER_LOCK));
+                BENCH_PURCHASE_ROUND, now, null, null);
+        lock(pick, jornada);
         draft.getPicks().add(pick);
         return pick;
     }
 
     /**
      * Sustituye {@code given} por un Pokémon de la banca en la misma posición del equipo (swap). El que entra
-     * queda bloqueado {@link #TRANSFER_LOCK}.
+     * queda bloqueado hasta que termine {@code jornada}.
      */
-    public void replaceWithBench(DraftEntity draft, DraftPick given, ClosedListEntity entry, Instant now) {
+    public void replaceWithBench(DraftEntity draft, DraftPick given, ClosedListEntity entry, int jornada) {
         int index = draft.getPicks().indexOf(given);
-        draft.getPicks().set(index, new DraftPick(given.getUsername(), entry.getPokemonName(),
-                entry.getPokemonId(), given.getRound(), given.getPickedAt(), null, now.plus(TRANSFER_LOCK)));
+        DraftPick pick = new DraftPick(given.getUsername(), entry.getPokemonName(),
+                entry.getPokemonId(), given.getRound(), given.getPickedAt(), null, null);
+        lock(pick, jornada);
+        draft.getPicks().set(index, pick);
+    }
+
+    private static void lock(DraftPick pick, int jornada) {
+        pick.setLockedThroughJornada(jornada);
+        pick.setLockedUntil(null);
     }
 
     /** El Pokémon vuelve a la banca (liberación). */

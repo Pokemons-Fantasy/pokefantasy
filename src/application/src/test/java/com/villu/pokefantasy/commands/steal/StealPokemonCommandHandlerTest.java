@@ -67,6 +67,7 @@ class StealPokemonCommandHandlerTest {
 
     @BeforeEach
     void setUp() {
+        com.villu.pokefantasy.team.LockFixtures.realJornadaRules(jornadaWindowService);
         handler = new StealPokemonCommandHandler(
                 draftRepository, leagueRepository,
                 userRepository, new com.villu.pokefantasy.team.TeamTransferService(draftRepository, scheduleRepository, leagueRepository, jornadaWindowService),
@@ -86,7 +87,7 @@ class StealPokemonCommandHandlerTest {
         int stealPrice = 300;
 
         DraftEntity draft = completedDraftWithPick(VICTIM, TARGET, 6);
-        ScheduleEntity schedule = scheduleWithActiveJornada(1);
+        ScheduleEntity schedule = scheduleWithActiveJornada(2);
         LeagueEntity league = leagueWithTwoMembers(1000, 500); // stealer:1000, victim:500
         league.setSettings(LeagueSettings.builder().priceTierS(stealPrice).build());
 
@@ -117,8 +118,8 @@ class StealPokemonCommandHandlerTest {
                 .filter(p -> TARGET.equalsIgnoreCase(p.getPokemonName()))
                 .findFirst().orElseThrow();
         assertThat(pick.getUsername()).isEqualTo(STEALER);
-        assertThat(pick.getLockedUntil()).isNotNull();
-        assertThat(pick.getLockedUntil()).isAfter(Instant.now().plus(6, ChronoUnit.DAYS));
+        assertThat(pick.getLockedThroughJornada()).isEqualTo(2);
+        assertThat(pick.getLockedUntil()).isNull();
 
         verify(leagueRepository).save(league);
 
@@ -194,9 +195,9 @@ class StealPokemonCommandHandlerTest {
 
     @Test
     void handle_pokemonLocked_throws() {
-        // Pick locked until 1 hour from now
-        DraftPick pick = new DraftPick(VICTIM, TARGET, 6, 1, Instant.now(), null,
-                Instant.now().plus(1, ChronoUnit.HOURS));
+        // Fichado en la jornada 1, que sigue con partidos pendientes
+        DraftPick pick = new DraftPick(VICTIM, TARGET, 6, 1, Instant.now(), null, null);
+        pick.setLockedThroughJornada(1);
         DraftEntity draft = draftWithPick(pick);
         ScheduleEntity schedule = scheduleWithActiveJornada(1);
         LeagueEntity league = leagueWithTwoMembers(1000, 500);
@@ -208,7 +209,7 @@ class StealPokemonCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new StealPokemonCommand(LEAGUE_ID, STEALER, TARGET)))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("bloqueado");
+                .hasMessage("'" + TARGET + "' está bloqueado hasta que termine la jornada 1.");
     }
 
     // ── Insufficient coins ────────────────────────────────────────────────────
@@ -409,34 +410,16 @@ class StealPokemonCommandHandlerTest {
         assertThat(result).isEqualTo(VICTIM);
     }
 
-    // ── Timestamp lock ────────────────────────────────────────────────────────
+    // ── Bloqueo hasta fin de jornada ─────────────────────────────────────────
 
     @Test
-    void steal_lockedPokemon_throwsIllegalState() {
-        // Pick locked until 1 hour from now → cannot be stolen
+    void steal_jornadaDelFichajeTerminada_succeeds() {
+        // Fichado en la jornada 1, ya completada (jornada activa 2). El lockedUntil antiguo ya no cuenta.
         DraftPick pick = new DraftPick(VICTIM, TARGET, 6, 1, Instant.now(), null,
-                Instant.now().plus(1, ChronoUnit.HOURS));
+                Instant.now().plus(3, ChronoUnit.DAYS));
+        pick.setLockedThroughJornada(1);
         DraftEntity draft = draftWithPick(pick);
-        ScheduleEntity schedule = scheduleWithActiveJornada(1);
-        LeagueEntity league = leagueWithTwoMembers(1000, 500);
-
-        when(draftRepository.findLatestByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(draft));
-        when(scheduleRepository.findByLeagueId(LEAGUE_ID)).thenReturn(Optional.of(schedule));
-        when(jornadaWindowService.isStealWindowOpen(any(), any())).thenReturn(true);
-        when(leagueRepository.findById(LEAGUE_ID)).thenReturn(Optional.of(league));
-
-        assertThatThrownBy(() -> handler.handle(new StealPokemonCommand(LEAGUE_ID, STEALER, TARGET)))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("bloqueado");
-    }
-
-    @Test
-    void steal_expiredLock_succeeds() {
-        // Pick lock expired 1 hour ago → steal should proceed
-        DraftPick pick = new DraftPick(VICTIM, TARGET, 6, 1, Instant.now(), null,
-                Instant.now().minus(1, ChronoUnit.HOURS));
-        DraftEntity draft = draftWithPick(pick);
-        ScheduleEntity schedule = scheduleWithActiveJornada(1);
+        ScheduleEntity schedule = scheduleWithActiveJornada(2);
         LeagueEntity league = leagueWithTwoMembers(1000, 500);
         league.setSettings(LeagueSettings.builder().priceTierS(300).build());
         ClosedListEntity entry = closedListEntry(TARGET, 6, Tier.S);
@@ -457,7 +440,7 @@ class StealPokemonCommandHandlerTest {
                 .filter(p -> TARGET.equalsIgnoreCase(p.getPokemonName()))
                 .findFirst().orElseThrow();
         assertThat(stolenPick.getUsername()).isEqualTo(STEALER);
-        assertThat(stolenPick.getLockedUntil()).isAfter(Instant.now().plus(6, ChronoUnit.DAYS));
+        assertThat(stolenPick.getLockedThroughJornada()).isEqualTo(2);
         assertThat(result).isEqualTo(VICTIM);
     }
 
@@ -509,11 +492,9 @@ class StealPokemonCommandHandlerTest {
         return draft;
     }
 
-    /** Minimal schedule — sufficient for JornadaWindowService mock. */
+    /** Jornadas 1..round: las anteriores completadas y la activa con un partido pendiente. */
     private ScheduleEntity scheduleWithActiveJornada(int round) {
-        ScheduleEntity schedule = new ScheduleEntity();
-        schedule.setLeagueId(LEAGUE_ID);
-        return schedule;
+        return com.villu.pokefantasy.team.LockFixtures.scheduleWithActiveJornada(LEAGUE_ID, round);
     }
 
     /** Schedule where the given jornada has PENDING matches (for lock check). */
