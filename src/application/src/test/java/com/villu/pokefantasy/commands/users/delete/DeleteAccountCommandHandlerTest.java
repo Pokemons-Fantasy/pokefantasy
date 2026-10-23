@@ -71,9 +71,11 @@ class DeleteAccountCommandHandlerTest {
 
     @BeforeEach
     void setUp() {
-        handler = new DeleteAccountCommandHandler(userRepository, passwordHashPort, loginAttemptPort, refreshTokenPort,
-                avatarRepository, leagueRepository, leagueMemberRemoval, draftRepository, scheduleRepository,
-                tradeRepository, activityEventRepository, closedListRepository, deletedUsernamePort, tokenPort);
+        // Servicio real sobre los mismos mocks: estos tests cubren el borrado entero (también AccountDeletionService).
+        handler = new DeleteAccountCommandHandler(userRepository, passwordHashPort, loginAttemptPort,
+                new AccountDeletionService(userRepository, refreshTokenPort, avatarRepository, leagueRepository,
+                        leagueMemberRemoval, draftRepository, scheduleRepository, tradeRepository,
+                        activityEventRepository, closedListRepository, deletedUsernamePort, tokenPort));
         when(tokenPort.accessTokenTtl()).thenReturn(java.time.Duration.ofMinutes(15));
         UserEntity ash = new UserEntity();
         ash.setName("ash");

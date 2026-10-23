@@ -162,6 +162,20 @@ class AccountDeletionRepositoriesTest {
                 new String[] {"p.username", "p.username", "t"});
     }
 
+    @Test
+    void leagueFindByNameContaining_quotesTheTextAndLimits() {
+        // ".*" no puede devolver todas las ligas ni romper la regex.
+        new LeagueRepositoryImpl(mongoTemplate).findByNameContaining(".*", 20);
+
+        verify(mongoTemplate).find(query.capture(), eq(LeagueEntity.class));
+        Object name = query.getValue().getQueryObject().get("name");
+        assertThat(name).isInstanceOf(java.util.regex.Pattern.class);
+        java.util.regex.Pattern pattern = (java.util.regex.Pattern) name;
+        assertThat(pattern.pattern()).isEqualTo(java.util.regex.Pattern.quote(".*"));
+        assertThat(pattern.flags() & java.util.regex.Pattern.CASE_INSENSITIVE).isNotZero();
+        assertThat(query.getValue().getLimit()).isEqualTo(20);
+    }
+
     private static final String GONE = "Usuario eliminado";
 
     private void assertFlatRewrites(String... fields) {
