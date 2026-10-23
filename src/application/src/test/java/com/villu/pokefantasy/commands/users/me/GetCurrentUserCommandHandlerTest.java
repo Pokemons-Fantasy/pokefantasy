@@ -29,6 +29,18 @@ class GetCurrentUserCommandHandlerTest {
 
         assertThat(result.getUsername()).isEqualTo("ash");
         assertThat(result.getAvatarVersion()).isEqualTo(42L);
+        assertThat(result.isAdmin()).isFalse();
+    }
+
+    @Test
+    void handle_globalAdmin_isReported() {
+        UserEntity user = new UserEntity();
+        user.setName("root");
+        user.setRole(com.villu.pokefantasy.dto.Role.ADMIN);
+        when(userRepository.findByUsername("root")).thenReturn(user);
+
+        assertThat(new GetCurrentUserCommandHandler(userRepository).handle(new GetCurrentUserCommand("root")).isAdmin())
+                .isTrue();
     }
 
     @Test

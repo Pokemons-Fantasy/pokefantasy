@@ -1,5 +1,6 @@
 package com.villu.pokefantasy.commands.users.me;
 
+import com.villu.pokefantasy.dto.Role;
 import com.villu.pokefantasy.mediator.CommandHandler;
 import com.villu.pokefantasy.repository.UserRepository;
 import com.villu.pokefantasy.repository.entity.UserEntity;
@@ -25,6 +26,7 @@ public class GetCurrentUserCommandHandler implements CommandHandler<GetCurrentUs
         return CurrentUserResponse.builder()
                 .username(user.getName())
                 .avatarVersion(user.getAvatarVersion())
+                .admin(user.getRole() == Role.ADMIN)
                 .build();
     }
 

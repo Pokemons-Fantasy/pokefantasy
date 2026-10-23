@@ -19,4 +19,7 @@ public interface LeagueRepository {
 
     /** Cambia 'username' por 'replacement' como creador de las ligas. */
     void anonymizeUser(String username, String replacement);
+
+    /** Ligas cuyo nombre contiene 'text' (sin distinguir mayúsculas; el texto se busca tal cual, no como regex). */
+    List<LeagueEntity> findByNameContaining(String text, int limit);
 }

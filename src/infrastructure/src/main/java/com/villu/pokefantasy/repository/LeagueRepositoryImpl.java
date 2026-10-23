@@ -3,6 +3,7 @@ package com.villu.pokefantasy.repository;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import com.villu.pokefantasy.repository.entity.LeagueMember;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -10,6 +11,7 @@ import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.regex.Pattern;
 import java.util.Optional;
 
 @Component
@@ -73,5 +75,12 @@ public class LeagueRepositoryImpl implements LeagueRepository {
     public void anonymizeUser(String username, String replacement) {
         mongoTemplate.updateMulti(Query.query(Criteria.where("createdBy").is(username)),
                 new Update().set("createdBy", replacement).inc("version", 1), LeagueEntity.class);
+    }
+
+    @Override
+    public List<LeagueEntity> findByNameContaining(String text, int limit) {
+        Pattern pattern = Pattern.compile(Pattern.quote(text), Pattern.CASE_INSENSITIVE);
+        Query query = Query.query(Criteria.where("name").regex(pattern)).with(Sort.by("name")).limit(limit);
+        return mongoTemplate.find(query, LeagueEntity.class);
     }
 }
