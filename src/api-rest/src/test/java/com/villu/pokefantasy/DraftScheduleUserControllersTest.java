@@ -48,7 +48,7 @@ class DraftScheduleUserControllersTest extends ControllerTestSupport {
     private final MockMvc mvc = mvc(
             new DraftController(draftFacade, draftRegistry, notifier),
             new ScheduleController(scheduleFacade),
-            new UserController(userFacade, userRegistry));
+            new UserController(userFacade, userRegistry, notifier));
 
     private static org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder json(
             org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder request, String body) {
@@ -238,6 +238,22 @@ class DraftScheduleUserControllersTest extends ControllerTestSupport {
         assertThat(result.getResponse().getHeaders("Set-Cookie"))
                 .anySatisfy(c -> assertThat(c).startsWith("jwt=new-jwt;"))
                 .anySatisfy(c -> assertThat(c).startsWith("refresh=new-refresh;"));
+    }
+
+    @Test
+    void deleteAccount_returns204ClearsCookiesAndNotifiesLeagues() throws Exception {
+        when(userFacade.deleteAccount(ME, "pikachu123")).thenReturn(java.util.List.of("l1"));
+        userRegistry.register(ME); // otra pestaña con el SSE de usuario abierto
+
+        MvcResult result = mvc.perform(json(delete("/v1/users/me"), "{\"password\":\"pikachu123\"}"))
+                .andExpect(status().isNoContent()).andReturn();
+
+        assertThat(result.getResponse().getHeaders("Set-Cookie"))
+                .anySatisfy(c -> assertThat(c).startsWith("jwt=;").contains("Max-Age=0"))
+                .anySatisfy(c -> assertThat(c).startsWith("refresh=;").contains("Max-Age=0"));
+        verify(notifier).draftUpdated("l1");
+        verify(userFacade).revokeSessions(ME);
+        assertThat(userRegistry.connectionCount(ME)).isZero();
     }
 
     @Test

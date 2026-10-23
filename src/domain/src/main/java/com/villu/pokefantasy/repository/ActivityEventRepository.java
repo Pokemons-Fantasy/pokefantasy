@@ -12,4 +12,9 @@ public interface ActivityEventRepository {
     List<ActivityEventEntity> find(ActivityEventFilter filter, int page, int size);
 
     long count(ActivityEventFilter filter);
+
+    void deleteByLeagueId(String leagueId);
+
+    /** Cambia 'username' por 'replacement' como actor y como objetivo, en cualquier liga. */
+    void anonymizeUser(String username, String replacement);
 }

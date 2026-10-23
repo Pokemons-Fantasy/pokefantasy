@@ -16,4 +16,10 @@ public interface DraftRepository {
     List<DraftEntity> findAllInProgress();
     /** Todos los drafts de esas ligas, del más reciente al más antiguo. Solo carga id, leagueId y status. */
     List<DraftEntity> findAllByLeagueIdsNewestFirst(Collection<String> leagueIds);
+
+    /** Todos los drafts de la liga, completos (sin proyección): para modificarlos y guardarlos. */
+    List<DraftEntity> findAllByLeagueId(String leagueId);
+
+    /** Cambia 'username' por 'replacement' en picks, historial y orden de turnos de todos los drafts. */
+    void anonymizeUser(String username, String replacement);
 }

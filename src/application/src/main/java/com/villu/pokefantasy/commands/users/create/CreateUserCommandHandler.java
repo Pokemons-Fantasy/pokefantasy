@@ -7,6 +7,7 @@ import com.villu.pokefantasy.dto.users.User;
 import com.villu.pokefantasy.exception.TooManyAttemptsException;
 import com.villu.pokefantasy.mapper.UserMapper;
 import com.villu.pokefantasy.mediator.CommandHandler;
+import com.villu.pokefantasy.ports.DeletedUsernamePort;
 import com.villu.pokefantasy.ports.LoginAttemptPort;
 import com.villu.pokefantasy.ports.PasswordHashPort;
 import com.villu.pokefantasy.repository.UserRepository;
@@ -23,13 +24,16 @@ public class CreateUserCommandHandler implements CommandHandler<CreateUserComman
     private final UserMapper userMapper;
     private final PasswordHashPort passwordHashPort;
     private final LoginAttemptPort loginAttemptPort;
+    private final DeletedUsernamePort deletedUsernamePort;
 
     public CreateUserCommandHandler(UserRepository userRepository, UserMapper userMapper,
-                                    PasswordHashPort passwordHashPort, LoginAttemptPort loginAttemptPort) {
+                                    PasswordHashPort passwordHashPort, LoginAttemptPort loginAttemptPort,
+                                    DeletedUsernamePort deletedUsernamePort) {
         this.userRepository = userRepository;
         this.userMapper = userMapper;
         this.passwordHashPort = passwordHashPort;
         this.loginAttemptPort = loginAttemptPort;
+        this.deletedUsernamePort = deletedUsernamePort;
     }
 
     /** 3-20 caracteres: letras, números, guion y guion bajo (sin espacios ni caracteres raros). */
@@ -61,6 +65,11 @@ public class CreateUserCommandHandler implements CommandHandler<CreateUserComman
         // mayúsculas: "lobon" no puede registrarse si ya existe "Lobon" (suplantación visual).
         if (userRepository.existsByUsernameIgnoreCase(command.username())) {
             throw new IllegalStateException("Ese nombre de usuario ya está en uso.");
+        }
+        // Cuenta borrada hace poco: su JWT de acceso sigue vivo y entraría en la cuenta nueva (DeletedUsernamePort).
+        if (deletedUsernamePort.isReserved(command.username())) {
+            throw new IllegalStateException(
+                    "Ese nombre de usuario no está disponible todavía. Prueba dentro de unos minutos.");
         }
         // Reserva el hueco con el INCR atómico antes de crear la cuenta: con la lectura de arriba sola, varias
         // peticiones a la vez la pasarían todas.

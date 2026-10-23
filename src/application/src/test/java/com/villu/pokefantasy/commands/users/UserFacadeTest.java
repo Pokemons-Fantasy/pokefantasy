@@ -4,6 +4,7 @@ import com.villu.pokefantasy.commands.users.avatar.DeleteAvatarCommand;
 import com.villu.pokefantasy.commands.users.avatar.GetAvatarCommand;
 import com.villu.pokefantasy.commands.users.avatar.UploadAvatarCommand;
 import com.villu.pokefantasy.commands.users.create.CreateUserCommand;
+import com.villu.pokefantasy.commands.users.delete.DeleteAccountCommand;
 import com.villu.pokefantasy.commands.users.login.LoginResult;
 import com.villu.pokefantasy.commands.users.login.LoginUserCommand;
 import com.villu.pokefantasy.commands.users.logout.LogoutUserCommand;
@@ -135,6 +136,20 @@ class UserFacadeTest {
         facade.registerPushToken("ash", "tok-1");
 
         verify(mediator).send(new RegisterPushTokenCommand("ash", "tok-1"));
+    }
+
+    @Test
+    void deleteAccount_sendsDeleteAccountCommandAndReturnsTheRemainingLeagues() throws Exception {
+        when(mediator.send(new DeleteAccountCommand("ash", "pw"))).thenReturn(java.util.List.of("l1"));
+
+        assertThat(facade.deleteAccount("ash", "pw")).containsExactly("l1");
+    }
+
+    @Test
+    void revokeSessions_sendsRevokeSessionsCommand() throws Exception {
+        facade.revokeSessions("ash");
+
+        verify(mediator).send(new com.villu.pokefantasy.commands.users.delete.RevokeSessionsCommand("ash"));
     }
 
     @Test

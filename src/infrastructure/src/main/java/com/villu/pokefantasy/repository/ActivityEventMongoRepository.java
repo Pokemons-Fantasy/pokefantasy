@@ -1,5 +1,6 @@
 package com.villu.pokefantasy.repository;
 
+import org.springframework.data.mongodb.core.query.Update;
 import com.villu.pokefantasy.repository.entity.ActivityEventEntity;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Sort;
@@ -55,5 +56,19 @@ public class ActivityEventMongoRepository implements ActivityEventRepository {
                     Criteria.where("targetUsername").is(filter.username()));
         }
         return criteria;
+    }
+
+    @Override
+    public void deleteByLeagueId(String leagueId) {
+        mongoTemplate.remove(Query.query(Criteria.where("leagueId").is(leagueId)), ActivityEventEntity.class,
+                "activity_events");
+    }
+
+    @Override
+    public void anonymizeUser(String username, String replacement) {
+        for (String field : new String[] {"actorUsername", "targetUsername"}) {
+            mongoTemplate.updateMulti(Query.query(Criteria.where(field).is(username)),
+                    Update.update(field, replacement), ActivityEventEntity.class, "activity_events");
+        }
     }
 }
