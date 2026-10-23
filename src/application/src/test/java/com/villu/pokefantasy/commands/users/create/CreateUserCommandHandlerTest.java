@@ -172,6 +172,15 @@ class CreateUserCommandHandlerTest {
     }
 
     @Test
+    void handle_ipv6_limitCountsByItsSlash64() {
+        when(loginAttemptPort.failureCount("register-ip:2001:db8:1:2::/64")).thenReturn(3L);
+
+        assertThatThrownBy(() -> handler.handle(new CreateUserCommand("ash", "secret123", "2001:db8:1:2::77")))
+                .isInstanceOf(TooManyAttemptsException.class);
+        verify(userRepository, never()).saveUser(any());
+    }
+
+    @Test
     void handle_ipBelowLimit_savesAndRecordsRegistration() {
         when(loginAttemptPort.failureCount("register-ip:1.2.3.4")).thenReturn(2L);
         when(loginAttemptPort.recordFailure("register-ip:1.2.3.4", Duration.ofHours(1))).thenReturn(3L);

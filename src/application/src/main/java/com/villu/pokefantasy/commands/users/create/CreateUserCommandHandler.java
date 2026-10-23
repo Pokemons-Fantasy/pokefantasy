@@ -1,5 +1,6 @@
 package com.villu.pokefantasy.commands.users.create;
 
+import com.villu.pokefantasy.auth.RateLimitIp;
 import com.villu.pokefantasy.commands.users.PasswordPolicy;
 import com.villu.pokefantasy.dto.Role;
 import com.villu.pokefantasy.dto.users.User;
@@ -51,7 +52,7 @@ public class CreateUserCommandHandler implements CommandHandler<CreateUserComman
         // Solo cuentan los registros correctos (los fallidos no ocupan sitio). Requiere una IP que el
         // cliente no pueda falsear (ClientIpFilter); sin IP no se limita.
         String ipKey = command.clientIp() == null || command.clientIp().isBlank()
-                ? null : "register-ip:" + command.clientIp();
+                ? null : "register-ip:" + RateLimitIp.of(command.clientIp());
         if (ipKey != null && loginAttemptPort.failureCount(ipKey) >= MAX_REGISTRATIONS_PER_IP) {
             throw tooManyRegistrations();
         }

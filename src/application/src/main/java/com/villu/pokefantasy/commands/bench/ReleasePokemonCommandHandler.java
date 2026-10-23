@@ -61,7 +61,7 @@ public class ReleasePokemonCommandHandler implements CommandHandler<ReleasePokem
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException(
                         "No tienes a '" + pokemonName + "' en tu equipo"));
-        teamTransferService.requireUnlocked(pick);
+        teamTransferService.requireUnlocked(pick, market.schedule());
 
         // Recompensa: el precio de mercado de su tier, lo mismo que cuesta comprarlo del banquillo
         // (el tier está en la closed list, no en el pick)

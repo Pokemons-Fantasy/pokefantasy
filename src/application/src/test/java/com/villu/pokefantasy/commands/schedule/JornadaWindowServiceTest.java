@@ -104,6 +104,28 @@ class JornadaWindowServiceTest {
     }
 
     // -------------------------------------------------------------------------
+    // isJornadaCompleted
+    // -------------------------------------------------------------------------
+
+    @Test
+    void isJornadaCompleted_pendiente_false() {
+        ScheduleEntity schedule = scheduleWithJornadas(completedJornada(1), pendingJornada(2, "2026-06-13"));
+        assertThat(service().isJornadaCompleted(schedule, 2)).isFalse();
+    }
+
+    @Test
+    void isJornadaCompleted_completada_true() {
+        ScheduleEntity schedule = scheduleWithJornadas(completedJornada(1), pendingJornada(2, "2026-06-13"));
+        assertThat(service().isJornadaCompleted(schedule, 1)).isTrue();
+    }
+
+    @Test
+    void isJornadaCompleted_noExiste_true() {
+        ScheduleEntity schedule = scheduleWithJornadas(pendingJornada(1, START_DATE));
+        assertThat(service().isJornadaCompleted(schedule, 5)).isTrue();
+    }
+
+    // -------------------------------------------------------------------------
     // isSwapWindowOpen
     // -------------------------------------------------------------------------
 
