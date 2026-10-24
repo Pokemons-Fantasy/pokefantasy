@@ -13,7 +13,11 @@ import com.villu.pokefantasy.commands.users.password.ChangePasswordCommand;
 import com.villu.pokefantasy.commands.users.pushtoken.RegisterPushTokenCommand;
 import com.villu.pokefantasy.commands.users.pushtoken.UnregisterPushTokenCommand;
 import com.villu.pokefantasy.commands.users.search.SearchUsersCommand;
+import com.villu.pokefantasy.commands.users.showdown.LinkShowdownCommand;
+import com.villu.pokefantasy.commands.users.showdown.UnlinkShowdownCommand;
 import com.villu.pokefantasy.mediator.Mediator;
+import com.villu.pokefantasy.ports.ShowdownPort;
+import com.villu.pokefantasy.ports.ShowdownUser;
 import com.villu.pokefantasy.response.AvatarImageResponse;
 import com.villu.pokefantasy.response.CurrentUserResponse;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,6 +31,8 @@ import java.time.Duration;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -35,12 +41,55 @@ import static org.mockito.Mockito.when;
 class UserFacadeTest {
 
     @Mock private Mediator mediator;
+    @Mock private ShowdownPort showdownPort;
 
     private UserFacade facade;
 
     @BeforeEach
     void setUp() {
-        facade = new UserFacade(mediator);
+        facade = new UserFacade(mediator, showdownPort);
+    }
+
+    @Test
+    void linkShowdown_lookupThenSend() throws Exception {
+        when(showdownPort.findUser("ashketchum")).thenReturn(Optional.of(new ShowdownUser("Ash Ketchum", "ashketchum")));
+
+        facade.linkShowdown("ash", "  Ash Ketchum! ");
+
+        verify(mediator).send(new LinkShowdownCommand("ash", "Ash Ketchum", "ashketchum"));
+    }
+
+    @Test
+    void linkShowdown_blank_throwsWithoutLookup() {
+        assertThatThrownBy(() -> facade.linkShowdown("ash", "   "))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Indica tu nombre de Showdown.");
+        verifyNoInteractions(showdownPort, mediator);
+    }
+
+    @Test
+    void linkShowdown_tooLong_throws() {
+        assertThatThrownBy(() -> facade.linkShowdown("ash", "a".repeat(19)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("El nombre de Showdown no puede tener más de 18 caracteres.");
+        verifyNoInteractions(showdownPort, mediator);
+    }
+
+    @Test
+    void linkShowdown_notRegistered_throws() {
+        when(showdownPort.findUser("ghost")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> facade.linkShowdown("ash", "Ghost"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("No existe una cuenta registrada en Showdown con el nombre 'Ghost'.");
+        verifyNoInteractions(mediator);
+    }
+
+    @Test
+    void unlinkShowdown_sendsCommand() throws Exception {
+        facade.unlinkShowdown("ash");
+
+        verify(mediator).send(new UnlinkShowdownCommand("ash"));
     }
 
     @Test

@@ -4,6 +4,7 @@ import com.villu.pokefantasy.auth.AuthCookies;
 import com.villu.pokefantasy.commands.users.UserFacade;
 import com.villu.pokefantasy.commands.users.login.LoginResult;
 import com.villu.pokefantasy.request.user.ChangePasswordRequest;
+import com.villu.pokefantasy.request.user.LinkShowdownRequest;
 import com.villu.pokefantasy.request.user.DeleteAccountRequest;
 import com.villu.pokefantasy.request.user.RegisterPushTokenRequest;
 import com.villu.pokefantasy.request.user.UserRequest;
@@ -165,6 +166,20 @@ public class UserController {
     @DeleteMapping("/user/avatar")
     public ResponseEntity<Void> deleteAvatar(@AuthenticationPrincipal UserDetails userDetails) throws Exception {
         userFacade.deleteAvatar(userDetails.getUsername());
+        return ResponseEntity.noContent().build();
+    }
+
+    /** Vincula la cuenta de Pokémon Showdown (tiene que existir y estar registrada). */
+    @PutMapping("/user/showdown")
+    public ResponseEntity<Void> linkShowdown(@AuthenticationPrincipal UserDetails userDetails,
+                                             @RequestBody LinkShowdownRequest body) throws Exception {
+        userFacade.linkShowdown(userDetails.getUsername(), body.getName());
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/user/showdown")
+    public ResponseEntity<Void> unlinkShowdown(@AuthenticationPrincipal UserDetails userDetails) throws Exception {
+        userFacade.unlinkShowdown(userDetails.getUsername());
         return ResponseEntity.noContent().build();
     }
 
