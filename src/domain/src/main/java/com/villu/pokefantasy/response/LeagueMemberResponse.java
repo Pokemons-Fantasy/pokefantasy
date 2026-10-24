@@ -11,4 +11,6 @@ public class LeagueMemberResponse {
     private LeagueRole leagueRole;
     /** Versión de su foto de perfil; {@code null} = sin foto. */
     private Long avatarVersion;
+    /** Nombre de su cuenta de Pokémon Showdown; {@code null} = sin vincular. */
+    private String showdownName;
 }

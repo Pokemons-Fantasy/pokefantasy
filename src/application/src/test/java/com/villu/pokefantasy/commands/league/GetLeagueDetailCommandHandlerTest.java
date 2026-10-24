@@ -97,6 +97,27 @@ class GetLeagueDetailCommandHandlerTest {
     }
 
     @Test
+    void handle_includesEachMembersShowdownName() {
+        LeagueEntity league = new LeagueEntity();
+        league.setId("l1");
+        league.setMembers(List.of(
+                new LeagueMember("ash", LeagueRole.ADMIN, 0),
+                new LeagueMember("brock", LeagueRole.USER, 0)));
+        when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
+        UserEntity ash = new UserEntity();
+        ash.setName("ash");
+        ash.setShowdownName("Ash Ketchum");
+        UserEntity brock = new UserEntity();
+        brock.setName("brock");
+        when(userRepository.findByUsernames(List.of("ash", "brock"))).thenReturn(List.of(ash, brock));
+
+        LeagueDetailResponse result = handler.handle(new GetLeagueDetailCommand("l1", "ash"));
+
+        assertThat(result.getMembers()).extracting(LeagueMemberResponse::getShowdownName)
+                .containsExactly("Ash Ketchum", null);
+    }
+
+    @Test
     void commandType_returnsCorrectClass() {
         assertThat(handler.commandType()).isEqualTo(GetLeagueDetailCommand.class);
     }
