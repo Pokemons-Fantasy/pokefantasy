@@ -11,4 +11,6 @@ public class CurrentUserResponse {
     private Long avatarVersion;
     /** Admin global (rol ADMIN): el front muestra el panel de moderación (L5). */
     private boolean admin;
+    /** Nombre de su cuenta de Pokémon Showdown; {@code null} = sin vincular. */
+    private String showdownName;
 }

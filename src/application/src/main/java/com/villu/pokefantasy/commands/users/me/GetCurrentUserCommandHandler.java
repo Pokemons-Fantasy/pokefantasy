@@ -27,6 +27,7 @@ public class GetCurrentUserCommandHandler implements CommandHandler<GetCurrentUs
                 .username(user.getName())
                 .avatarVersion(user.getAvatarVersion())
                 .admin(user.getRole() == Role.ADMIN)
+                .showdownName(user.getShowdownName())
                 .build();
     }
 

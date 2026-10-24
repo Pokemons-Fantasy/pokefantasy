@@ -1,5 +1,7 @@
 package com.villu.pokefantasy.request.league;
 
+import com.villu.pokefantasy.dto.BattleGameType;
+import com.villu.pokefantasy.dto.TeamSheet;
 import lombok.Data;
 
 @Data
@@ -23,4 +25,8 @@ public class UpdateLeagueSettingsRequest {
     private String  stealWindowCloseTime;  // "HH:mm", default "23:59"
     private Integer swapWindowCloseDay;    // 1-7 (ISO), default 5 (Friday)
     private String  swapWindowCloseTime;   // "HH:mm", default "16:00"
+    private BattleGameType battleGameType; // optional, default DOUBLES
+    private Integer pickedTeamSize;        // 1-6, optional, default 4
+    private TeamSheet teamSheet;           // optional, default CLOSED
+    private Integer bestOf;                // 1 or 3, optional, default 3
 }

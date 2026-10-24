@@ -5,6 +5,8 @@ import com.villu.pokefantasy.dto.ActivityEventType;
 import com.villu.pokefantasy.commands.invite.InviteFacade;
 import com.villu.pokefantasy.commands.invite.RedeemInviteResponse;
 import com.villu.pokefantasy.commands.league.LeagueFacade;
+import com.villu.pokefantasy.dto.BattleGameType;
+import com.villu.pokefantasy.dto.TeamSheet;
 import com.villu.pokefantasy.exception.ForbiddenOperationException;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
@@ -80,11 +82,13 @@ class LeagueControllersTest extends ControllerTestSupport {
                          "priceTierC":200,"priceTierD":100,"seasonStartDate":"2026-10-01","maxTeamSize":10,
                          "tierPctS":20,"tierPctA":20,"tierPctB":20,"tierPctC":20,"tierPctD":20,"turnTimerSeconds":60,
                          "stealWindowCloseDay":5,"stealWindowCloseTime":"16:00",
-                         "swapWindowCloseDay":7,"swapWindowCloseTime":"20:00"}"""))
+                         "swapWindowCloseDay":7,"swapWindowCloseTime":"20:00",
+                         "battleGameType":"SINGLES","pickedTeamSize":3,"teamSheet":"OPEN","bestOf":1}"""))
                 .andExpect(status().isNoContent());
 
         verify(leagueFacade).updateSettings("l1", 100, 50, 500, 400, 300, 200, 100, "2026-10-01", 10,
-                20, 20, 20, 20, 20, 60, 5, "16:00", 7, "20:00", ME);
+                20, 20, 20, 20, 20, 60, 5, "16:00", 7, "20:00",
+                BattleGameType.SINGLES, 3, TeamSheet.OPEN, 1, ME);
     }
 
     @Test
