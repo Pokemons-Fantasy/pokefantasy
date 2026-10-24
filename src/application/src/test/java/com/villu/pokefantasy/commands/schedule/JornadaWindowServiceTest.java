@@ -259,6 +259,48 @@ class JornadaWindowServiceTest {
         return jornada(round, startDate, MatchStatus.PENDING);
     }
 
+    // -------------------------------------------------------------------------
+    // Alineación del partido
+    // -------------------------------------------------------------------------
+
+    private static ScheduleEntity scheduleWith(Jornada... jornadas) {
+        ScheduleEntity schedule = new ScheduleEntity();
+        schedule.setJornadas(new ArrayList<>(List.of(jornadas)));
+        return schedule;
+    }
+
+    @Test
+    void lineupOpensAt_isTheLaterOfBothCloses() {
+        com.villu.pokefantasy.dto.LeagueSettings settings = com.villu.pokefantasy.dto.LeagueSettings.builder()
+                .stealWindowCloseDay(6).stealWindowCloseTime("10:00") // sábado, después del swap
+                .swapWindowCloseDay(5).swapWindowCloseTime("16:00").build();
+
+        assertThat(service().lineupOpensAt(pendingJornada(1, START_DATE), settings))
+                .contains(LocalDateTime.of(2026, 6, 6, 10, 0));
+        assertThat(service().lineupOpensAt(pendingJornada(1, START_DATE), null))
+                .contains(LocalDateTime.of(2026, 6, 5, 16, 0));
+        assertThat(service().lineupOpensAt(pendingJornada(1, null), null)).isEmpty();
+    }
+
+    @Test
+    void isLineupPeriodOpen_fromMarketCloseOfTheActiveJornada() {
+        Jornada active = pendingJornada(1, START_DATE);
+        ScheduleEntity schedule = scheduleWith(active, pendingJornada(2, "2026-06-13"));
+
+        assertThat(serviceAt(LocalDateTime.of(2026, 6, 5, 15, 59)).isLineupPeriodOpen(schedule, active, null)).isFalse();
+        assertThat(serviceAt(LocalDateTime.of(2026, 6, 5, 16, 0)).isLineupPeriodOpen(schedule, active, null)).isTrue();
+        // Una jornada que no es la activa nunca está abierta, aunque su fecha ya haya pasado
+        assertThat(serviceAt(LocalDateTime.of(2026, 6, 20, 12, 0))
+                .isLineupPeriodOpen(schedule, schedule.getJornadas().get(1), null)).isFalse();
+    }
+
+    @Test
+    void isLineupPeriodOpen_withoutDate_closed() {
+        Jornada active = pendingJornada(1, null);
+
+        assertThat(service().isLineupPeriodOpen(scheduleWith(active), active, null)).isFalse();
+    }
+
     private Jornada completedJornada(int round) {
         Match match = new Match("m" + round, "ash", "brock", "ash", MatchStatus.COMPLETED);
         return new Jornada(round, new ArrayList<>(List.of(match)), "2026-05-01");

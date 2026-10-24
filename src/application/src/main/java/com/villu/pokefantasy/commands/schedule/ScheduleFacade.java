@@ -2,7 +2,10 @@ package com.villu.pokefantasy.commands.schedule;
 
 import com.villu.pokefantasy.commands.standings.GetSeasonStatsCommand;
 import com.villu.pokefantasy.commands.standings.GetStandingsCommand;
+import com.villu.pokefantasy.commands.schedule.lineup.PokepasteCheck;
+import com.villu.pokefantasy.exception.ShowdownUnavailableException;
 import com.villu.pokefantasy.mediator.Mediator;
+import com.villu.pokefantasy.ports.ShowdownPort;
 import com.villu.pokefantasy.response.ScheduleResponse;
 import com.villu.pokefantasy.response.SeasonStatsResponse;
 import com.villu.pokefantasy.response.StandingsResponse;
@@ -14,10 +17,37 @@ import java.util.List;
 public class ScheduleFacade {
 
     private final Mediator mediator;
+    private final ShowdownPort showdownPort;
 
-    public ScheduleFacade(Mediator mediator) {
+    public ScheduleFacade(Mediator mediator, ShowdownPort showdownPort) {
         this.mediator = mediator;
+        this.showdownPort = showdownPort;
     }
+
+    /**
+     * Declara la alineación del partido. Si el enlace es de pokepast.es, se lee aquí, antes del comando (fuera
+     * de la transacción, ADR-007), y sus diferencias con la alineación viajan como avisos: nunca bloquean.
+     */
+    public void declareLineup(String leagueId, String matchId, List<String> pokemonNames, String pasteUrl,
+                              String requestingUsername) throws Exception {
+        List<String> warnings = PokepasteCheck.pasteId(pasteUrl)
+                .map(id -> pasteWarnings(id, pokemonNames))
+                .orElse(List.of());
+        mediator.send(new DeclareLineupCommand(leagueId, matchId, requestingUsername, pokemonNames, pasteUrl,
+                warnings));
+    }
+
+    private List<String> pasteWarnings(String pasteId, List<String> pokemonNames) {
+        try {
+            return showdownPort.getPokepaste(pasteId)
+                    .map(paste -> PokepasteCheck.warnings(pokemonNames, PokepasteCheck.species(paste)))
+                    .orElse(List.of(PASTE_UNREADABLE));
+        } catch (ShowdownUnavailableException e) {
+            return List.of(PASTE_UNREADABLE);
+        }
+    }
+
+    static final String PASTE_UNREADABLE = "No se pudo leer el paste.";
 
     public ScheduleResponse getSchedule(String leagueId, String requestingUsername) throws Exception {
         return mediator.send(new GetScheduleCommand(leagueId, requestingUsername));

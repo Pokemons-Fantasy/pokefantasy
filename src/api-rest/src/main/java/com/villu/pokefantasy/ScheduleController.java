@@ -2,6 +2,7 @@ package com.villu.pokefantasy;
 
 import com.villu.pokefantasy.commands.schedule.MatchScore;
 import com.villu.pokefantasy.commands.schedule.ScheduleFacade;
+import com.villu.pokefantasy.request.schedule.DeclareLineupRequest;
 import com.villu.pokefantasy.request.schedule.RecordMatchResultRequest;
 import com.villu.pokefantasy.response.ScheduleResponse;
 import com.villu.pokefantasy.response.SeasonStatsResponse;
@@ -38,6 +39,17 @@ public class ScheduleController {
                                              @RequestBody RecordMatchResultRequest request) throws Exception {
         scheduleFacade.recordResult(leagueId, matchId, request.getWinnerUsername(),
                 MatchScore.of(request.getWinnerScore(), request.getLoserScore()), userDetails.getUsername());
+        return ResponseEntity.noContent().build();
+    }
+
+    /** Declara la alineación del partido (jugador del partido, desde el cierre del mercado y hasta revelarse). */
+    @PutMapping("/{leagueId}/schedule/matches/{matchId}/lineup")
+    public ResponseEntity<Void> declareLineup(@PathVariable String leagueId,
+                                              @PathVariable String matchId,
+                                              @AuthenticationPrincipal UserDetails userDetails,
+                                              @RequestBody DeclareLineupRequest request) throws Exception {
+        scheduleFacade.declareLineup(leagueId, matchId, request.getPokemonNames(), request.getPasteUrl(),
+                userDetails.getUsername());
         return ResponseEntity.noContent().build();
     }
 

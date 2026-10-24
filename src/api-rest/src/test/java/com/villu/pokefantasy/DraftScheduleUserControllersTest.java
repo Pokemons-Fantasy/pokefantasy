@@ -140,6 +140,14 @@ class DraftScheduleUserControllersTest extends ControllerTestSupport {
     }
 
     @Test
+    void declareLineup_204() throws Exception {
+        mvc.perform(json(put("/v1/leagues/l1/schedule/matches/m1/lineup"),
+                        "{\"pokemonNames\":[\"a\",\"b\"],\"pasteUrl\":\"https://x\"}"))
+                .andExpect(status().isNoContent());
+        verify(scheduleFacade).declareLineup("l1", "m1", List.of("a", "b"), "https://x", ME);
+    }
+
+    @Test
     void results_recordCorrectRevert() throws Exception {
         mvc.perform(json(post("/v1/leagues/l1/schedule/matches/m1/result"), "{\"winnerUsername\":\"misty\"}"))
                 .andExpect(status().isNoContent());
