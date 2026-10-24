@@ -36,6 +36,20 @@ public class LeagueSettings {
     /** Time of day when the swap window closes, format "HH:mm". Default "16:00". */
     private String swapWindowCloseTime;
 
+    /** Modo de combate en Showdown. Default DOUBLES. */
+    private BattleGameType battleGameType;
+    /** Pokémon que se eligen en el Team Preview (1-6; 6 = se juega con todos). Default 4. */
+    private Integer pickedTeamSize;
+    /** Lista abierta o cerrada. Default CLOSED. */
+    private TeamSheet teamSheet;
+    /** Partidas de la serie: 1 o 3. Default 3. */
+    private Integer bestOf;
+
+    public static final BattleGameType DEFAULT_BATTLE_GAME_TYPE = BattleGameType.DOUBLES;
+    public static final int DEFAULT_PICKED_TEAM_SIZE = 4;
+    public static final TeamSheet DEFAULT_TEAM_SHEET = TeamSheet.CLOSED;
+    public static final int DEFAULT_BEST_OF = 3;
+
     public static LeagueSettings defaults() {
         return LeagueSettings.builder()
                 .coinsPerWin(100)
@@ -57,6 +71,10 @@ public class LeagueSettings {
                 .stealWindowCloseTime("23:59")
                 .swapWindowCloseDay(5)
                 .swapWindowCloseTime("16:00")
+                .battleGameType(DEFAULT_BATTLE_GAME_TYPE)
+                .pickedTeamSize(DEFAULT_PICKED_TEAM_SIZE)
+                .teamSheet(DEFAULT_TEAM_SHEET)
+                .bestOf(DEFAULT_BEST_OF)
                 .build();
     }
 }

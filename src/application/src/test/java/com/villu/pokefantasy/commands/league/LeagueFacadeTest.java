@@ -1,5 +1,7 @@
 package com.villu.pokefantasy.commands.league;
 
+import com.villu.pokefantasy.dto.BattleGameType;
+import com.villu.pokefantasy.dto.TeamSheet;
 import com.villu.pokefantasy.mediator.Mediator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -86,7 +88,8 @@ class LeagueFacadeTest {
 
     @Test
     void updateSettings_sendsUpdateLeagueSettingsCommand() throws Exception {
-        facade.updateSettings("l1", 200, 30, 500, 400, 300, 200, 100, null, null, 20, 20, 20, 20, 20, null, null, null, null, null, "ash");
+        facade.updateSettings("l1", 200, 30, 500, 400, 300, 200, 100, null, null, 20, 20, 20, 20, 20, null, null, null, null, null,
+                BattleGameType.SINGLES, 3, TeamSheet.OPEN, 1, "ash");
 
         ArgumentCaptor<UpdateLeagueSettingsCommand> captor = ArgumentCaptor.forClass(UpdateLeagueSettingsCommand.class);
         verify(mediator).send(captor.capture());
@@ -95,6 +98,10 @@ class LeagueFacadeTest {
         assertThat(captor.getValue().coinsPerLoss()).isEqualTo(30);
         assertThat(captor.getValue().priceTierS()).isEqualTo(500);
         assertThat(captor.getValue().requestingUsername()).isEqualTo("ash");
+        assertThat(captor.getValue().battleGameType()).isEqualTo(BattleGameType.SINGLES);
+        assertThat(captor.getValue().pickedTeamSize()).isEqualTo(3);
+        assertThat(captor.getValue().teamSheet()).isEqualTo(TeamSheet.OPEN);
+        assertThat(captor.getValue().bestOf()).isEqualTo(1);
     }
 
     @Test

@@ -69,6 +69,13 @@ public class UpdateLeagueSettingsCommandHandler
                     "Los porcentajes de los tiers deben sumar 100 (ahora suman " + sumPct + ")");
         }
 
+        if (command.pickedTeamSize() != null && (command.pickedTeamSize() < 1 || command.pickedTeamSize() > 6)) {
+            throw new IllegalArgumentException("Los Pokémon por combate deben estar entre 1 y 6.");
+        }
+        if (command.bestOf() != null && command.bestOf() != 1 && command.bestOf() != 3) {
+            throw new IllegalArgumentException("El formato de la serie debe ser al mejor de 1 o de 3.");
+        }
+
         LeagueEntity league = leagueAdminGuard.requireLeagueAdmin(command.leagueId(), command.requestingUsername());
 
         Optional<DraftEntity> latestDraft = draftRepository.findLatestByLeagueId(command.leagueId());
@@ -100,6 +107,12 @@ public class UpdateLeagueSettingsCommandHandler
                 .stealWindowCloseTime(command.stealWindowCloseTime() != null ? command.stealWindowCloseTime() : "23:59")
                 .swapWindowCloseDay(command.swapWindowCloseDay() != null ? command.swapWindowCloseDay() : 5)
                 .swapWindowCloseTime(command.swapWindowCloseTime() != null ? command.swapWindowCloseTime() : "16:00")
+                .battleGameType(command.battleGameType() != null
+                        ? command.battleGameType() : LeagueSettings.DEFAULT_BATTLE_GAME_TYPE)
+                .pickedTeamSize(command.pickedTeamSize() != null
+                        ? command.pickedTeamSize() : LeagueSettings.DEFAULT_PICKED_TEAM_SIZE)
+                .teamSheet(command.teamSheet() != null ? command.teamSheet() : LeagueSettings.DEFAULT_TEAM_SHEET)
+                .bestOf(command.bestOf() != null ? command.bestOf() : LeagueSettings.DEFAULT_BEST_OF)
                 .build());
 
         leagueRepository.save(league);

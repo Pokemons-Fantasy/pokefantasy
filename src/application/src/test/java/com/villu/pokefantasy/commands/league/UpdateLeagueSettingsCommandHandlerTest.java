@@ -2,10 +2,12 @@ package com.villu.pokefantasy.commands.league;
 
 import static org.mockito.Mockito.never;
 import com.villu.pokefantasy.commands.closedlist.TierAssignmentService;
+import com.villu.pokefantasy.dto.BattleGameType;
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueRole;
 import com.villu.pokefantasy.dto.LeagueSettings;
 import com.villu.pokefantasy.dto.MatchStatus;
+import com.villu.pokefantasy.dto.TeamSheet;
 import com.villu.pokefantasy.exception.ForbiddenOperationException;
 import com.villu.pokefantasy.league.LeagueAdminGuard;
 import com.villu.pokefantasy.repository.DraftRepository;
@@ -62,7 +64,7 @@ class UpdateLeagueSettingsCommandHandlerTest {
     private static UpdateLeagueSettingsCommand cmd(Integer coinsPerWin, Integer coinsPerLoss,
                                                     Integer s, Integer a, Integer b, Integer c, Integer d) {
         return new UpdateLeagueSettingsCommand("l1", coinsPerWin, coinsPerLoss, s, a, b, c, d, null, null,
-                20, 20, 20, 20, 20, null, null, null, null, null, "ash");
+                20, 20, 20, 20, 20, null, null, null, null, null, null, null, null, null, "ash");
     }
 
     private static UpdateLeagueSettingsCommand validCmd() {
@@ -72,7 +74,7 @@ class UpdateLeagueSettingsCommandHandlerTest {
     private static UpdateLeagueSettingsCommand cmdWithPcts(Integer pctS, Integer pctA, Integer pctB,
                                                             Integer pctC, Integer pctD) {
         return new UpdateLeagueSettingsCommand("l1", 100, 50, 500, 400, 300, 200, 100, null, null,
-                pctS, pctA, pctB, pctC, pctD, null, null, null, null, null, "ash");
+                pctS, pctA, pctB, pctC, pctD, null, null, null, null, null, null, null, null, null, "ash");
     }
 
     @Test
@@ -123,7 +125,7 @@ class UpdateLeagueSettingsCommandHandlerTest {
                 .thenThrow(new ForbiddenOperationException("not admin"));
 
         assertThatThrownBy(() -> handler.handle(
-                new UpdateLeagueSettingsCommand("l1", 100, 50, 500, 400, 300, 200, 100, null, null, 20, 20, 20, 20, 20, null, null, null, null, null, "brock")))
+                new UpdateLeagueSettingsCommand("l1", 100, 50, 500, 400, 300, 200, 100, null, null, 20, 20, 20, 20, 20, null, null, null, null, null, null, null, null, null, "brock")))
                 .isInstanceOf(ForbiddenOperationException.class);
     }
 
@@ -259,7 +261,7 @@ class UpdateLeagueSettingsCommandHandlerTest {
         when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
 
         UpdateLeagueSettingsCommand cmd = new UpdateLeagueSettingsCommand(
-                "l1", 100, 50, 500, 400, 300, 200, 100, "2026-06-06", 20, 20, 20, 20, 20, 20, null, null, null, null, null, "ash");
+                "l1", 100, 50, 500, 400, 300, 200, 100, "2026-06-06", 20, 20, 20, 20, 20, 20, null, null, null, null, null, null, null, null, null, "ash");
         handler.handle(cmd);
 
         // Schedule should be saved with updated dates
@@ -278,7 +280,7 @@ class UpdateLeagueSettingsCommandHandlerTest {
 
         UpdateLeagueSettingsCommand cmd = new UpdateLeagueSettingsCommand(
                 "l1", 100, 50, 500, 400, 300, 200, 100, null, null, 20, 20, 20, 20, 20, null,
-                3, "18:00", 4, "12:00", "ash");
+                3, "18:00", 4, "12:00", null, null, null, null, "ash");
         handler.handle(cmd);
 
         ArgumentCaptor<LeagueEntity> captor = ArgumentCaptor.forClass(LeagueEntity.class);
@@ -288,6 +290,57 @@ class UpdateLeagueSettingsCommandHandlerTest {
         assertThat(saved.getStealWindowCloseTime()).isEqualTo("18:00");
         assertThat(saved.getSwapWindowCloseDay()).isEqualTo(4);
         assertThat(saved.getSwapWindowCloseTime()).isEqualTo("12:00");
+    }
+
+    private static UpdateLeagueSettingsCommand battleCmd(BattleGameType gameType, Integer pickedTeamSize,
+                                                         TeamSheet teamSheet, Integer bestOf) {
+        return new UpdateLeagueSettingsCommand("l1", 100, 50, 500, 400, 300, 200, 100, null, null,
+                20, 20, 20, 20, 20, null, null, null, null, null, gameType, pickedTeamSize, teamSheet, bestOf, "ash");
+    }
+
+    private LeagueSettings savedWith(UpdateLeagueSettingsCommand cmd) {
+        when(leagueAdminGuard.requireLeagueAdmin("l1", "ash")).thenReturn(leagueWithAdmin("ash"));
+        when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.empty());
+        handler.handle(cmd);
+        ArgumentCaptor<LeagueEntity> captor = ArgumentCaptor.forClass(LeagueEntity.class);
+        verify(leagueRepository).save(captor.capture());
+        return captor.getValue().getSettings();
+    }
+
+    @Test
+    void handle_nullBattleFields_storeDefaults() {
+        LeagueSettings saved = savedWith(battleCmd(null, null, null, null));
+
+        assertThat(saved.getBattleGameType()).isEqualTo(BattleGameType.DOUBLES);
+        assertThat(saved.getPickedTeamSize()).isEqualTo(4);
+        assertThat(saved.getTeamSheet()).isEqualTo(TeamSheet.CLOSED);
+        assertThat(saved.getBestOf()).isEqualTo(3);
+    }
+
+    @Test
+    void handle_validBattleFields_stored() {
+        LeagueSettings saved = savedWith(battleCmd(BattleGameType.SINGLES, 6, TeamSheet.OPEN, 1));
+
+        assertThat(saved.getBattleGameType()).isEqualTo(BattleGameType.SINGLES);
+        assertThat(saved.getPickedTeamSize()).isEqualTo(6);
+        assertThat(saved.getTeamSheet()).isEqualTo(TeamSheet.OPEN);
+        assertThat(saved.getBestOf()).isEqualTo(1);
+    }
+
+    @Test
+    void handle_pickedTeamSizeOutOfRange_throws() {
+        for (int size : new int[]{0, 7}) {
+            assertThatThrownBy(() -> handler.handle(battleCmd(null, size, null, null)))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("Los Pokémon por combate deben estar entre 1 y 6.");
+        }
+    }
+
+    @Test
+    void handle_bestOf2_throws() {
+        assertThatThrownBy(() -> handler.handle(battleCmd(null, null, null, 2)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("El formato de la serie debe ser al mejor de 1 o de 3.");
     }
 
     @Test

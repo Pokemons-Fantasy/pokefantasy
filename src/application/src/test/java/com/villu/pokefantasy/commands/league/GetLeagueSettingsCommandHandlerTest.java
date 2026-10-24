@@ -1,6 +1,8 @@
 package com.villu.pokefantasy.commands.league;
 
+import com.villu.pokefantasy.dto.BattleGameType;
 import com.villu.pokefantasy.dto.LeagueSettings;
+import com.villu.pokefantasy.dto.TeamSheet;
 import com.villu.pokefantasy.league.LeagueMembershipGuard;
 import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
@@ -66,6 +68,38 @@ class GetLeagueSettingsCommandHandlerTest {
 
         assertThat(response.getCoinsPerWin()).isEqualTo(250);
         assertThat(response.getCoinsPerLoss()).isEqualTo(80);
+    }
+
+    @Test
+    void handle_legacySettingsWithoutBattleFields_returnDefaults() {
+        LeagueEntity league = new LeagueEntity();
+        league.setId("l1");
+        league.setSettings(LeagueSettings.builder().coinsPerWin(250).build());
+        when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
+
+        LeagueSettingsResponse response = handler.handle(new GetLeagueSettingsCommand("l1", "ash"));
+
+        assertThat(response.getBattleGameType()).isEqualTo(BattleGameType.DOUBLES);
+        assertThat(response.getPickedTeamSize()).isEqualTo(4);
+        assertThat(response.getTeamSheet()).isEqualTo(TeamSheet.CLOSED);
+        assertThat(response.getBestOf()).isEqualTo(3);
+    }
+
+    @Test
+    void handle_storedBattleFields_returned() {
+        LeagueEntity league = new LeagueEntity();
+        league.setId("l1");
+        league.setSettings(LeagueSettings.builder()
+                .battleGameType(BattleGameType.SINGLES).pickedTeamSize(6).teamSheet(TeamSheet.OPEN).bestOf(1)
+                .build());
+        when(leagueRepository.findById("l1")).thenReturn(Optional.of(league));
+
+        LeagueSettingsResponse response = handler.handle(new GetLeagueSettingsCommand("l1", "ash"));
+
+        assertThat(response.getBattleGameType()).isEqualTo(BattleGameType.SINGLES);
+        assertThat(response.getPickedTeamSize()).isEqualTo(6);
+        assertThat(response.getTeamSheet()).isEqualTo(TeamSheet.OPEN);
+        assertThat(response.getBestOf()).isEqualTo(1);
     }
 
     @Test

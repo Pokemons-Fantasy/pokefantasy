@@ -1,5 +1,7 @@
 package com.villu.pokefantasy.response;
 
+import com.villu.pokefantasy.dto.BattleGameType;
+import com.villu.pokefantasy.dto.TeamSheet;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -29,4 +31,8 @@ public class LeagueSettingsResponse {
     private String  stealWindowCloseTime;
     private Integer swapWindowCloseDay;
     private String  swapWindowCloseTime;
+    private BattleGameType battleGameType;
+    private Integer pickedTeamSize;
+    private TeamSheet teamSheet;
+    private Integer bestOf;
 }
