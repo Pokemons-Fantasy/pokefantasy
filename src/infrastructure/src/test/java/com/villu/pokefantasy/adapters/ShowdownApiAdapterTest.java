@@ -52,6 +52,15 @@ class ShowdownApiAdapterTest {
     }
 
     @Test
+    void findUser_okWithoutUserid_returnsEmpty() {
+        // Un userid null o vacío acabaría guardado como null en el índice único (dos usuarios chocarían).
+        server.expect(requestTo(USER_URL)).andRespond(withSuccess(
+                "{\"username\":\"Ash Ketchum\",\"userid\":\"\"}", MediaType.APPLICATION_JSON));
+
+        assertThat(adapter.findUser("ashketchum")).isEmpty();
+    }
+
+    @Test
     void findUser_serverError_throwsUnavailable() {
         server.expect(requestTo(USER_URL)).andRespond(withServerError());
 

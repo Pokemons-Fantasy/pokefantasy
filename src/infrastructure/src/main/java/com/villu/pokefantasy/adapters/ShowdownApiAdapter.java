@@ -43,7 +43,10 @@ public class ShowdownApiAdapter implements ShowdownPort {
     public Optional<ShowdownUser> findUser(String showdownId) {
         try {
             UserJson user = restTemplate.getForObject(USER_URL, UserJson.class, showdownId);
-            return Optional.ofNullable(user).map(u -> new ShowdownUser(u.username(), u.userid()));
+            // Sin userid no hay cuenta: guardarlo como null rompería el índice único de showdownId.
+            return Optional.ofNullable(user)
+                    .filter(u -> u.userid() != null && !u.userid().isBlank())
+                    .map(u -> new ShowdownUser(u.username(), u.userid()));
         } catch (HttpClientErrorException.NotFound e) {
             return Optional.empty();
         } catch (RestClientException e) {
