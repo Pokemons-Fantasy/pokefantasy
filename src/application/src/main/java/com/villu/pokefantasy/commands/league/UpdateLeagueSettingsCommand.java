@@ -1,5 +1,7 @@
 package com.villu.pokefantasy.commands.league;
 
+import com.villu.pokefantasy.dto.BattleGameType;
+import com.villu.pokefantasy.dto.TeamSheet;
 import com.villu.pokefantasy.mediator.Command;
 
 public record UpdateLeagueSettingsCommand(
@@ -23,5 +25,9 @@ public record UpdateLeagueSettingsCommand(
         String stealWindowCloseTime,
         Integer swapWindowCloseDay,
         String swapWindowCloseTime,
+        BattleGameType battleGameType,
+        Integer pickedTeamSize,
+        TeamSheet teamSheet,
+        Integer bestOf,
         String requestingUsername
 ) implements Command {}

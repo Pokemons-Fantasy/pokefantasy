@@ -319,6 +319,15 @@ class DraftScheduleUserControllersTest extends ControllerTestSupport {
     }
 
     @Test
+    void linkAndUnlinkShowdown_204() throws Exception {
+        mvc.perform(json(put("/v1/user/showdown"), "{\"name\":\"Ash\"}")).andExpect(status().isNoContent());
+        verify(userFacade).linkShowdown(ME, "Ash");
+
+        mvc.perform(delete("/v1/user/showdown")).andExpect(status().isNoContent());
+        verify(userFacade).unlinkShowdown(ME);
+    }
+
+    @Test
     void deleteAvatar_204() throws Exception {
         mvc.perform(delete("/v1/user/avatar")).andExpect(status().isNoContent());
         verify(userFacade).deleteAvatar(ME);

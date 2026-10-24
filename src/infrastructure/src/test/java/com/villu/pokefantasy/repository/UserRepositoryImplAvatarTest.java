@@ -24,7 +24,7 @@ class UserRepositoryImplAvatarTest {
     private final UserRepositoryImpl repository = new UserRepositoryImpl(mongoTemplate);
 
     @Test
-    void findByUsernames_queriesByNameAndProjectsAvatarVersion() {
+    void findByUsernames_queriesByNameAndProjectsAvatarVersionAndShowdownName() {
         UserEntity ash = new UserEntity();
         when(mongoTemplate.find(any(Query.class), eq(UserEntity.class))).thenReturn(List.of(ash));
 
@@ -35,7 +35,7 @@ class UserRepositoryImplAvatarTest {
         assertThat(query.getValue().getQueryObject())
                 .isEqualTo(new Document("name", new Document("$in", List.of("ash", "brock"))));
         assertThat(query.getValue().getFieldsObject())
-                .isEqualTo(new Document("name", 1).append("avatarVersion", 1));
+                .isEqualTo(new Document("name", 1).append("avatarVersion", 1).append("showdownName", 1));
         assertThat(result).containsExactly(ash);
     }
 

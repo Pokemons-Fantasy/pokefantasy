@@ -30,6 +30,20 @@ class GetCurrentUserCommandHandlerTest {
         assertThat(result.getUsername()).isEqualTo("ash");
         assertThat(result.getAvatarVersion()).isEqualTo(42L);
         assertThat(result.isAdmin()).isFalse();
+        assertThat(result.getShowdownName()).isNull();
+    }
+
+    @Test
+    void handle_returnsShowdownName() {
+        UserEntity user = new UserEntity();
+        user.setName("ash");
+        user.setShowdownName("Ash Ketchum");
+        when(userRepository.findByUsername("ash")).thenReturn(user);
+
+        CurrentUserResponse result = new GetCurrentUserCommandHandler(userRepository)
+                .handle(new GetCurrentUserCommand("ash"));
+
+        assertThat(result.getShowdownName()).isEqualTo("Ash Ketchum");
     }
 
     @Test

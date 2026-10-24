@@ -88,6 +88,8 @@ public class LeagueController {
                 request.getTurnTimerSeconds(),
                 request.getStealWindowCloseDay(), request.getStealWindowCloseTime(),
                 request.getSwapWindowCloseDay(), request.getSwapWindowCloseTime(),
+                request.getBattleGameType(), request.getPickedTeamSize(),
+                request.getTeamSheet(), request.getBestOf(),
                 userDetails.getUsername());
         return ResponseEntity.noContent().build();
     }

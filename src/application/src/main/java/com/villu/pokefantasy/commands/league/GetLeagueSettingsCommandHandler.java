@@ -52,6 +52,13 @@ public class GetLeagueSettingsCommandHandler
                 .stealWindowCloseTime(settings.getStealWindowCloseTime())
                 .swapWindowCloseDay(settings.getSwapWindowCloseDay())
                 .swapWindowCloseTime(settings.getSwapWindowCloseTime())
+                // Ligas anteriores a los ajustes de combate: no tienen los campos.
+                .battleGameType(settings.getBattleGameType() != null
+                        ? settings.getBattleGameType() : LeagueSettings.DEFAULT_BATTLE_GAME_TYPE)
+                .pickedTeamSize(settings.getPickedTeamSize() != null
+                        ? settings.getPickedTeamSize() : LeagueSettings.DEFAULT_PICKED_TEAM_SIZE)
+                .teamSheet(settings.getTeamSheet() != null ? settings.getTeamSheet() : LeagueSettings.DEFAULT_TEAM_SHEET)
+                .bestOf(settings.getBestOf() != null ? settings.getBestOf() : LeagueSettings.DEFAULT_BEST_OF)
                 .build();
     }
 

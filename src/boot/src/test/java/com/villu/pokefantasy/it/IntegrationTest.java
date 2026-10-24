@@ -1,6 +1,7 @@
 package com.villu.pokefantasy.it;
 
 import com.villu.pokefantasy.adapters.PokemonApiAdapter;
+import com.villu.pokefantasy.adapters.ShowdownApiAdapter;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -51,6 +52,10 @@ public abstract class IntegrationTest {
     /** Sin red: la caché de Pokémon no se carga en los tests. */
     @MockitoBean
     protected PokemonApiAdapter pokemonApiAdapter;
+
+    /** Sin red: cada test decide qué cuentas existen en Showdown. */
+    @MockitoBean
+    protected ShowdownApiAdapter showdownApiAdapter;
 
     @Autowired
     protected MongoTemplate mongoTemplate;

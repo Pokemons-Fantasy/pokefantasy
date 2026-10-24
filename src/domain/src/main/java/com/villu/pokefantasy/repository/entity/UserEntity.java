@@ -34,4 +34,13 @@ public class UserEntity {
      * construir la URL de la foto ({@code ?v=}), que se cachea como inmutable.
      */
     private Long avatarVersion;
+    /** Nombre de su cuenta de Pokémon Showdown tal como lo muestra Showdown; {@code null} = sin vincular. */
+    private String showdownName;
+    /**
+     * {@code userid} de Showdown (minúsculas y solo {@code [a-z0-9]}), con índice único: una cuenta de
+     * Showdown no puede estar vinculada a dos jugadores. Sparse, así que al desvincular hay que quitar el
+     * campo ({@code $unset}), no ponerlo a {@code null}.
+     */
+    @Indexed(unique = true, sparse = true)
+    private String showdownId;
 }

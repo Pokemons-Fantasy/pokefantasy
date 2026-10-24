@@ -1,6 +1,7 @@
 package com.villu.pokefantasy;
 
 import com.villu.pokefantasy.exception.ForbiddenOperationException;
+import com.villu.pokefantasy.exception.ShowdownUnavailableException;
 import com.villu.pokefantasy.exception.TooManyAttemptsException;
 import org.apache.catalina.connector.ClientAbortException;
 import org.junit.jupiter.api.Test;
@@ -45,6 +46,7 @@ class ApiExceptionHandlerTest {
                 case "credentials" -> new BadCredentialsException("x");
                 case "unauthenticated" -> new InsufficientAuthenticationException("Full authentication is required");
                 case "attempts" -> new TooManyAttemptsException("Demasiados intentos", Duration.ofMinutes(15));
+                case "showdown" -> new ShowdownUnavailableException("Showdown no responde, inténtalo en un rato", null);
                 case "lock" -> new OptimisticLockingFailureException("stale");
                 case "duplicate" -> new DuplicateKeyException("Ya existe un usuario con name=ash");
                 case "abort" -> new ClientAbortException();
@@ -99,6 +101,8 @@ class ApiExceptionHandlerTest {
         problem("lock", 409, "CONCURRENT_MODIFICATION");
         problem("duplicate", 409, "DUPLICATE")
                 .andExpect(jsonPath("$.message").value(ApiExceptionHandler.GENERIC_DUPLICATE));
+        problem("showdown", 502, "SHOWDOWN_UNAVAILABLE")
+                .andExpect(jsonPath("$.message").value("Showdown no responde, inténtalo en un rato"));
     }
 
     @Test

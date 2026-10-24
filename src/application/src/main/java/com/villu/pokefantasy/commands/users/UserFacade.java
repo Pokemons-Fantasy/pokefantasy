@@ -14,7 +14,12 @@ import com.villu.pokefantasy.commands.users.password.ChangePasswordCommand;
 import com.villu.pokefantasy.commands.users.pushtoken.RegisterPushTokenCommand;
 import com.villu.pokefantasy.commands.users.pushtoken.UnregisterPushTokenCommand;
 import com.villu.pokefantasy.commands.users.search.SearchUsersCommand;
+import com.villu.pokefantasy.commands.users.showdown.LinkShowdownCommand;
+import com.villu.pokefantasy.commands.users.showdown.ShowdownIds;
+import com.villu.pokefantasy.commands.users.showdown.UnlinkShowdownCommand;
 import com.villu.pokefantasy.mediator.Mediator;
+import com.villu.pokefantasy.ports.ShowdownPort;
+import com.villu.pokefantasy.ports.ShowdownUser;
 import com.villu.pokefantasy.response.AvatarImageResponse;
 import com.villu.pokefantasy.response.CurrentUserResponse;
 import org.springframework.stereotype.Service;
@@ -29,10 +34,38 @@ import java.util.Optional;
 @Service
 public class UserFacade {
 
-    private final Mediator mediator;
+    /** Máximo de caracteres de un nombre de Showdown. */
+    static final int SHOWDOWN_NAME_MAX = 18;
 
-    public UserFacade(Mediator mediator) {
+    private final Mediator mediator;
+    private final ShowdownPort showdownPort;
+
+    public UserFacade(Mediator mediator, ShowdownPort showdownPort) {
         this.mediator = mediator;
+        this.showdownPort = showdownPort;
+    }
+
+    /**
+     * Vincula la cuenta de Showdown {@code rawName}. La consulta a Showdown se hace aquí, antes del comando
+     * (fuera de la transacción, ADR-007), y el comando recibe el nombre canónico que devuelve Showdown.
+     */
+    public void linkShowdown(String username, String rawName) throws Exception {
+        String name = rawName == null ? "" : rawName.trim();
+        if (name.isEmpty()) {
+            throw new IllegalArgumentException("Indica tu nombre de Showdown.");
+        }
+        if (name.length() > SHOWDOWN_NAME_MAX) {
+            throw new IllegalArgumentException(
+                    "El nombre de Showdown no puede tener más de " + SHOWDOWN_NAME_MAX + " caracteres.");
+        }
+        ShowdownUser account = showdownPort.findUser(ShowdownIds.toId(name))
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "No existe una cuenta registrada en Showdown con el nombre '" + name + "'."));
+        mediator.send(new LinkShowdownCommand(username, account.username(), account.userid()));
+    }
+
+    public void unlinkShowdown(String username) throws Exception {
+        mediator.send(new UnlinkShowdownCommand(username));
     }
 
 

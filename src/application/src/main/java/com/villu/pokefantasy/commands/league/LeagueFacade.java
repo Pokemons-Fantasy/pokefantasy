@@ -1,5 +1,7 @@
 package com.villu.pokefantasy.commands.league;
 
+import com.villu.pokefantasy.dto.BattleGameType;
+import com.villu.pokefantasy.dto.TeamSheet;
 import com.villu.pokefantasy.mediator.Mediator;
 import com.villu.pokefantasy.response.LeagueDetailResponse;
 import com.villu.pokefantasy.response.LeagueResponse;
@@ -54,6 +56,8 @@ public class LeagueFacade {
                                Integer turnTimerSeconds,
                                Integer stealWindowCloseDay, String stealWindowCloseTime,
                                Integer swapWindowCloseDay, String swapWindowCloseTime,
+                               BattleGameType battleGameType, Integer pickedTeamSize,
+                               TeamSheet teamSheet, Integer bestOf,
                                String requestingUsername) throws Exception {
         mediator.send(new UpdateLeagueSettingsCommand(leagueId, coinsPerWin, coinsPerLoss,
                 priceTierS, priceTierA, priceTierB, priceTierC, priceTierD,
@@ -62,6 +66,7 @@ public class LeagueFacade {
                 turnTimerSeconds,
                 stealWindowCloseDay, stealWindowCloseTime,
                 swapWindowCloseDay, swapWindowCloseTime,
+                battleGameType, pickedTeamSize, teamSheet, bestOf,
                 requestingUsername));
     }
 

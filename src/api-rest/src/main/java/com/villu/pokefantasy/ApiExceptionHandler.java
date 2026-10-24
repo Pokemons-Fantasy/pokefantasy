@@ -1,6 +1,7 @@
 package com.villu.pokefantasy;
 
 import com.villu.pokefantasy.exception.ForbiddenOperationException;
+import com.villu.pokefantasy.exception.ShowdownUnavailableException;
 import com.villu.pokefantasy.exception.TooManyAttemptsException;
 import org.apache.catalina.connector.ClientAbortException;
 import org.slf4j.Logger;
@@ -102,6 +103,11 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                 .header(HttpHeaders.RETRY_AFTER, String.valueOf(exception.getRetryAfter().toSeconds()))
                 .body(problem(HttpStatus.TOO_MANY_REQUESTS, "TOO_MANY_ATTEMPTS", exception.getMessage()));
+    }
+
+    @ExceptionHandler(ShowdownUnavailableException.class)
+    public ResponseEntity<ProblemDetail> handleShowdownUnavailable(ShowdownUnavailableException exception) {
+        return respond(HttpStatus.BAD_GATEWAY, "SHOWDOWN_UNAVAILABLE", exception.getMessage());
     }
 
     @ExceptionHandler(ForbiddenOperationException.class)

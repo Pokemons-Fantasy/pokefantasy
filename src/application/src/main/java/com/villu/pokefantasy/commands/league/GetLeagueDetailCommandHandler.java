@@ -6,6 +6,7 @@ import com.villu.pokefantasy.mediator.CommandHandler;
 import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.UserRepository;
 import com.villu.pokefantasy.repository.entity.LeagueMember;
+import com.villu.pokefantasy.repository.entity.UserEntity;
 import com.villu.pokefantasy.response.LeagueDetailResponse;
 import com.villu.pokefantasy.response.LeagueMemberResponse;
 import org.springframework.stereotype.Service;
@@ -36,10 +37,9 @@ public class GetLeagueDetailCommandHandler implements CommandHandler<GetLeagueDe
         var league = leagueRepository.findById(command.leagueId())
                 .orElseThrow(() -> new IllegalArgumentException("Liga no encontrada"));
 
-        // HashMap y no Collectors.toMap: la versión es null para quien no tiene foto.
-        Map<String, Long> avatarVersions = new HashMap<>();
+        Map<String, UserEntity> users = new HashMap<>();
         userRepository.findByUsernames(league.getMembers().stream().map(LeagueMember::getUsername).toList())
-                .forEach(user -> avatarVersions.put(user.getName(), user.getAvatarVersion()));
+                .forEach(user -> users.put(user.getName(), user));
 
         return LeagueDetailResponse.builder()
                 .id(league.getId())
@@ -48,12 +48,18 @@ public class GetLeagueDetailCommandHandler implements CommandHandler<GetLeagueDe
                 .status(league.getStatus())
                 .draftStatus(currentDraftService.statusOf(league.getId()).orElse(null))
                 .members(league.getMembers().stream()
-                        .map(m -> LeagueMemberResponse.builder()
-                                .username(m.getUsername())
-                                .leagueRole(m.getLeagueRole())
-                                .avatarVersion(avatarVersions.get(m.getUsername()))
-                                .build())
+                        .map(m -> toResponse(m, users.get(m.getUsername())))
                         .toList())
+                .build();
+    }
+
+    /** {@code user} es {@code null} si el miembro ya no tiene cuenta. */
+    private static LeagueMemberResponse toResponse(LeagueMember member, UserEntity user) {
+        return LeagueMemberResponse.builder()
+                .username(member.getUsername())
+                .leagueRole(member.getLeagueRole())
+                .avatarVersion(user == null ? null : user.getAvatarVersion())
+                .showdownName(user == null ? null : user.getShowdownName())
                 .build();
     }
 

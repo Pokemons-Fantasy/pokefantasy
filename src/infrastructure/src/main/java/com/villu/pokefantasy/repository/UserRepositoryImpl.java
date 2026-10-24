@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 
 @Component
 @Slf4j
@@ -72,8 +73,29 @@ public class UserRepositoryImpl implements UserRepository {
             return List.of();
         }
         Query query = new Query(Criteria.where("name").in(usernames));
-        query.fields().include("name", "avatarVersion");
+        query.fields().include("name", "avatarVersion", "showdownName");
         return mongoTemplate.find(query, UserEntity.class);
+    }
+
+    @Override
+    public Optional<UserEntity> findByShowdownId(String showdownId) {
+        return Optional.ofNullable(mongoTemplate.findOne(
+                Query.query(Criteria.where("showdownId").is(showdownId)), UserEntity.class));
+    }
+
+    @Override
+    public void setShowdownAccount(String username, String showdownName, String showdownId) {
+        Query query = new Query(Criteria.where("name").is(username));
+        Update update = new Update().set("showdownName", showdownName).set("showdownId", showdownId)
+                .inc("version", 1);
+        mongoTemplate.updateFirst(query, update, UserEntity.class);
+    }
+
+    @Override
+    public void clearShowdownAccount(String username) {
+        Query query = new Query(Criteria.where("name").is(username));
+        Update update = new Update().unset("showdownName").unset("showdownId").inc("version", 1);
+        mongoTemplate.updateFirst(query, update, UserEntity.class);
     }
 
     @Override
