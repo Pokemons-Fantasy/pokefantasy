@@ -1,15 +1,19 @@
 package com.villu.pokefantasy.commands.schedule;
 
 import com.villu.pokefantasy.dto.LeagueSettings;
+import com.villu.pokefantasy.dto.MatchStatus;
 import com.villu.pokefantasy.league.LeagueMembershipGuard;
 import com.villu.pokefantasy.mediator.CommandHandler;
 import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.ScheduleRepository;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity;
+import com.villu.pokefantasy.repository.entity.ScheduleEntity.Match;
+import com.villu.pokefantasy.repository.entity.ScheduleEntity.MatchLineup;
 import com.villu.pokefantasy.response.ScheduleResponse;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -43,10 +47,10 @@ public class GetScheduleCommandHandler implements CommandHandler<GetScheduleComm
         LeagueSettings settings = leagueRepository.findById(command.leagueId())
                 .map(LeagueEntity::getSettings)
                 .orElse(null);
-        return toResponse(maybeSchedule.get(), settings);
+        return toResponse(maybeSchedule.get(), settings, command.requestingUsername());
     }
 
-    private ScheduleResponse toResponse(ScheduleEntity entity, LeagueSettings settings) {
+    private ScheduleResponse toResponse(ScheduleEntity entity, LeagueSettings settings, String viewer) {
         List<ScheduleResponse.JornadaResponse> jornadas = entity.getJornadas() == null
                 ? List.of()
                 : entity.getJornadas().stream()
@@ -60,17 +64,12 @@ public class GetScheduleCommandHandler implements CommandHandler<GetScheduleComm
                                     .startDate(j.getStartDate())
                                     .stealDeadline(stealDeadline)
                                     .swapDeadline(swapDeadline)
+                                    .lineupOpensAt(jornadaWindowService.lineupOpensAt(j, settings)
+                                            .map(LocalDateTime::toString).orElse(null))
                                     .matches(j.getMatches() == null ? List.of() :
                                             j.getMatches().stream()
-                                                    .map(m -> ScheduleResponse.MatchResponse.builder()
-                                                            .id(m.getId())
-                                                            .player1(m.getPlayer1())
-                                                            .player2(m.getPlayer2())
-                                                            .winnerUsername(m.getWinnerUsername())
-                                                            .status(m.getStatus())
-                                                            .winnerScore(m.getWinnerScore())
-                                                            .loserScore(m.getLoserScore())
-                                                            .build())
+                                                    .map(m -> toMatch(m, viewer,
+                                                            jornadaWindowService.isLineupPeriodOpen(entity, j, settings)))
                                                     .collect(Collectors.toList()))
                                     .build();
                         })
@@ -81,6 +80,35 @@ public class GetScheduleCommandHandler implements CommandHandler<GetScheduleComm
                 .jornadas(jornadas)
                 .stealWindowOpen(jornadaWindowService.isStealWindowOpen(entity, settings))
                 .swapWindowOpen(jornadaWindowService.isSwapWindowOpen(entity, settings))
+                .build();
+    }
+
+    /** {@code periodOpen}: la jornada del partido admite declarar alineaciones ahora. */
+    private static ScheduleResponse.MatchResponse toMatch(Match m, String viewer, boolean periodOpen) {
+        boolean revealed = m.lineupsRevealed();
+        boolean player = viewer.equals(m.getPlayer1()) || viewer.equals(m.getPlayer2());
+        return ScheduleResponse.MatchResponse.builder()
+                .id(m.getId())
+                .player1(m.getPlayer1())
+                .player2(m.getPlayer2())
+                .winnerUsername(m.getWinnerUsername())
+                .status(m.getStatus())
+                .winnerScore(m.getWinnerScore())
+                .loserScore(m.getLoserScore())
+                .player1LineupSubmitted(m.getPlayer1Lineup() != null)
+                .player2LineupSubmitted(m.getPlayer2Lineup() != null)
+                .player1Lineup(revealed || viewer.equals(m.getPlayer1()) ? toLineup(m.getPlayer1Lineup()) : null)
+                .player2Lineup(revealed || viewer.equals(m.getPlayer2()) ? toLineup(m.getPlayer2Lineup()) : null)
+                .lineupOpen(player && periodOpen && !revealed && m.getStatus() == MatchStatus.PENDING)
+                .build();
+    }
+
+    private static ScheduleResponse.LineupResponse toLineup(MatchLineup lineup) {
+        if (lineup == null) return null;
+        return ScheduleResponse.LineupResponse.builder()
+                .pokemonNames(lineup.getPokemonNames())
+                .pasteUrl(lineup.getPasteUrl())
+                .pasteWarnings(lineup.getPasteWarnings())
                 .build();
     }
 
