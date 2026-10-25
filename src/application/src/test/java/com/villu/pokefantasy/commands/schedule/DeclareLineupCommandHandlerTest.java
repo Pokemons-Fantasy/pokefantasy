@@ -282,6 +282,29 @@ class DeclareLineupCommandHandlerTest {
     }
 
     @Test
+    void declare_nullName_throwsBadRequest() {
+        List<String> withNull = new ArrayList<>(ASH_SIX.subList(0, 5));
+        withNull.add(null);
+
+        assertThatThrownBy(() -> handler().handle(cmd("ash", withNull)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Elige 6 Pokémon distintos.");
+    }
+
+    @Test
+    void declare_reveal_userWithNullTokens_stillSaves() {
+        match.setPlayer1Lineup(new MatchLineup(ASH_SIX, null, List.of(), Instant.EPOCH));
+        UserEntity ash = new UserEntity();
+        ash.setName("ash");
+        ash.setFcmTokens(null);
+        when(userRepository.findByUsername("ash")).thenReturn(ash);
+
+        handler().handle(cmd("misty", MISTY_SIX));
+
+        assertThat(match.lineupsRevealed()).isTrue();
+    }
+
+    @Test
     void declare_withoutPokemon_throws() {
         DraftEntity empty = new DraftEntity();
         empty.setPicks(new ArrayList<>(picksOf("misty", MISTY_SIX)));

@@ -48,6 +48,13 @@ class PokepasteCheckTest {
     }
 
     @Test
+    void species_ignoresTeambuilderFolderHeader() {
+        String paste = "=== [gen9doublescustomgame] Liga ===\n\nPikachu @ Light Ball\n\nGarchomp";
+
+        assertThat(PokepasteCheck.species(paste)).containsExactly("Pikachu", "Garchomp");
+    }
+
+    @Test
     void warnings_sameTeam_none() {
         assertThat(PokepasteCheck.warnings(List.of("pikachu", "mr-mime"), List.of("Mr. Mime", "Pikachu"))).isEmpty();
     }

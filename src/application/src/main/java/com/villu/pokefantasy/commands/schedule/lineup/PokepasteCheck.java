@@ -37,7 +37,8 @@ public final class PokepasteCheck {
         List<String> result = new ArrayList<>();
         for (String block : pasteText.replace("\r\n", "\n").split("\n\\s*\n")) {
             String line = block.strip().split("\n", 2)[0].strip();
-            if (line.isEmpty()) continue;
+            // Vacío o cabecera de carpeta del teambuilder ("=== [formato] Equipo ===").
+            if (line.isEmpty() || line.startsWith("===")) continue;
             int at = line.indexOf(" @ ");
             if (at >= 0) line = line.substring(0, at).strip();
             line = line.replaceFirst(" \\((M|F)\\)$", "");

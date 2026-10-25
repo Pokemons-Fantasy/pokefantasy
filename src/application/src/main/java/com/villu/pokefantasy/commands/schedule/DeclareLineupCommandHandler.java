@@ -27,6 +27,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -146,8 +147,9 @@ public class DeclareLineupCommandHandler implements CommandHandler<DeclareLineup
         int required = Math.min(MAX_LINEUP, owned.size());
         List<String> requested = command.pokemonNames() == null ? List.of() : command.pokemonNames();
         Set<String> distinct = new LinkedHashSet<>();
-        requested.forEach(name -> distinct.add(name.toLowerCase(Locale.ROOT)));
-        if (requested.size() != required || distinct.size() != required) {
+        requested.stream().filter(Objects::nonNull).forEach(name -> distinct.add(name.toLowerCase(Locale.ROOT)));
+        // Un null (cliente roto) cuenta como hueco: la alineación no tiene los que tocan.
+        if (requested.size() != required || distinct.size() != required || requested.contains(null)) {
             throw new IllegalArgumentException("Elige " + required + " Pokémon distintos.");
         }
         return requested.stream()
@@ -168,7 +170,8 @@ public class DeclareLineupCommandHandler implements CommandHandler<DeclareLineup
 
     private void notify(DeclareLineupCommand command, String player, String rival, int roundNumber) {
         UserEntity user = userRepository.findByUsername(player);
-        if (user == null || user.getFcmTokens().isEmpty()) return;
+        // Un fallo aquí revertiría la declaración: sin tokens (o con el campo a null) simplemente no se avisa.
+        if (user == null || user.getFcmTokens() == null || user.getFcmTokens().isEmpty()) return;
         pushNotificationPort.send(user.getFcmTokens(), PushMessage.lineups(command.leagueId(), command.matchId(),
                 "Alineaciones reveladas",
                 "Ya puedes ver la alineación de " + rival + " en la jornada " + roundNumber + "."));
