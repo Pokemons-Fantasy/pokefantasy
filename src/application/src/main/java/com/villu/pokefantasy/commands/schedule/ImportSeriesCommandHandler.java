@@ -46,7 +46,8 @@ public class ImportSeriesCommandHandler implements CommandHandler<ImportSeriesCo
 
     @Override
     public Void handle(ImportSeriesCommand command) {
-        LeagueEntity league = leagueMembershipGuard.requireMember(command.leagueId(), command.username());
+        LeagueEntity league = command.username() == null ? leagueMembershipGuard.requireLeague(command.leagueId())
+                : leagueMembershipGuard.requireMember(command.leagueId(), command.username());
         ScheduleEntity schedule = scheduleRepository.findByLeagueId(command.leagueId())
                 .orElseThrow(() -> new IllegalStateException(
                         "Esta liga aún no tiene calendario: se genera al completar el draft."));

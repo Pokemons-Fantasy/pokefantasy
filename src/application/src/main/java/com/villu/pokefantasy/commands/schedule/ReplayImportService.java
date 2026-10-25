@@ -29,19 +29,25 @@ public class ReplayImportService {
 
     private final UserRepository userRepository;
     private final MatchResultService matchResultService;
+    private final JornadaWindowService jornadaWindowService;
 
-    public ReplayImportService(UserRepository userRepository, MatchResultService matchResultService) {
+    public ReplayImportService(UserRepository userRepository, MatchResultService matchResultService,
+                               JornadaWindowService jornadaWindowService) {
         this.userRepository = userRepository;
         this.matchResultService = matchResultService;
+        this.jornadaWindowService = jornadaWindowService;
     }
 
-    /** Valida y arma el contexto del partido con datos ya leídos en la transacción de quien llama. */
+    /**
+     * Valida y arma el contexto del partido con datos ya leídos en la transacción de quien llama.
+     * {@code username == null}: lo pide el sistema (import automático) y no se comprueba quién.
+     */
     public ReplayImportContext contextFor(LeagueEntity league, ScheduleEntity schedule, String matchId, String username) {
         Match match = matchResultService.findMatch(schedule, matchId);
-        boolean player = username.equals(match.getPlayer1()) || username.equals(match.getPlayer2());
+        boolean player = match.getPlayer1().equals(username) || match.getPlayer2().equals(username);
         boolean admin = league.getMembers().stream()
                 .anyMatch(m -> m.getUsername().equals(username) && m.getLeagueRole() == LeagueRole.ADMIN);
-        if (!player && !admin) {
+        if (username != null && !player && !admin) {
             throw new ForbiddenOperationException("Solo los jugadores del partido o un admin pueden importar el resultado.");
         }
         if (match.getStatus() == MatchStatus.COMPLETED) {
@@ -60,6 +66,8 @@ public class ReplayImportService {
         Long fromEpoch = jornada.getStartDate() == null ? null
                 : LocalDate.parse(jornada.getStartDate()).with(DayOfWeek.MONDAY)
                         .atStartOfDay(JornadaWindowService.LEAGUE_ZONE).toEpochSecond();
+        Long marketClosedEpoch = jornadaWindowService.lineupOpensAt(jornada, settings)
+                .map(t -> t.atZone(JornadaWindowService.LEAGUE_ZONE).toEpochSecond()).orElse(null);
 
         Set<String> used = new HashSet<>();
         schedule.getJornadas().forEach(j -> j.getMatches().stream()
@@ -68,7 +76,7 @@ public class ReplayImportService {
 
         return new ReplayImportContext(match.getPlayer1(), match.getPlayer2(), id1, id2,
                 singles ? "gen9customgame" : "gen9doublescustomgame", fromEpoch, used,
-                match.getPlayer1Lineup(), match.getPlayer2Lineup(), bestOf);
+                match.getPlayer1Lineup(), match.getPlayer2Lineup(), bestOf, marketClosedEpoch);
     }
 
     private String showdownIdOf(String username) {

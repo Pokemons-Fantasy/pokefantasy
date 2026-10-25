@@ -27,6 +27,12 @@ public class LeagueMembershipGuard {
         return league;
     }
 
+    /** La liga, sin comprobar quién pide: solo para procesos del sistema (jobs). */
+    public LeagueEntity requireLeague(String leagueId) {
+        return leagueRepository.findById(leagueId)
+                .orElseThrow(() -> new IllegalArgumentException("Liga no encontrada"));
+    }
+
     /** {@code true} si son el mismo usuario o están juntos en alguna liga. */
     public boolean sharesLeague(String username, String otherUsername) {
         if (username.equals(otherUsername)) {

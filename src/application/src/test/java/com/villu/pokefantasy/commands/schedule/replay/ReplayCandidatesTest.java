@@ -17,7 +17,7 @@ class ReplayCandidatesTest {
 
     private static ReplayImportContext ctx(MatchLineup ashLineup) {
         return new ReplayImportContext("ash", "misty", "ashketchum", "mistyw", "gen9doublescustomgame", FROM,
-                Set.of("used-1"), ashLineup, null, 3);
+                Set.of("used-1"), ashLineup, null, 3, null);
     }
 
     /** Replay con Ash Ketchum y Misty W en el orden dado, ganador y serie opcionales. */
@@ -105,7 +105,7 @@ class ReplayCandidatesTest {
     @Test
     void evaluate_withoutDate_noWeekFilter() {
         ReplayImportContext noDate = new ReplayImportContext("ash", "misty", "ashketchum", "mistyw",
-                "gen9doublescustomgame", null, Set.of(), null, null, 3);
+                "gen9doublescustomgame", null, Set.of(), null, null, 3, null);
 
         assertThat(ReplayCandidates.evaluate(noDate, List.of(ok("r", "Ash Ketchum", null, null, 1L)))
                 .getFirst().isSelectable()).isTrue();

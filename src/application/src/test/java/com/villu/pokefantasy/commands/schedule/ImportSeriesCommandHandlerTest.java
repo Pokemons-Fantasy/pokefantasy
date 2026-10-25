@@ -83,7 +83,7 @@ class ImportSeriesCommandHandlerTest {
 
         MatchResultService results = new MatchResultService(leagueRepository, draftRepository, activityEventRepository);
         handler = new ImportSeriesCommandHandler(scheduleRepository, leagueMembershipGuard,
-                new ReplayImportService(userRepository, results), results);
+                new ReplayImportService(userRepository, results, new JornadaWindowService()), results);
     }
 
     /** Partida de una serie; {@code swap} pone a Misty en p1 (el lado cambia entre partidas). */

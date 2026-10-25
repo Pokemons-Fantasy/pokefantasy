@@ -37,7 +37,7 @@ class ScheduleFacadeTest {
     }
 
     private static final ReplayImportContext CTX = new ReplayImportContext("ash", "misty", "ash", "misty",
-            "gen9doublescustomgame", 1000L, java.util.Set.of(), null, null, 3);
+            "gen9doublescustomgame", 1000L, java.util.Set.of(), null, null, 3, null);
 
     private static ShowdownReplay replay(String id, long uploadtime) {
         return new ShowdownReplay(id, "gen9doublescustomgame", List.of("Ash", "Misty"),
