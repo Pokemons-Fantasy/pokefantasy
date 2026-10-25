@@ -70,6 +70,10 @@ public class ScheduleEntity {
          */
         private MatchLineup player1Lineup;
         private MatchLineup player2Lineup;
+        /** Replays de Showdown con los que se registró el resultado, en orden de partida; {@code null} si fue a mano. */
+        private List<String> replayIds;
+        /** Avisos del import (lo que se llevó fuera de la alineación); no impidieron registrar. */
+        private List<String> importWarnings;
 
         public Match(String id, String player1, String player2, String winnerUsername, MatchStatus status) {
             this.id = id;

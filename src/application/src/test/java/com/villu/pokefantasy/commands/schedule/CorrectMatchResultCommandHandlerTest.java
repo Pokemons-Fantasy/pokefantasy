@@ -152,6 +152,18 @@ class CorrectMatchResultCommandHandlerTest {
     }
 
     @Test
+    void correct_otherWinner_dropsTheImportedReplays() {
+        match.setReplayIds(List.of("g1", "g2"));
+        match.setImportWarnings(List.of("aviso"));
+
+        handler.handle(new CorrectMatchResultCommand(LEAGUE_ID, MATCH_ID, BROCK, ADMIN));
+
+        // Los replays dicen otro ganador: dejan de enlazarse y quedan libres para otro partido.
+        assertThat(match.getReplayIds()).isNull();
+        assertThat(match.getImportWarnings()).isNull();
+    }
+
+    @Test
     void revert_legacyResultWithoutRecordedCoins_usesCurrentSettings() {
         match.setWinnerCoins(null);
         match.setLoserCoins(null);
