@@ -78,8 +78,8 @@ class PrepareReplayImportCommandHandlerTest {
         lenient().when(userRepository.findByUsername("ash")).thenReturn(user("ash", "ashketchum"));
         lenient().when(userRepository.findByUsername("misty")).thenReturn(user("misty", "mistyw"));
 
-        handler = new PrepareReplayImportCommandHandler(scheduleRepository, userRepository, leagueMembershipGuard,
-                new MatchResultService(leagueRepository, draftRepository, activityEventRepository));
+        handler = new PrepareReplayImportCommandHandler(scheduleRepository, leagueMembershipGuard, new ReplayImportService(userRepository,
+                new MatchResultService(leagueRepository, draftRepository, activityEventRepository)));
     }
 
     @Test

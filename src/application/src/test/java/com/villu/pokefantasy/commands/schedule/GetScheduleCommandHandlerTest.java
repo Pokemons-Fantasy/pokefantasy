@@ -153,6 +153,18 @@ class GetScheduleCommandHandlerTest {
     }
 
     @Test
+    void importedMatch_exposesReplaysAndWarningsToEveryone() {
+        Match match = new Match("m1", "ash", "misty", "ash", MatchStatus.COMPLETED);
+        match.setReplayIds(List.of("g1", "g2"));
+        match.setImportWarnings(List.of("ash llevó Raichu, que no está en su alineación."));
+        scheduleWith(match);
+
+        ScheduleResponse.MatchResponse seen = matchSeenBy("brock");
+        assertThat(seen.getReplayIds()).containsExactly("g1", "g2");
+        assertThat(seen.getImportWarnings()).containsExactly("ash llevó Raichu, que no está en su alineación.");
+    }
+
+    @Test
     void lineupOpensAt_fromWindowService() {
         Match match = new Match("m1", "ash", "misty", null, MatchStatus.PENDING);
         ScheduleEntity schedule = scheduleWith(match);

@@ -3,6 +3,7 @@ package com.villu.pokefantasy;
 import com.villu.pokefantasy.commands.schedule.MatchScore;
 import com.villu.pokefantasy.commands.schedule.ScheduleFacade;
 import com.villu.pokefantasy.request.schedule.DeclareLineupRequest;
+import com.villu.pokefantasy.request.schedule.ImportSeriesRequest;
 import com.villu.pokefantasy.request.schedule.RecordMatchResultRequest;
 import com.villu.pokefantasy.response.ReplayCandidateResponse;
 import com.villu.pokefantasy.response.ScheduleResponse;
@@ -64,6 +65,16 @@ public class ScheduleController {
                                                                           @AuthenticationPrincipal UserDetails userDetails)
             throws Exception {
         return ResponseEntity.ok(scheduleFacade.replayCandidates(leagueId, matchId, url, userDetails.getUsername()));
+    }
+
+    /** Registra el resultado con los replays de la serie (jugadores del partido o admin). */
+    @PostMapping("/{leagueId}/schedule/matches/{matchId}/import")
+    public ResponseEntity<Void> importSeries(@PathVariable String leagueId,
+                                             @PathVariable String matchId,
+                                             @AuthenticationPrincipal UserDetails userDetails,
+                                             @RequestBody ImportSeriesRequest request) throws Exception {
+        scheduleFacade.importSeries(leagueId, matchId, request.getReplayIds(), userDetails.getUsername());
+        return ResponseEntity.noContent().build();
     }
 
     /** Corrige el ganador o el marcador de un partido ya registrado (admin). */

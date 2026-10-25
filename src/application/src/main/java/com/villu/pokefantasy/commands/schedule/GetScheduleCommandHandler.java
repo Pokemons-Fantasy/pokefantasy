@@ -107,6 +107,8 @@ public class GetScheduleCommandHandler implements CommandHandler<GetScheduleComm
                 .player2Lineup(revealed || viewer.equals(m.getPlayer2()) ? toLineup(m.getPlayer2Lineup()) : null)
                 .lineupOpen(declarable && periodOpen)
                 .lineupPending(declarable && periodPending)
+                .replayIds(m.getReplayIds())
+                .importWarnings(m.getImportWarnings())
                 .build();
     }
 

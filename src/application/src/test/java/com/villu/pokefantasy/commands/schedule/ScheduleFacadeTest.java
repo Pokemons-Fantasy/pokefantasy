@@ -93,6 +93,27 @@ class ScheduleFacadeTest {
     }
 
     @Test
+    void importSeries_redownloadsEveryReplayAndSendsThem() throws Exception {
+        ShowdownReplay g1 = replay("g1", 2000L);
+        ShowdownReplay g2 = replay("g2", 2001L);
+        when(showdownPort.getReplay("g1")).thenReturn(Optional.of(g1));
+        when(showdownPort.getReplay("g2")).thenReturn(Optional.of(g2));
+
+        facade.importSeries("l1", "m1", List.of("g1", "g2"), "ash");
+
+        verify(mediator).send(new ImportSeriesCommand("l1", "m1", "ash", List.of(g1, g2)));
+    }
+
+    @Test
+    void importSeries_limits() {
+        assertThatThrownBy(() -> facade.importSeries("l1", "m1", List.of(), "ash"))
+                .isInstanceOf(IllegalArgumentException.class).hasMessage("Marca las partidas de la serie.");
+        assertThatThrownBy(() -> facade.importSeries("l1", "m1", List.of("a", "b", "c", "d"), "ash"))
+                .isInstanceOf(IllegalArgumentException.class).hasMessage("Marca como mucho 3 partidas.");
+        verifyNoInteractions(showdownPort);
+    }
+
+    @Test
     void declareLineup_pokepaste_passesWarnings() throws Exception {
         when(showdownPort.getPokepaste("abc123")).thenReturn(Optional.of("Pikachu\n\nRaichu"));
 

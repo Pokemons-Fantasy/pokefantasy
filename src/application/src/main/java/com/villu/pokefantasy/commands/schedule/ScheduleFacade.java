@@ -78,6 +78,25 @@ public class ScheduleFacade {
         return ReplayCandidates.evaluate(ctx, replays);
     }
 
+    /** Partidas que se pueden marcar como mucho (una serie al mejor de 3). */
+    static final int MAX_IMPORTED = 3;
+
+    /**
+     * Registra el resultado con las partidas marcadas. Del cliente solo se usan los ids: cada replay se vuelve a
+     * descargar aquí (fuera de la transacción, ADR-007) y el comando lo valida entero.
+     */
+    public void importSeries(String leagueId, String matchId, List<String> replayIds, String requestingUsername)
+            throws Exception {
+        if (replayIds == null || replayIds.isEmpty()) {
+            throw new IllegalArgumentException("Marca las partidas de la serie.");
+        }
+        if (replayIds.size() > MAX_IMPORTED) {
+            throw new IllegalArgumentException("Marca como mucho " + MAX_IMPORTED + " partidas.");
+        }
+        List<ShowdownReplay> replays = replayIds.stream().map(this::fetchReplay).toList();
+        mediator.send(new ImportSeriesCommand(leagueId, matchId, requestingUsername, replays));
+    }
+
     private ShowdownReplay fetchReplay(String id) {
         return showdownPort.getReplay(id)
                 .orElseThrow(() -> new IllegalArgumentException("No se encontró el replay " + id + "."));

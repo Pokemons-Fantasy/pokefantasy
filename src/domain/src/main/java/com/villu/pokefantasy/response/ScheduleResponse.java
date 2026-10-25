@@ -57,6 +57,10 @@ public class ScheduleResponse {
         private boolean lineupOpen;
         /** Quien pide podrá declarar su alineación cuando cierre el mercado ({@code lineupOpensAt} de la jornada). */
         private boolean lineupPending;
+        /** Replays de Showdown con los que se importó el resultado, en orden de partida. */
+        private List<String> replayIds;
+        /** Avisos del import (lo que se llevó fuera de la alineación). */
+        private List<String> importWarnings;
     }
 
     @Data

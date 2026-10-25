@@ -159,6 +159,13 @@ class DraftScheduleUserControllersTest extends ControllerTestSupport {
     }
 
     @Test
+    void importSeries_204() throws Exception {
+        mvc.perform(json(post("/v1/leagues/l1/schedule/matches/m1/import"), "{\"replayIds\":[\"g1\",\"g2\"]}"))
+                .andExpect(status().isNoContent());
+        verify(scheduleFacade).importSeries("l1", "m1", List.of("g1", "g2"), ME);
+    }
+
+    @Test
     void results_recordCorrectRevert() throws Exception {
         mvc.perform(json(post("/v1/leagues/l1/schedule/matches/m1/result"), "{\"winnerUsername\":\"misty\"}"))
                 .andExpect(status().isNoContent());
