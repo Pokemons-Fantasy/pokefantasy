@@ -148,6 +148,24 @@ class DraftScheduleUserControllersTest extends ControllerTestSupport {
     }
 
     @Test
+    void replayCandidates_200() throws Exception {
+        when(scheduleFacade.replayCandidates("l1", "m1", "https://replay.pokemonshowdown.com/x", ME)).thenReturn(List.of(
+                com.villu.pokefantasy.response.ReplayCandidateResponse.builder().id("x").selectable(true).build()));
+
+        mvc.perform(get("/v1/leagues/l1/schedule/matches/m1/replays").param("url", "https://replay.pokemonshowdown.com/x"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value("x"))
+                .andExpect(jsonPath("$[0].selectable").value(true));
+    }
+
+    @Test
+    void importSeries_204() throws Exception {
+        mvc.perform(json(post("/v1/leagues/l1/schedule/matches/m1/import"), "{\"replayIds\":[\"g1\",\"g2\"]}"))
+                .andExpect(status().isNoContent());
+        verify(scheduleFacade).importSeries("l1", "m1", List.of("g1", "g2"), ME);
+    }
+
+    @Test
     void results_recordCorrectRevert() throws Exception {
         mvc.perform(json(post("/v1/leagues/l1/schedule/matches/m1/result"), "{\"winnerUsername\":\"misty\"}"))
                 .andExpect(status().isNoContent());

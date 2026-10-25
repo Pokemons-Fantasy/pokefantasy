@@ -142,6 +142,9 @@ public class MatchResultService {
         match.setWinnerCoins(null);
         match.setLoserCoins(null);
         setScore(match, null);
+        // Los replays del import quedan libres para volver a usarse.
+        match.setReplayIds(null);
+        match.setImportWarnings(null);
 
         Instant now = Instant.now();
         activityEventRepository.save(ActivityEventEntity.builder()
