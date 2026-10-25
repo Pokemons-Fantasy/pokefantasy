@@ -13,4 +13,11 @@ public interface ShowdownPort {
      * @throws ShowdownUnavailableException si Showdown no responde
      */
     Optional<ShowdownUser> findUser(String showdownId);
+
+    /**
+     * Texto exportado del equipo de un paste de pokepast.es; vacío si no existe.
+     *
+     * @throws ShowdownUnavailableException si pokepast.es no responde
+     */
+    Optional<String> getPokepaste(String pasteId);
 }

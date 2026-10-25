@@ -166,6 +166,35 @@ public class JornadaWindowService {
                 .filter(deadline -> now().isBefore(deadline));
     }
 
+    /**
+     * Desde cuándo se puede declarar la alineación de un partido de la jornada: el cierre más tardío de las
+     * ventanas de robo y swap, cuando ningún equipo puede cambiar ya hasta los resultados. Vacío sin fecha.
+     */
+    public Optional<LocalDateTime> lineupOpensAt(Jornada jornada, LeagueSettings settings) {
+        if (jornada.getStartDate() == null) {
+            return Optional.empty();
+        }
+        LocalDateTime steal = getStealDeadline(jornada.getStartDate(), settings);
+        LocalDateTime swap = getSwapDeadline(jornada.getStartDate(), settings);
+        return Optional.of(steal.isAfter(swap) ? steal : swap);
+    }
+
+    /** {@code jornada} es la activa, tiene fecha y ya ha cerrado su mercado ({@link #lineupOpensAt}). */
+    public boolean isLineupPeriodOpen(ScheduleEntity schedule, Jornada jornada, LeagueSettings settings) {
+        return isActive(schedule, jornada)
+                && lineupOpensAt(jornada, settings).map(opens -> !now().isBefore(opens)).orElse(false);
+    }
+
+    /** {@code jornada} es la activa y su mercado aún no ha cerrado: la alineación se podrá declarar más tarde. */
+    public boolean isLineupPeriodPending(ScheduleEntity schedule, Jornada jornada, LeagueSettings settings) {
+        return isActive(schedule, jornada)
+                && lineupOpensAt(jornada, settings).map(opens -> now().isBefore(opens)).orElse(false);
+    }
+
+    private boolean isActive(ScheduleEntity schedule, Jornada jornada) {
+        return getActiveJornada(schedule).map(a -> a.getRoundNumber() == jornada.getRoundNumber()).orElse(false);
+    }
+
     /** Hora actual en {@link #LEAGUE_ZONE}. */
     public LocalDateTime now() {
         return LocalDateTime.now(clock.withZone(LEAGUE_ZONE));
