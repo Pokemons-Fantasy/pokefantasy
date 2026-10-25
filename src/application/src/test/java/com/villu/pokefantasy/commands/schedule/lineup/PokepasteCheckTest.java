@@ -34,6 +34,20 @@ class PokepasteCheckTest {
     }
 
     @Test
+    void warnings_cappedAndNamesTruncated() {
+        List<String> paste = new java.util.ArrayList<>();
+        for (int i = 0; i < 30; i++) paste.add("Extra" + i);
+        paste.add("X".repeat(100));
+
+        List<String> warnings = PokepasteCheck.warnings(List.of(), paste);
+
+        assertThat(warnings).hasSize(PokepasteCheck.MAX_WARNINGS + 1);
+        assertThat(warnings.getLast()).isEqualTo("…y 19 avisos más.");
+        assertThat(PokepasteCheck.warnings(List.of(), List.of("X".repeat(100))).getFirst())
+                .isEqualTo("El paste tiene " + "X".repeat(PokepasteCheck.MAX_NAME) + "…, que no está en la alineación.");
+    }
+
+    @Test
     void warnings_sameTeam_none() {
         assertThat(PokepasteCheck.warnings(List.of("pikachu", "mr-mime"), List.of("Mr. Mime", "Pikachu"))).isEmpty();
     }

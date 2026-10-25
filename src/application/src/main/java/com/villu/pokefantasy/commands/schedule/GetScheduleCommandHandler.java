@@ -59,6 +59,8 @@ public class GetScheduleCommandHandler implements CommandHandler<GetScheduleComm
                                     ? jornadaWindowService.getStealDeadline(j.getStartDate(), settings).toString() : null;
                             String swapDeadline = j.getStartDate() != null
                                     ? jornadaWindowService.getSwapDeadline(j.getStartDate(), settings).toString() : null;
+                            boolean periodOpen = jornadaWindowService.isLineupPeriodOpen(entity, j, settings);
+                            boolean periodPending = jornadaWindowService.isLineupPeriodPending(entity, j, settings);
                             return ScheduleResponse.JornadaResponse.builder()
                                     .roundNumber(j.getRoundNumber())
                                     .startDate(j.getStartDate())
@@ -68,8 +70,7 @@ public class GetScheduleCommandHandler implements CommandHandler<GetScheduleComm
                                             .map(LocalDateTime::toString).orElse(null))
                                     .matches(j.getMatches() == null ? List.of() :
                                             j.getMatches().stream()
-                                                    .map(m -> toMatch(m, viewer,
-                                                            jornadaWindowService.isLineupPeriodOpen(entity, j, settings)))
+                                                    .map(m -> toMatch(m, viewer, periodOpen, periodPending))
                                                     .collect(Collectors.toList()))
                                     .build();
                         })
@@ -83,10 +84,15 @@ public class GetScheduleCommandHandler implements CommandHandler<GetScheduleComm
                 .build();
     }
 
-    /** {@code periodOpen}: la jornada del partido admite declarar alineaciones ahora. */
-    private static ScheduleResponse.MatchResponse toMatch(Match m, String viewer, boolean periodOpen) {
+    /**
+     * {@code periodOpen}: la jornada del partido admite declarar alineaciones ahora; {@code periodPending}: las
+     * admitirá cuando cierre su mercado.
+     */
+    private static ScheduleResponse.MatchResponse toMatch(Match m, String viewer, boolean periodOpen,
+                                                          boolean periodPending) {
         boolean revealed = m.lineupsRevealed();
         boolean player = viewer.equals(m.getPlayer1()) || viewer.equals(m.getPlayer2());
+        boolean declarable = player && !revealed && m.getStatus() == MatchStatus.PENDING;
         return ScheduleResponse.MatchResponse.builder()
                 .id(m.getId())
                 .player1(m.getPlayer1())
@@ -99,7 +105,8 @@ public class GetScheduleCommandHandler implements CommandHandler<GetScheduleComm
                 .player2LineupSubmitted(m.getPlayer2Lineup() != null)
                 .player1Lineup(revealed || viewer.equals(m.getPlayer1()) ? toLineup(m.getPlayer1Lineup()) : null)
                 .player2Lineup(revealed || viewer.equals(m.getPlayer2()) ? toLineup(m.getPlayer2Lineup()) : null)
-                .lineupOpen(player && periodOpen && !revealed && m.getStatus() == MatchStatus.PENDING)
+                .lineupOpen(declarable && periodOpen)
+                .lineupPending(declarable && periodPending)
                 .build();
     }
 

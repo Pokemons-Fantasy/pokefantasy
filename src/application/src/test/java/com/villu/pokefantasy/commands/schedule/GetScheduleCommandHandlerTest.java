@@ -141,6 +141,18 @@ class GetScheduleCommandHandlerTest {
     }
 
     @Test
+    void lineupPending_onlyForPlayersOfPendingNotRevealedMatches() {
+        Match match = new Match("m1", "ash", "misty", null, MatchStatus.PENDING);
+        ScheduleEntity schedule = scheduleWith(match);
+        when(jornadaWindowService.isLineupPeriodPending(schedule, schedule.getJornadas().get(0), null)).thenReturn(true);
+
+        assertThat(matchSeenBy("ash").isLineupPending()).isTrue();
+        assertThat(matchSeenBy("brock").isLineupPending()).isFalse();
+        match.setStatus(MatchStatus.COMPLETED);
+        assertThat(matchSeenBy("ash").isLineupPending()).isFalse();
+    }
+
+    @Test
     void lineupOpensAt_fromWindowService() {
         Match match = new Match("m1", "ash", "misty", null, MatchStatus.PENDING);
         ScheduleEntity schedule = scheduleWith(match);

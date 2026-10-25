@@ -5,6 +5,7 @@ import com.villu.pokefantasy.dto.MatchStatus;
 import com.villu.pokefantasy.dto.PushMessage;
 import com.villu.pokefantasy.dto.TeamSheet;
 import com.villu.pokefantasy.exception.ForbiddenOperationException;
+import com.villu.pokefantasy.league.LeagueMembershipGuard;
 import com.villu.pokefantasy.mediator.CommandHandler;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
@@ -38,6 +39,7 @@ import java.util.stream.Collectors;
 public class DeclareLineupCommandHandler implements CommandHandler<DeclareLineupCommand, Void> {
 
     static final int MAX_LINEUP = 6;
+    static final int MAX_PASTE_URL = 200;
     private static final DateTimeFormatter OPENS_AT = DateTimeFormatter.ofPattern("dd/MM HH:mm");
 
     private final ScheduleRepository scheduleRepository;
@@ -47,11 +49,14 @@ public class DeclareLineupCommandHandler implements CommandHandler<DeclareLineup
     private final MatchResultService matchResultService;
     private final UserRepository userRepository;
     private final PushNotificationPort pushNotificationPort;
+    private final LeagueMembershipGuard leagueMembershipGuard;
 
     public DeclareLineupCommandHandler(ScheduleRepository scheduleRepository, LeagueRepository leagueRepository,
                                        DraftRepository draftRepository, JornadaWindowService jornadaWindowService,
                                        MatchResultService matchResultService, UserRepository userRepository,
-                                       PushNotificationPort pushNotificationPort) {
+                                       PushNotificationPort pushNotificationPort,
+                                       LeagueMembershipGuard leagueMembershipGuard) {
+        this.leagueMembershipGuard = leagueMembershipGuard;
         this.scheduleRepository = scheduleRepository;
         this.leagueRepository = leagueRepository;
         this.draftRepository = draftRepository;
@@ -63,6 +68,8 @@ public class DeclareLineupCommandHandler implements CommandHandler<DeclareLineup
 
     @Override
     public Void handle(DeclareLineupCommand command) {
+        // Un expulsado sigue como jugador en el calendario, pero ya no puede declarar nada.
+        leagueMembershipGuard.requireMember(command.leagueId(), command.username());
         ScheduleEntity schedule = scheduleRepository.findByLeagueId(command.leagueId())
                 .orElseThrow(() -> new IllegalStateException(
                         "Esta liga aún no tiene calendario: se genera al completar el draft."));
@@ -71,9 +78,10 @@ public class DeclareLineupCommandHandler implements CommandHandler<DeclareLineup
         if (!isPlayer1 && !command.username().equals(match.getPlayer2())) {
             throw new ForbiddenOperationException("No juegas este partido.");
         }
+        // null en ligas antiguas sin ajustes: valores por defecto, como el resto de JornadaWindowService.
         LeagueSettings settings = leagueRepository.findById(command.leagueId())
                 .map(LeagueEntity::getSettings)
-                .orElseThrow(() -> new IllegalArgumentException("Liga no encontrada"));
+                .orElse(null);
 
         Jornada jornada = jornadaOf(schedule, command.matchId());
         boolean active = jornadaWindowService.getActiveJornada(schedule)
@@ -96,9 +104,12 @@ public class DeclareLineupCommandHandler implements CommandHandler<DeclareLineup
         }
 
         List<String> names = ownLineup(command);
-        boolean open = settings.getTeamSheet() == TeamSheet.OPEN;
+        boolean open = settings != null && settings.getTeamSheet() == TeamSheet.OPEN;
         if (open && (command.pasteUrl() == null || !command.pasteUrl().trim().startsWith("https://"))) {
             throw new IllegalArgumentException("Con lista abierta, añade el enlace a tu equipo (https).");
+        }
+        if (open && command.pasteUrl().trim().length() > MAX_PASTE_URL) {
+            throw new IllegalArgumentException("El enlace a tu equipo es demasiado largo.");
         }
         MatchLineup lineup = new MatchLineup(names,
                 open ? command.pasteUrl().trim() : null,
@@ -129,6 +140,9 @@ public class DeclareLineupCommandHandler implements CommandHandler<DeclareLineup
                 .filter(pick -> command.username().equals(pick.getUsername()))
                 .map(DraftPick::getPokemonName)
                 .collect(Collectors.toMap(name -> name.toLowerCase(Locale.ROOT), Function.identity(), (a, b) -> a));
+        if (owned.isEmpty()) {
+            throw new IllegalArgumentException("No tienes Pokémon para declarar.");
+        }
         int required = Math.min(MAX_LINEUP, owned.size());
         List<String> requested = command.pokemonNames() == null ? List.of() : command.pokemonNames();
         Set<String> distinct = new LinkedHashSet<>();

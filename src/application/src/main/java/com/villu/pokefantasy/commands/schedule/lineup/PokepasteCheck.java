@@ -47,15 +47,31 @@ public final class PokepasteCheck {
         return result;
     }
 
-    /** Lo que falta en el paste (en el orden de la alineación) y lo que sobra (en el orden del paste). */
+    /** Avisos que se guardan como mucho: el paste lo escribe el usuario y viaja en el calendario de toda la liga. */
+    static final int MAX_WARNINGS = 12;
+    static final int MAX_NAME = 40;
+
+    /**
+     * Lo que falta en el paste (en el orden de la alineación) y lo que sobra (en el orden del paste). Como
+     * mucho {@link #MAX_WARNINGS} avisos más uno que cuenta el resto, y cada nombre recortado a {@link #MAX_NAME}.
+     */
     public static List<String> warnings(List<String> lineup, List<String> pasteSpecies) {
         Set<String> pasteIds = pasteSpecies.stream().map(ShowdownIds::toId).collect(Collectors.toSet());
         Set<String> lineupIds = lineup.stream().map(ShowdownIds::toId).collect(Collectors.toSet());
         List<String> warnings = new ArrayList<>();
         lineup.stream().filter(name -> !pasteIds.contains(ShowdownIds.toId(name)))
-                .forEach(name -> warnings.add("En el paste falta " + name + "."));
+                .forEach(name -> warnings.add("En el paste falta " + shorten(name) + "."));
         pasteSpecies.stream().filter(name -> !lineupIds.contains(ShowdownIds.toId(name)))
-                .forEach(name -> warnings.add("El paste tiene " + name + ", que no está en la alineación."));
-        return warnings;
+                .forEach(name -> warnings.add("El paste tiene " + shorten(name) + ", que no está en la alineación."));
+        if (warnings.size() <= MAX_WARNINGS) {
+            return warnings;
+        }
+        List<String> capped = new ArrayList<>(warnings.subList(0, MAX_WARNINGS));
+        capped.add("…y " + (warnings.size() - MAX_WARNINGS) + " avisos más.");
+        return capped;
+    }
+
+    private static String shorten(String name) {
+        return name.length() > MAX_NAME ? name.substring(0, MAX_NAME) + "…" : name;
     }
 }

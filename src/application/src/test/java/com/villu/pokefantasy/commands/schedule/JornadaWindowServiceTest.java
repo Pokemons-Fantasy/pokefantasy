@@ -295,6 +295,17 @@ class JornadaWindowServiceTest {
     }
 
     @Test
+    void isLineupPeriodPending_onlyActiveJornadaBeforeMarketClose() {
+        Jornada active = pendingJornada(1, START_DATE);
+        Jornada next = pendingJornada(2, "2026-06-13");
+        ScheduleEntity schedule = scheduleWith(active, next);
+
+        assertThat(serviceAt(LocalDateTime.of(2026, 6, 5, 15, 59)).isLineupPeriodPending(schedule, active, null)).isTrue();
+        assertThat(serviceAt(LocalDateTime.of(2026, 6, 5, 16, 0)).isLineupPeriodPending(schedule, active, null)).isFalse();
+        assertThat(serviceAt(LocalDateTime.of(2026, 6, 5, 15, 59)).isLineupPeriodPending(schedule, next, null)).isFalse();
+    }
+
+    @Test
     void isLineupPeriodOpen_withoutDate_closed() {
         Jornada active = pendingJornada(1, null);
 

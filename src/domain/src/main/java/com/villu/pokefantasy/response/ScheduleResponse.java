@@ -55,6 +55,8 @@ public class ScheduleResponse {
         private LineupResponse player2Lineup;
         /** Quien pide puede declarar (o cambiar) su alineación ahora mismo. */
         private boolean lineupOpen;
+        /** Quien pide podrá declarar su alineación cuando cierre el mercado ({@code lineupOpensAt} de la jornada). */
+        private boolean lineupPending;
     }
 
     @Data

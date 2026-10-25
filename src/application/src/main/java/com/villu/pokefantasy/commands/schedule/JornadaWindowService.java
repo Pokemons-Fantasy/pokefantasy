@@ -181,10 +181,18 @@ public class JornadaWindowService {
 
     /** {@code jornada} es la activa, tiene fecha y ya ha cerrado su mercado ({@link #lineupOpensAt}). */
     public boolean isLineupPeriodOpen(ScheduleEntity schedule, Jornada jornada, LeagueSettings settings) {
-        boolean active = getActiveJornada(schedule)
-                .map(a -> a.getRoundNumber() == jornada.getRoundNumber())
-                .orElse(false);
-        return active && lineupOpensAt(jornada, settings).map(opens -> !now().isBefore(opens)).orElse(false);
+        return isActive(schedule, jornada)
+                && lineupOpensAt(jornada, settings).map(opens -> !now().isBefore(opens)).orElse(false);
+    }
+
+    /** {@code jornada} es la activa y su mercado aún no ha cerrado: la alineación se podrá declarar más tarde. */
+    public boolean isLineupPeriodPending(ScheduleEntity schedule, Jornada jornada, LeagueSettings settings) {
+        return isActive(schedule, jornada)
+                && lineupOpensAt(jornada, settings).map(opens -> now().isBefore(opens)).orElse(false);
+    }
+
+    private boolean isActive(ScheduleEntity schedule, Jornada jornada) {
+        return getActiveJornada(schedule).map(a -> a.getRoundNumber() == jornada.getRoundNumber()).orElse(false);
     }
 
     /** Hora actual en {@link #LEAGUE_ZONE}. */

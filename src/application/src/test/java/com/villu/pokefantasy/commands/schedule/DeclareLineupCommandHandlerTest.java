@@ -5,6 +5,7 @@ import com.villu.pokefantasy.dto.MatchStatus;
 import com.villu.pokefantasy.dto.PushMessage;
 import com.villu.pokefantasy.dto.TeamSheet;
 import com.villu.pokefantasy.exception.ForbiddenOperationException;
+import com.villu.pokefantasy.league.LeagueMembershipGuard;
 import com.villu.pokefantasy.repository.ActivityEventRepository;
 import com.villu.pokefantasy.repository.DraftRepository;
 import com.villu.pokefantasy.repository.LeagueRepository;
@@ -56,6 +57,7 @@ class DeclareLineupCommandHandlerTest {
     @Mock private UserRepository userRepository;
     @Mock private PushNotificationPort pushNotificationPort;
     @Mock private ActivityEventRepository activityEventRepository;
+    @Mock private LeagueMembershipGuard leagueMembershipGuard;
 
     private ScheduleEntity schedule;
     private Match match;
@@ -95,7 +97,7 @@ class DeclareLineupCommandHandlerTest {
         return new DeclareLineupCommandHandler(scheduleRepository, leagueRepository, draftRepository,
                 new JornadaWindowService(clock),
                 new MatchResultService(leagueRepository, draftRepository, activityEventRepository),
-                userRepository, pushNotificationPort);
+                userRepository, pushNotificationPort, leagueMembershipGuard);
     }
 
     private DeclareLineupCommandHandler handler() {
@@ -267,6 +269,46 @@ class DeclareLineupCommandHandlerTest {
 
         assertThat(match.getPlayer1Lineup().getPasteUrl()).isNull();
         assertThat(match.getPlayer1Lineup().getPasteWarnings()).isEmpty();
+    }
+
+    @Test
+    void declare_noLongerMember_throws() {
+        when(leagueMembershipGuard.requireMember("l1", "ash"))
+                .thenThrow(new ForbiddenOperationException("No eres miembro de esta liga"));
+
+        assertThatThrownBy(() -> handler().handle(cmd("ash", ASH_SIX)))
+                .isInstanceOf(ForbiddenOperationException.class);
+        verify(scheduleRepository, never()).save(any());
+    }
+
+    @Test
+    void declare_withoutPokemon_throws() {
+        DraftEntity empty = new DraftEntity();
+        empty.setPicks(new ArrayList<>(picksOf("misty", MISTY_SIX)));
+        when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.of(empty));
+
+        assertThatThrownBy(() -> handler().handle(cmd("ash", List.of())))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("No tienes Pokémon para declarar.");
+    }
+
+    @Test
+    void declare_leagueWithoutSettings_usesDefaults() {
+        league.setSettings(null);
+
+        handler().handle(cmd("ash", ASH_SIX));
+
+        assertThat(match.getPlayer1Lineup().getPasteUrl()).isNull();
+    }
+
+    @Test
+    void declare_pasteUrlTooLong_throws() {
+        league.getSettings().setTeamSheet(TeamSheet.OPEN);
+
+        assertThatThrownBy(() -> handler().handle(new DeclareLineupCommand("l1", "m1", "ash", ASH_SIX,
+                "https://pokepast.es/" + "a".repeat(200), List.of())))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("El enlace a tu equipo es demasiado largo.");
     }
 
     @Test
