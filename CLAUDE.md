@@ -104,7 +104,7 @@ api-rest ─► application ─► domain ◄─ infrastructure ─► MongoDB A
 | Turnos y presupuesto del draft (precio, restante, quién puede elegir, avance lineal/snake) | `DraftTurnService` |
 | Preparación del draft (admin + draft en `PENDING`) / orden de turnos válido | `DraftSetupGuard` / `TurnOrderPolicy` |
 | Cierre del draft (ajustes por defecto, sobrante del presupuesto al saldo, calendario) | `DraftCompletionService` |
-| Push de turno / de cierre de ventana | `DraftTurnNotifier` / `WindowReminderService` |
+| Push de turno / de cierre de ventana / de jornada completa | `DraftTurnNotifier` / `WindowReminderService` / `JornadaCompletionNotifier` |
 | Sacar a un miembro de una liga (expulsión y borrado de cuenta): sus Pokémon vuelven a la banca, también con el draft ya completado | `LeagueMemberRemoval` |
 | Borrado de cuenta (propio o por el admin): ligas, nuevo admin, anonimización a `DeletedUser.NAME`, nombre reservado mientras viva su JWT | `AccountDeletionService` + `DeletedUsernamePort` |
 | Nombre de liga válido (crear y renombrar: 1-40 caracteres, sin control) | `LeagueNamePolicy` |
@@ -159,7 +159,7 @@ Prohibido:
 ### 5. Cómo se mueven los datos
 
 Escritura: `Controller` → `XFacade` → `SpringMediator` (abre transacción) → `XCommandHandler` → servicios de dominio → repositorios → **commit** → el controller emite SSE con `RealtimeNotifier` (Redis Pub/Sub → cada instancia → `EventSource` del cliente, que invalida su query de React Query y refresca). Los push se piden en el handler con `PushNotificationPort` y se envían tras el commit.
-Lectura: igual, con un comando de consulta. Los jobs (`DraftTurnTimeoutJob`, `WindowReminderJob`) entran por la Facade como un controller.
+Lectura: igual, con un comando de consulta. Los jobs (`DraftTurnTimeoutJob`, `WindowReminderJob`, `ReplayAutoImportJob`) entran por la Facade como un controller.
 Flujos completos (robo, pick del draft, resultado): `vault/20 Arquitectura/Flujos de datos.md`.
 
 ### 6. Qué no se puede romper nunca
