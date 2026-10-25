@@ -41,7 +41,7 @@ class ListAutoImportTargetsCommandHandlerTest {
     private static UserEntity user(String name, String showdownId) {
         UserEntity u = new UserEntity();
         u.setName(name);
-        u.setShowdownId(showdownId);
+        u.setShowdownName(showdownId);
         return u;
     }
 

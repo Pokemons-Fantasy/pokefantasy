@@ -23,7 +23,6 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
@@ -62,8 +61,9 @@ class JornadaCompletionNotifierTest {
         league.setMembers(List.of(new LeagueMember("ash", LeagueRole.ADMIN, 0), new LeagueMember("misty", LeagueRole.USER, 0),
                 new LeagueMember("brock", LeagueRole.USER, 0), new LeagueMember("gone", LeagueRole.USER, 0)));
         // "gone" no tiene usuario; misty no tiene tokens.
-        lenient().when(userRepository.findByUsernames(anyCollection())).thenReturn(List.of(
-                user("ash", List.of("t-ash")), user("misty", null), user("brock", List.of("t-brock1", "t-brock2"))));
+        lenient().when(userRepository.findByUsername("ash")).thenReturn(user("ash", List.of("t-ash")));
+        lenient().when(userRepository.findByUsername("misty")).thenReturn(user("misty", null));
+        lenient().when(userRepository.findByUsername("brock")).thenReturn(user("brock", List.of("t-brock1", "t-brock2")));
 
         notifier = new JornadaCompletionNotifier(userRepository, pushNotificationPort);
     }

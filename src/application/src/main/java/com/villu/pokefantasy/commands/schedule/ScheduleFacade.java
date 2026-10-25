@@ -3,6 +3,7 @@ package com.villu.pokefantasy.commands.schedule;
 import com.villu.pokefantasy.commands.standings.GetSeasonStatsCommand;
 import com.villu.pokefantasy.commands.standings.GetStandingsCommand;
 import com.villu.pokefantasy.commands.schedule.lineup.PokepasteCheck;
+import com.villu.pokefantasy.commands.schedule.replay.AutoImportTarget;
 import com.villu.pokefantasy.commands.schedule.replay.ReplayCandidates;
 import com.villu.pokefantasy.commands.schedule.replay.ReplayImportContext;
 import com.villu.pokefantasy.exception.ShowdownUnavailableException;
@@ -68,14 +69,38 @@ public class ScheduleFacade {
                     .orElseThrow(() -> new IllegalArgumentException("Pega el enlace de un replay de Showdown."));
             replays = List.of(fetchReplay(id));
         } else {
-            replays = showdownPort.searchReplays(ctx.player1Id(), ctx.player2Id()).stream()
-                    .filter(s -> ctx.fromEpoch() == null || s.uploadtime() >= ctx.fromEpoch())
-                    .limit(ReplayCandidates.MAX_SEARCHED)
-                    .map(s -> showdownPort.getReplay(s.id()))
-                    .flatMap(Optional::stream)
-                    .toList();
+            replays = searchReplays(ctx);
         }
         return ReplayCandidates.evaluate(ctx, replays);
+    }
+
+    /** Los replays públicos entre los dos jugadores desde la semana de la jornada, descargados enteros. */
+    private List<ShowdownReplay> searchReplays(ReplayImportContext ctx) {
+        return showdownPort.searchReplays(ctx.player1Id(), ctx.player2Id()).stream()
+                .filter(s -> ctx.fromEpoch() == null || s.uploadtime() >= ctx.fromEpoch())
+                .limit(ReplayCandidates.MAX_SEARCHED)
+                .map(s -> showdownPort.getReplay(s.id()))
+                .flatMap(Optional::stream)
+                .toList();
+    }
+
+    /** Partidos que el import automático debe mirar (para el job). */
+    public List<AutoImportTarget> autoImportTargets() throws Exception {
+        return mediator.send(new ListAutoImportTargetsCommand());
+    }
+
+    /**
+     * La serie que el import automático registraría en el partido ({@link ReplayCandidates#autoPick}); vacío si
+     * aún no hay una sin ambigüedad. Busca y descarga aquí, fuera de la transacción (ADR-007).
+     */
+    public Optional<List<ShowdownReplay>> pickAutoImport(AutoImportTarget target) throws Exception {
+        ReplayImportContext ctx = mediator.send(new PrepareReplayImportCommand(target.leagueId(), target.matchId(), null));
+        return ReplayCandidates.autoPick(ctx, searchReplays(ctx));
+    }
+
+    /** Registra la serie elegida por el import automático: mismas validaciones que el import manual. */
+    public void importSeriesAsSystem(AutoImportTarget target, List<ShowdownReplay> replays) throws Exception {
+        mediator.send(new ImportSeriesCommand(target.leagueId(), target.matchId(), null, replays));
     }
 
     /** Partidas que se pueden marcar como mucho (una serie al mejor de 3). */

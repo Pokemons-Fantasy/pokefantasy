@@ -49,9 +49,10 @@ public class ListAutoImportTargetsCommandHandler implements CommandHandler<ListA
                 continue;
             }
             List<Match> pending = jornada.getMatches().stream().filter(m -> m.getStatus() != MatchStatus.COMPLETED).toList();
+            // findByUsernames solo trae nombre, avatar y showdownName (se fija junto a showdownId al vincular).
             Set<String> linked = userRepository.findByUsernames(pending.stream()
                             .flatMap(m -> Stream.of(m.getPlayer1(), m.getPlayer2())).collect(Collectors.toSet()))
-                    .stream().filter(u -> u.getShowdownId() != null).map(UserEntity::getName).collect(Collectors.toSet());
+                    .stream().filter(u -> u.getShowdownName() != null).map(UserEntity::getName).collect(Collectors.toSet());
             pending.stream()
                     .filter(m -> linked.contains(m.getPlayer1()) && linked.contains(m.getPlayer2()))
                     .forEach(m -> targets.add(new AutoImportTarget(league.getId(), m.getId())));

@@ -12,10 +12,7 @@ import com.villu.pokefantasy.repository.entity.UserEntity;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 /**
  * Aviso por push a toda la liga cuando una jornada tiene ya todos sus resultados (se abre el mercado de la
@@ -45,11 +42,10 @@ public class JornadaCompletionNotifier {
         String body = last ? "Ya están todos los resultados: fin de la temporada."
                 : "Ya están todos los resultados. Se abre el mercado de la jornada " + (roundNumber + 1) + ".";
 
-        List<String> usernames = league.getMembers().stream().map(LeagueMember::getUsername).toList();
-        Map<String, UserEntity> users = userRepository.findByUsernames(usernames).stream()
-                .collect(Collectors.toMap(UserEntity::getName, Function.identity(), (a, b) -> a));
-        List<String> tokens = usernames.stream()
-                .map(users::get)
+        // Uno a uno: findByUsernames no trae los tokens.
+        List<String> tokens = league.getMembers().stream()
+                .map(LeagueMember::getUsername)
+                .map(userRepository::findByUsername)
                 .filter(Objects::nonNull)
                 .map(UserEntity::getFcmTokens)
                 .filter(Objects::nonNull)

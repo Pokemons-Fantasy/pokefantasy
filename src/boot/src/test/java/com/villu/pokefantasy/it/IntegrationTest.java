@@ -27,6 +27,7 @@ import org.testcontainers.mongodb.MongoDBContainer;
         // Jobs periódicos fuera de juego: cada test dispara lo que necesita.
         "draft.turn-timeout-check-ms=3600000",
         "pokemon-cache.check-interval-ms=3600000",
+        "schedule.replay-auto-import-ms=3600000",
         // Las conexiones SSE abiertas harían esperar 30 s al apagado ordenado.
         "server.shutdown=immediate",
         // Apagada por defecto en producción; OpenApiIntegrationTest la genera para el front.
