@@ -2,6 +2,8 @@ package com.villu.pokefantasy.adapters;
 
 import com.villu.pokefantasy.exception.ShowdownUnavailableException;
 import com.villu.pokefantasy.ports.ShowdownUser;
+import com.villu.pokefantasy.ports.ShowdownReplay;
+import com.villu.pokefantasy.ports.ShowdownReplaySummary;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
@@ -83,6 +85,61 @@ class ShowdownApiAdapterTest {
         server.expect(requestTo(PASTE_URL)).andRespond(withServerError());
 
         assertThatThrownBy(() -> adapter.getPokepaste("abc123")).isInstanceOf(ShowdownUnavailableException.class);
+    }
+
+    private static final String SEARCH_URL = "https://replay.pokemonshowdown.com/search.json?user=ash&user2=misty";
+    private static final String REPLAY_URL = "https://replay.pokemonshowdown.com/gen9doublescustomgame-1.json";
+
+    @Test
+    void searchReplays_returnsSummaries() {
+        server.expect(requestTo(SEARCH_URL)).andRespond(withSuccess(
+                "[{\"id\":\"gen9doublescustomgame-1\",\"format\":\"x\",\"players\":[\"Ash\",\"Misty\"],"
+                        + "\"uploadtime\":1700000000,\"private\":0,\"rating\":null}]",
+                MediaType.APPLICATION_JSON));
+
+        assertThat(adapter.searchReplays("ash", "misty")).containsExactly(
+                new ShowdownReplaySummary("gen9doublescustomgame-1", java.util.List.of("Ash", "Misty"), 1700000000L));
+    }
+
+    @Test
+    void searchReplays_notFound_empty() {
+        server.expect(requestTo(SEARCH_URL)).andRespond(withStatus(HttpStatus.NOT_FOUND));
+
+        assertThat(adapter.searchReplays("ash", "misty")).isEmpty();
+    }
+
+    @Test
+    void searchReplays_serverError_throwsUnavailable() {
+        server.expect(requestTo(SEARCH_URL)).andRespond(withServerError());
+
+        assertThatThrownBy(() -> adapter.searchReplays("ash", "misty")).isInstanceOf(ShowdownUnavailableException.class);
+    }
+
+    @Test
+    void getReplay_returnsReplay() {
+        server.expect(requestTo(REPLAY_URL)).andRespond(withSuccess(
+                "{\"id\":\"gen9doublescustomgame-1\",\"formatid\":\"gen9doublescustomgame\",\"format\":\"x\","
+                        + "\"players\":[\"Ash\",\"Misty\"],\"log\":\"|win|Ash\",\"uploadtime\":1700000000,\"private\":0}",
+                MediaType.APPLICATION_JSON));
+
+        assertThat(adapter.getReplay("gen9doublescustomgame-1")).contains(new ShowdownReplay(
+                "gen9doublescustomgame-1", "gen9doublescustomgame", java.util.List.of("Ash", "Misty"), "|win|Ash",
+                1700000000L));
+    }
+
+    @Test
+    void getReplay_notFound_empty() {
+        server.expect(requestTo(REPLAY_URL)).andRespond(withStatus(HttpStatus.NOT_FOUND));
+
+        assertThat(adapter.getReplay("gen9doublescustomgame-1")).isEmpty();
+    }
+
+    @Test
+    void getReplay_serverError_throwsUnavailable() {
+        server.expect(requestTo(REPLAY_URL)).andRespond(withServerError());
+
+        assertThatThrownBy(() -> adapter.getReplay("gen9doublescustomgame-1"))
+                .isInstanceOf(ShowdownUnavailableException.class);
     }
 
     @Test
