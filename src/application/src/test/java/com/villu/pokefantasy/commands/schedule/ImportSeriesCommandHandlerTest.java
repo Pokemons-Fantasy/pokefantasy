@@ -45,6 +45,7 @@ class ImportSeriesCommandHandlerTest {
     @Mock private LeagueRepository leagueRepository;
     @Mock private DraftRepository draftRepository;
     @Mock private ActivityEventRepository activityEventRepository;
+    @Mock private JornadaCompletionNotifier jornadaCompletionNotifier;
 
     private Match match;
     private Match other;
@@ -83,7 +84,8 @@ class ImportSeriesCommandHandlerTest {
 
         MatchResultService results = new MatchResultService(leagueRepository, draftRepository, activityEventRepository);
         handler = new ImportSeriesCommandHandler(scheduleRepository, leagueMembershipGuard,
-                new ReplayImportService(userRepository, results), results);
+                new ReplayImportService(userRepository, results, new JornadaWindowService()), results,
+                jornadaCompletionNotifier);
     }
 
     /** Partida de una serie; {@code swap} pone a Misty en p1 (el lado cambia entre partidas). */
@@ -112,6 +114,18 @@ class ImportSeriesCommandHandlerTest {
         assertThat(match.getReplayIds()).containsExactly("g1", "g2", "g3");
         assertThat(league.getMembers().getFirst().getCoinBalance()).isEqualTo(100);
         verify(scheduleRepository).save(any());
+        verify(jornadaCompletionNotifier).notifyIfCompleted(league, scheduleRepository.findByLeagueId("l1").orElseThrow(), 1);
+    }
+
+    @Test
+    void system_importsWithoutWhoCheck() {
+        org.mockito.Mockito.when(leagueMembershipGuard.requireLeague("l1")).thenReturn(league);
+
+        handler.handle(new ImportSeriesCommand("l1", "m1", null,
+                List.of(game("g1", 1, "Misty W", false), game("g2", 2, "Misty W", true))));
+
+        assertThat(match.getWinnerUsername()).isEqualTo("misty");
+        assertThat(match.getReplayIds()).containsExactly("g1", "g2");
     }
 
     @Test

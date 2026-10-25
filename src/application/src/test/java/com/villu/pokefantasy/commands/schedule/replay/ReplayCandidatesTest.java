@@ -17,7 +17,7 @@ class ReplayCandidatesTest {
 
     private static ReplayImportContext ctx(MatchLineup ashLineup) {
         return new ReplayImportContext("ash", "misty", "ashketchum", "mistyw", "gen9doublescustomgame", FROM,
-                Set.of("used-1"), ashLineup, null, 3);
+                Set.of("used-1"), ashLineup, null, 3, null);
     }
 
     /** Replay con Ash Ketchum y Misty W en el orden dado, ganador y serie opcionales. */
@@ -105,7 +105,7 @@ class ReplayCandidatesTest {
     @Test
     void evaluate_withoutDate_noWeekFilter() {
         ReplayImportContext noDate = new ReplayImportContext("ash", "misty", "ashketchum", "mistyw",
-                "gen9doublescustomgame", null, Set.of(), null, null, 3);
+                "gen9doublescustomgame", null, Set.of(), null, null, 3, null);
 
         assertThat(ReplayCandidates.evaluate(noDate, List.of(ok("r", "Ash Ketchum", null, null, 1L)))
                 .getFirst().isSelectable()).isTrue();
@@ -131,5 +131,91 @@ class ReplayCandidatesTest {
         assertThat(out).extracting(ReplayCandidateResponse::getId).containsExactly("b1", "a1", "a2", "loose");
         assertThat(out.get(1).getSeriesId()).isEqualTo("gen9doublescustomgame-100");
         assertThat(out.get(1).getGameNumber()).isEqualTo(1);
+    }
+
+    private static ReplayImportContext bo(int bestOf, Long marketClosed) {
+        return new ReplayImportContext("ash", "misty", "ashketchum", "mistyw", "gen9doublescustomgame", FROM,
+                Set.of(), null, null, bestOf, marketClosed);
+    }
+
+    private static List<String> ids(java.util.Optional<List<ShowdownReplay>> picked) {
+        return picked.orElseThrow().stream().map(ShowdownReplay::id).toList();
+    }
+
+    @Test
+    void autoPick_bo3_oneCompleteSeriesAmongLooseGames_inGameOrder() {
+        List<ShowdownReplay> replays = List.of(
+                ok("loose", "Ash Ketchum", null, null, FROM + 1),
+                ok("g3", "Ash Ketchum", "s1", 3, FROM + 30),
+                ok("g1", "Ash Ketchum", "s1", 1, FROM + 10),
+                ok("g2", "Misty W", "s1", 2, FROM + 20));
+
+        assertThat(ids(ReplayCandidates.autoPick(bo(3, null), replays))).containsExactly("g1", "g2", "g3");
+    }
+
+    @Test
+    void autoPick_bo3_halfUploadedSeries_nothing() {
+        List<ShowdownReplay> replays = List.of(
+                ok("g1", "Ash Ketchum", "s1", 1, FROM + 10),
+                ok("g2", "Misty W", "s1", 2, FROM + 20));
+
+        assertThat(ReplayCandidates.autoPick(bo(3, null), replays)).isEmpty();
+    }
+
+    @Test
+    void autoPick_bo3_twoCompleteSeries_nothing() {
+        List<ShowdownReplay> replays = List.of(
+                ok("a1", "Ash Ketchum", "s1", 1, FROM + 10),
+                ok("a2", "Ash Ketchum", "s1", 2, FROM + 20),
+                ok("b1", "Misty W", "s2", 1, FROM + 30),
+                ok("b2", "Misty W", "s2", 2, FROM + 40));
+
+        assertThat(ReplayCandidates.autoPick(bo(3, null), replays)).isEmpty();
+    }
+
+    @Test
+    void autoPick_bo3_gameOfOtherFormatBreaksTheSeries() {
+        List<ShowdownReplay> replays = List.of(
+                ok("g1", "Ash Ketchum", "s1", 1, FROM + 10),
+                replay("g2", "Ash Ketchum", "Misty W", "Misty W", "s1", 2, FROM + 20, "gen9ou"),
+                ok("g3", "Ash Ketchum", "s1", 3, FROM + 30));
+
+        assertThat(ReplayCandidates.autoPick(bo(3, null), replays)).isEmpty();
+    }
+
+    @Test
+    void autoPick_bo1_firstGameAfterMarketClose() {
+        List<ShowdownReplay> replays = List.of(
+                ok("before", "Ash Ketchum", null, null, FROM + 5),
+                ok("later", "Misty W", null, null, FROM + 50),
+                ok("first", "Ash Ketchum", null, null, FROM + 20));
+
+        assertThat(ids(ReplayCandidates.autoPick(bo(1, FROM + 10), replays))).containsExactly("first");
+        assertThat(ids(ReplayCandidates.autoPick(bo(1, null), replays))).containsExactly("before");
+    }
+
+    @Test
+    void autoPick_noReplays_nothing() {
+        assertThat(ReplayCandidates.autoPick(bo(3, null), List.of())).isEmpty();
+        assertThat(ReplayCandidates.autoPick(bo(1, null), List.of())).isEmpty();
+    }
+
+    @Test
+    void seriesResult_bo3_twoOne_andBo1_noScore() {
+        ReplayImportContext bo3 = bo(3, null);
+        List<ReplayCandidates.Evaluated> games = List.of(
+                ReplayCandidates.check(bo3, ok("g1", "Ash Ketchum", "s1", 1, FROM + 10)),
+                ReplayCandidates.check(bo3, ok("g2", "Misty W", "s1", 2, FROM + 20)),
+                ReplayCandidates.check(bo3, ok("g3", "Ash Ketchum", "s1", 3, FROM + 30)));
+
+        ReplayCandidates.SeriesResult result = ReplayCandidates.seriesResult(bo3, games);
+        assertThat(result.winner()).isEqualTo("ash");
+        assertThat(result.score()).isEqualTo(new com.villu.pokefantasy.commands.schedule.MatchScore(2, 1));
+
+        ReplayImportContext bo1 = bo(1, null);
+        ReplayCandidates.SeriesResult single = ReplayCandidates.seriesResult(bo1,
+                List.of(ReplayCandidates.check(bo1, ok("x", "Misty W", null, null, FROM + 1))));
+        assertThat(single.winner()).isEqualTo("misty");
+        assertThat(single.score()).isNull();
     }
 }

@@ -40,6 +40,18 @@ class LeagueMembershipGuardTest {
     }
 
     @Test
+    void requireLeague_noMembershipCheck_andNotFound() {
+        LeagueEntity league = new LeagueEntity();
+        when(leagueRepository.findById("league-1")).thenReturn(Optional.of(league));
+        when(leagueRepository.findById("league-2")).thenReturn(Optional.empty());
+
+        assertThat(guard.requireLeague("league-1")).isSameAs(league);
+        assertThatThrownBy(() -> guard.requireLeague("league-2"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Liga no encontrada");
+    }
+
+    @Test
     void requireMember_userIsNotMember_throwsForbidden() {
         LeagueEntity league = leagueWithMembers(
                 new LeagueMember("brock", LeagueRole.ADMIN, 0)

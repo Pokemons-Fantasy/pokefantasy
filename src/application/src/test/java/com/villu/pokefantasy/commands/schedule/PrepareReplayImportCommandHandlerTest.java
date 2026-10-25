@@ -78,8 +78,28 @@ class PrepareReplayImportCommandHandlerTest {
         lenient().when(userRepository.findByUsername("ash")).thenReturn(user("ash", "ashketchum"));
         lenient().when(userRepository.findByUsername("misty")).thenReturn(user("misty", "mistyw"));
 
+        lenient().when(leagueMembershipGuard.requireLeague("l1")).thenReturn(league);
+
         handler = new PrepareReplayImportCommandHandler(scheduleRepository, leagueMembershipGuard, new ReplayImportService(userRepository,
-                new MatchResultService(leagueRepository, draftRepository, activityEventRepository)));
+                new MatchResultService(leagueRepository, draftRepository, activityEventRepository), new JornadaWindowService()));
+    }
+
+    @Test
+    void system_noWhoCheck_andMarketClosedAtLatestWindow() {
+        ReplayImportContext ctx = handler.handle(new PrepareReplayImportCommand("l1", "m1", null));
+
+        assertThat(ctx.player1()).isEqualTo("ash");
+        // Ajustes por defecto: el swap (viernes 16:00) cierra después que el robo (jueves 23:59).
+        assertThat(ctx.marketClosedEpoch()).isEqualTo(java.time.LocalDateTime.of(2026, 10, 23, 16, 0)
+                .atZone(ZoneId.of("Europe/Madrid")).toEpochSecond());
+    }
+
+    @Test
+    void system_completedMatch_stillConflict() {
+        match.setStatus(MatchStatus.COMPLETED);
+
+        assertThatThrownBy(() -> handler.handle(new PrepareReplayImportCommand("l1", "m1", null)))
+                .isInstanceOf(IllegalStateException.class);
     }
 
     @Test
@@ -136,6 +156,7 @@ class PrepareReplayImportCommandHandlerTest {
         ReplayImportContext ctx = handler.handle(new PrepareReplayImportCommand("l1", "m1", "ash"));
 
         assertThat(ctx.fromEpoch()).isNull();
+        assertThat(ctx.marketClosedEpoch()).isNull();
         assertThat(ctx.baseFormat()).isEqualTo("gen9doublescustomgame");
         assertThat(ctx.bestOf()).isEqualTo(3);
     }

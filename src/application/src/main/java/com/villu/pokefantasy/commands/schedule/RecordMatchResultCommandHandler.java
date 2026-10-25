@@ -14,13 +14,16 @@ public class RecordMatchResultCommandHandler implements CommandHandler<RecordMat
     private final ScheduleRepository scheduleRepository;
     private final LeagueAdminGuard leagueAdminGuard;
     private final MatchResultService matchResultService;
+    private final JornadaCompletionNotifier jornadaCompletionNotifier;
 
     public RecordMatchResultCommandHandler(ScheduleRepository scheduleRepository,
                                            LeagueAdminGuard leagueAdminGuard,
-                                           MatchResultService matchResultService) {
+                                           MatchResultService matchResultService,
+                                           JornadaCompletionNotifier jornadaCompletionNotifier) {
         this.scheduleRepository = scheduleRepository;
         this.leagueAdminGuard = leagueAdminGuard;
         this.matchResultService = matchResultService;
+        this.jornadaCompletionNotifier = jornadaCompletionNotifier;
     }
 
     @Override
@@ -44,6 +47,7 @@ public class RecordMatchResultCommandHandler implements CommandHandler<RecordMat
         int roundNumber = matchResultService.findRoundNumber(schedule, command.matchId());
         matchResultService.award(league, match, command.winnerUsername(), loserUsername, command.score(),
                 roundNumber);
+        jornadaCompletionNotifier.notifyIfCompleted(league, schedule, roundNumber);
         scheduleRepository.save(schedule);
         return null;
     }

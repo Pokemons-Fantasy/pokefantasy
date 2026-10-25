@@ -1,5 +1,6 @@
 package com.villu.pokefantasy.commands.schedule.replay;
 
+import com.villu.pokefantasy.commands.schedule.MatchScore;
 import com.villu.pokefantasy.commands.users.showdown.ShowdownIds;
 import com.villu.pokefantasy.ports.ShowdownReplay;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity.MatchLineup;
@@ -9,11 +10,13 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /**
  * Decide si un replay puede ser una partida del partido (jugadores, formato, semana, ganador, sin reutilizar) y
@@ -76,6 +79,81 @@ public final class ReplayCandidates {
             reason = "Ya usado en otro partido";
         }
         return new Evaluated(replay, log, winnerUsername, Optional.ofNullable(reason), warnings(ctx, log));
+    }
+
+    /** Ganador de una serie y su marcador ({@code null} en Bo1). */
+    public record SeriesResult(String winner, MatchScore score) {}
+
+    /** Orden de las partidas de una serie: por número de partida y, sin número, por subida. */
+    public static final Comparator<Evaluated> GAME_ORDER = Comparator
+            .comparing((Evaluated e) -> e.log().gameNumber() == null ? 0 : e.log().gameNumber())
+            .thenComparing(e -> e.replay().uploadtime());
+
+    /**
+     * El resultado de unas partidas ya validadas y en {@link #GAME_ORDER}, o {@link IllegalArgumentException} si no
+     * forman una serie completa según {@code bestOf}: misma serie de Showdown, seguidas desde la 1 (si no, un A-B-A
+     * marcado como 1 y 3 daría un 2-0 falso); las sueltas (sin {@code Best Of}) solo se cuentan.
+     */
+    public static SeriesResult seriesResult(ReplayImportContext ctx, List<Evaluated> games) {
+        Set<String> series = games.stream().map(g -> Objects.toString(g.log().seriesId(), "")).collect(Collectors.toSet());
+        if (series.size() > 1) {
+            throw new IllegalArgumentException("Marca partidas de una misma serie.");
+        }
+        if (!series.contains("")) {
+            List<Integer> numbers = games.stream().map(g -> g.log().gameNumber()).toList();
+            boolean consecutive = IntStream.range(0, numbers.size()).allMatch(i -> Objects.equals(numbers.get(i), i + 1));
+            if (!consecutive) {
+                throw new IllegalArgumentException("Marca las partidas seguidas de la serie, empezando por la 1.");
+            }
+        }
+        Map<String, Long> wins = games.stream().collect(Collectors.groupingBy(Evaluated::winnerUsername, Collectors.counting()));
+        String winner = wins.entrySet().stream().max(Map.Entry.comparingByValue()).map(Map.Entry::getKey).orElse(null);
+        if (ctx.bestOf() == 1) {
+            if (games.size() != 1) throw new IllegalArgumentException("Marca una partida.");
+            return new SeriesResult(winner, null);
+        }
+        long winnerWins = winner == null ? 0 : wins.get(winner);
+        long loserWins = games.size() - winnerWins;
+        boolean valid = winnerWins == 2 && (loserWins == 0 || loserWins == 1);
+        if (!valid) {
+            throw new IllegalArgumentException(
+                    "Para una serie al mejor de 3 marca 2 partidas del mismo ganador o 3 con un 2-1.");
+        }
+        return new SeriesResult(winner, new MatchScore(2, (int) loserWins));
+    }
+
+    /**
+     * Lo que el import automático registraría, en orden de partida. Bo3: la única serie completa entre los replays
+     * válidos (ninguna o varias → nada). Bo1: la primera partida válida subida tras el cierre del mercado.
+     */
+    public static Optional<List<ShowdownReplay>> autoPick(ReplayImportContext ctx, List<ShowdownReplay> replays) {
+        List<Evaluated> valid = replays.stream().map(r -> check(ctx, r)).filter(e -> e.reason().isEmpty()).toList();
+        if (ctx.bestOf() == 1) {
+            return valid.stream()
+                    .filter(e -> e.log().seriesId() == null || Objects.equals(e.log().gameNumber(), 1))
+                    .filter(e -> ctx.marketClosedEpoch() == null || e.replay().uploadtime() >= ctx.marketClosedEpoch())
+                    .min(Comparator.comparingLong(e -> e.replay().uploadtime()))
+                    .map(e -> List.of(e.replay()));
+        }
+        List<List<Evaluated>> complete = valid.stream()
+                .filter(e -> e.log().seriesId() != null)
+                .collect(Collectors.groupingBy(e -> e.log().seriesId()))
+                .values().stream()
+                .map(games -> games.stream().sorted(GAME_ORDER).toList())
+                .filter(games -> isComplete(ctx, games))
+                .toList();
+        return complete.size() == 1
+                ? Optional.of(complete.getFirst().stream().map(Evaluated::replay).toList())
+                : Optional.empty();
+    }
+
+    private static boolean isComplete(ReplayImportContext ctx, List<Evaluated> games) {
+        try {
+            seriesResult(ctx, games);
+            return true;
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
     }
 
     /** Candidatos ordenados: series de la más reciente a la más antigua, cada una por partida; sueltos al final. */
