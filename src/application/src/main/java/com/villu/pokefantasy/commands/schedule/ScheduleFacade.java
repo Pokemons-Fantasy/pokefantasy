@@ -3,15 +3,20 @@ package com.villu.pokefantasy.commands.schedule;
 import com.villu.pokefantasy.commands.standings.GetSeasonStatsCommand;
 import com.villu.pokefantasy.commands.standings.GetStandingsCommand;
 import com.villu.pokefantasy.commands.schedule.lineup.PokepasteCheck;
+import com.villu.pokefantasy.commands.schedule.replay.ReplayCandidates;
+import com.villu.pokefantasy.commands.schedule.replay.ReplayImportContext;
 import com.villu.pokefantasy.exception.ShowdownUnavailableException;
 import com.villu.pokefantasy.mediator.Mediator;
 import com.villu.pokefantasy.ports.ShowdownPort;
+import com.villu.pokefantasy.ports.ShowdownReplay;
+import com.villu.pokefantasy.response.ReplayCandidateResponse;
 import com.villu.pokefantasy.response.ScheduleResponse;
 import com.villu.pokefantasy.response.SeasonStatsResponse;
 import com.villu.pokefantasy.response.StandingsResponse;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class ScheduleFacade {
@@ -48,6 +53,35 @@ public class ScheduleFacade {
     }
 
     static final String PASTE_UNREADABLE = "No se pudo leer el paste.";
+
+    /**
+     * Replays de Showdown que podrían ser las partidas del partido. Con {@code url} (un replay privado pegado a
+     * mano), solo ese; si no, los públicos entre los dos jugadores desde la semana de la jornada (como mucho
+     * {@link ReplayCandidates#MAX_SEARCHED}). Las descargas se hacen aquí, fuera de la transacción (ADR-007).
+     */
+    public List<ReplayCandidateResponse> replayCandidates(String leagueId, String matchId, String url,
+                                                          String requestingUsername) throws Exception {
+        ReplayImportContext ctx = mediator.send(new PrepareReplayImportCommand(leagueId, matchId, requestingUsername));
+        List<ShowdownReplay> replays;
+        if (url != null && !url.isBlank()) {
+            String id = ReplayCandidates.replayId(url)
+                    .orElseThrow(() -> new IllegalArgumentException("Pega el enlace de un replay de Showdown."));
+            replays = List.of(fetchReplay(id));
+        } else {
+            replays = showdownPort.searchReplays(ctx.player1Id(), ctx.player2Id()).stream()
+                    .filter(s -> ctx.fromEpoch() == null || s.uploadtime() >= ctx.fromEpoch())
+                    .limit(ReplayCandidates.MAX_SEARCHED)
+                    .map(s -> showdownPort.getReplay(s.id()))
+                    .flatMap(Optional::stream)
+                    .toList();
+        }
+        return ReplayCandidates.evaluate(ctx, replays);
+    }
+
+    private ShowdownReplay fetchReplay(String id) {
+        return showdownPort.getReplay(id)
+                .orElseThrow(() -> new IllegalArgumentException("No se encontró el replay " + id + "."));
+    }
 
     public ScheduleResponse getSchedule(String leagueId, String requestingUsername) throws Exception {
         return mediator.send(new GetScheduleCommand(leagueId, requestingUsername));

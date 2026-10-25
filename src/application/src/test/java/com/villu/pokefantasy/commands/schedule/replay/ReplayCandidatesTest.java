@@ -1,0 +1,109 @@
+package com.villu.pokefantasy.commands.schedule.replay;
+
+import com.villu.pokefantasy.ports.ShowdownReplay;
+import com.villu.pokefantasy.repository.entity.ScheduleEntity.MatchLineup;
+import com.villu.pokefantasy.response.ReplayCandidateResponse;
+import org.junit.jupiter.api.Test;
+
+import java.time.Instant;
+import java.util.List;
+import java.util.Set;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+class ReplayCandidatesTest {
+
+    private static final long FROM = 1_700_000_000L;
+
+    private static ReplayImportContext ctx(MatchLineup ashLineup) {
+        return new ReplayImportContext("ash", "misty", "ashketchum", "mistyw", "gen9doublescustomgame", FROM,
+                Set.of("used-1"), ashLineup, null, 3);
+    }
+
+    /** Replay con Ash Ketchum y Misty W en el orden dado, ganador y serie opcionales. */
+    private static ShowdownReplay replay(String id, String p1, String p2, String winner, String series, Integer game,
+                                         long uploadtime, String formatid) {
+        StringBuilder log = new StringBuilder();
+        if (series != null) {
+            log.append("|uhtml|bestof|<h2><strong>Game ").append(game)
+                    .append("</strong> of <a href=\"/game-bestof3-gen9doublescustomgame-").append(series)
+                    .append("\">a best-of-3</a></h2>\n");
+        }
+        log.append("|player|p1|").append(p1).append("|a|\n|player|p2|").append(p2).append("|b|\n");
+        log.append("|poke|p1|Pikachu, L50|\n|poke|p1|Raichu, L50|\n");
+        log.append(winner == null ? "|tie\n" : "|win|" + winner + "\n");
+        return new ShowdownReplay(id, formatid, List.of(p1, p2), log.toString(), uploadtime);
+    }
+
+    private static ShowdownReplay ok(String id, String winner, String series, Integer game, long uploadtime) {
+        return replay(id, "Ash Ketchum", "Misty W", winner, series, game, uploadtime, "gen9doublescustomgame");
+    }
+
+    @Test
+    void evaluate_validReplay_mapsWinnerToLeagueUsernameEvenWithSidesSwapped() {
+        ReplayCandidateResponse c = ReplayCandidates.evaluate(ctx(null),
+                List.of(replay("r1", "Misty W", "Ash Ketchum", "Ash Ketchum", null, null, FROM + 10,
+                        "gen9doublescustomgame"))).getFirst();
+
+        assertThat(c.isSelectable()).isTrue();
+        assertThat(c.getReason()).isNull();
+        assertThat(c.getWinnerUsername()).isEqualTo("ash");
+        assertThat(c.getUrl()).isEqualTo("https://replay.pokemonshowdown.com/r1");
+    }
+
+    @Test
+    void evaluate_reasons() {
+        List<ReplayCandidateResponse> out = ReplayCandidates.evaluate(ctx(null), List.of(
+                replay("other", "Ash Ketchum", "Brock", "Brock", null, null, FROM + 1, "gen9doublescustomgame"),
+                replay("format", "Ash Ketchum", "Misty W", "Misty W", null, null, FROM + 2, "gen9ou"),
+                ok("tie", null, null, null, FROM + 3),
+                ok("used-1", "Ash Ketchum", null, null, FROM + 4),
+                ok("old", "Ash Ketchum", null, null, FROM - 1)));
+
+        assertThat(out).extracting(ReplayCandidateResponse::getId, ReplayCandidateResponse::getReason)
+                .containsExactlyInAnyOrder(
+                        org.assertj.core.groups.Tuple.tuple("other", "No son los jugadores del partido"),
+                        org.assertj.core.groups.Tuple.tuple("format", "Otro formato"),
+                        org.assertj.core.groups.Tuple.tuple("tie", "Empate"),
+                        org.assertj.core.groups.Tuple.tuple("used-1", "Ya usado en otro partido"),
+                        org.assertj.core.groups.Tuple.tuple("old", "Fuera de la semana de la jornada"));
+        assertThat(out).noneMatch(ReplayCandidateResponse::isSelectable);
+    }
+
+    @Test
+    void evaluate_customRulesInFormatid_isSameFormat() {
+        assertThat(ReplayCandidates.evaluate(ctx(null), List.of(replay("r", "Ash Ketchum", "Misty W", "Misty W", null,
+                null, FROM + 1, "gen9doublescustomgame@@@Picked Team Size = 4"))).getFirst().isSelectable()).isTrue();
+    }
+
+    @Test
+    void evaluate_withoutDate_noWeekFilter() {
+        ReplayImportContext noDate = new ReplayImportContext("ash", "misty", "ashketchum", "mistyw",
+                "gen9doublescustomgame", null, Set.of(), null, null, 3);
+
+        assertThat(ReplayCandidates.evaluate(noDate, List.of(ok("r", "Ash Ketchum", null, null, 1L)))
+                .getFirst().isSelectable()).isTrue();
+    }
+
+    @Test
+    void evaluate_warnsWhenSomeoneBroughtSomethingOutsideTheirLineup() {
+        MatchLineup ashLineup = new MatchLineup(List.of("pikachu", "garchomp"), null, List.of(), Instant.EPOCH);
+
+        assertThat(ReplayCandidates.evaluate(ctx(ashLineup), List.of(ok("r", "Ash Ketchum", null, null, FROM + 1)))
+                .getFirst().getWarnings())
+                .containsExactly("ash llevó Raichu, que no está en su alineación.");
+    }
+
+    @Test
+    void evaluate_ordersBySeriesNewestFirstThenGame_looseGamesLast() {
+        List<ReplayCandidateResponse> out = ReplayCandidates.evaluate(ctx(null), List.of(
+                ok("loose", "Ash Ketchum", null, null, FROM + 50),
+                ok("a2", "Ash Ketchum", "100", 2, FROM + 20),
+                ok("b1", "Misty W", "200", 1, FROM + 30),
+                ok("a1", "Misty W", "100", 1, FROM + 10)));
+
+        assertThat(out).extracting(ReplayCandidateResponse::getId).containsExactly("b1", "a1", "a2", "loose");
+        assertThat(out.get(1).getSeriesId()).isEqualTo("gen9doublescustomgame-100");
+        assertThat(out.get(1).getGameNumber()).isEqualTo(1);
+    }
+}

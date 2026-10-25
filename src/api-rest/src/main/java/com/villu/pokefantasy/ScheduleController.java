@@ -4,6 +4,7 @@ import com.villu.pokefantasy.commands.schedule.MatchScore;
 import com.villu.pokefantasy.commands.schedule.ScheduleFacade;
 import com.villu.pokefantasy.request.schedule.DeclareLineupRequest;
 import com.villu.pokefantasy.request.schedule.RecordMatchResultRequest;
+import com.villu.pokefantasy.response.ReplayCandidateResponse;
 import com.villu.pokefantasy.response.ScheduleResponse;
 import com.villu.pokefantasy.response.SeasonStatsResponse;
 import com.villu.pokefantasy.response.StandingsResponse;
@@ -11,6 +12,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/v1/leagues")
@@ -51,6 +54,16 @@ public class ScheduleController {
         scheduleFacade.declareLineup(leagueId, matchId, request.getPokemonNames(), request.getPasteUrl(),
                 userDetails.getUsername());
         return ResponseEntity.noContent().build();
+    }
+
+    /** Replays de Showdown que podrían ser las partidas del partido (jugadores del partido o admin). */
+    @GetMapping("/{leagueId}/schedule/matches/{matchId}/replays")
+    public ResponseEntity<List<ReplayCandidateResponse>> replayCandidates(@PathVariable String leagueId,
+                                                                          @PathVariable String matchId,
+                                                                          @RequestParam(required = false) String url,
+                                                                          @AuthenticationPrincipal UserDetails userDetails)
+            throws Exception {
+        return ResponseEntity.ok(scheduleFacade.replayCandidates(leagueId, matchId, url, userDetails.getUsername()));
     }
 
     /** Corrige el ganador o el marcador de un partido ya registrado (admin). */
