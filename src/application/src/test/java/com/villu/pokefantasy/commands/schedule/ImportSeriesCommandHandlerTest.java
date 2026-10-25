@@ -146,6 +146,38 @@ class ImportSeriesCommandHandlerTest {
         verify(scheduleRepository, never()).save(any());
     }
 
+    /** Partida de otra serie ({@code gen9doublescustomgame-88}). */
+    private static ShowdownReplay otherSeriesGame(String id, int number, String winner) {
+        ShowdownReplay base = game(id, number, winner, false);
+        return new ShowdownReplay(id, base.formatid(), base.players(), base.log().replace("-77\"", "-88\""),
+                base.uploadtime());
+    }
+
+    @Test
+    void gamesFromDifferentSeries_rejected() {
+        assertThatThrownBy(() -> importReplays(game("g1", 1, "Ash Ketchum", false),
+                otherSeriesGame("h1", 1, "Ash Ketchum")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Marca partidas de una misma serie.");
+    }
+
+    @Test
+    void skippedGameOfTheSeries_rejected() {
+        // A-B-A: marcar solo la 1 y la 3 daría un 2-0 falso
+        assertThatThrownBy(() -> importReplays(game("g1", 1, "Ash Ketchum", false), game("g3", 3, "Ash Ketchum", true)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Marca las partidas seguidas de la serie, empezando por la 1.");
+    }
+
+    @Test
+    void bestOf1_gameOfASeries_rejected() {
+        league.getSettings().setBestOf(1);
+
+        assertThatThrownBy(() -> importReplays(game("g2", 2, "Ash Ketchum", false)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Marca las partidas seguidas de la serie, empezando por la 1.");
+    }
+
     @Test
     void repeatedReplay_rejected() {
         assertThatThrownBy(() -> importReplays(game("g1", 1, "Ash Ketchum", false), game("g1", 1, "Ash Ketchum", false)))

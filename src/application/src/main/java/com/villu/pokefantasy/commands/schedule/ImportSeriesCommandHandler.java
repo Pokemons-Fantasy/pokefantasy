@@ -16,7 +16,10 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /**
  * Registra el resultado de un partido a partir de los replays de su serie: los valida con las mismas reglas que
@@ -61,6 +64,7 @@ public class ImportSeriesCommandHandler implements CommandHandler<ImportSeriesCo
         games.forEach(g -> g.reason().ifPresent(reason -> {
             throw new IllegalArgumentException(g.replay().id() + ": " + reason + ".");
         }));
+        requireOneCompleteSeries(games);
 
         Map<String, Long> wins = games.stream().collect(Collectors.groupingBy(Evaluated::winnerUsername, Collectors.counting()));
         String winner = wins.entrySet().stream().max(Map.Entry.comparingByValue()).map(Map.Entry::getKey).orElse(null);
@@ -78,6 +82,24 @@ public class ImportSeriesCommandHandler implements CommandHandler<ImportSeriesCo
         match.setImportWarnings(warnings.isEmpty() ? null : warnings);
         scheduleRepository.save(schedule);
         return null;
+    }
+
+    /**
+     * Las partidas son de una misma serie de Showdown y seguidas desde la 1 (si no, un A-B-A marcado como 1 y 3
+     * daría un 2-0 falso). Las partidas sueltas (sin serie, jugadas sin {@code Best Of}) solo se cuentan.
+     */
+    private static void requireOneCompleteSeries(List<Evaluated> games) {
+        Set<String> series = games.stream().map(g -> Objects.toString(g.log().seriesId(), "")).collect(Collectors.toSet());
+        if (series.size() > 1) {
+            throw new IllegalArgumentException("Marca partidas de una misma serie.");
+        }
+        if (!series.contains("")) {
+            List<Integer> numbers = games.stream().map(g -> g.log().gameNumber()).toList();
+            boolean consecutive = IntStream.range(0, numbers.size()).allMatch(i -> Objects.equals(numbers.get(i), i + 1));
+            if (!consecutive) {
+                throw new IllegalArgumentException("Marca las partidas seguidas de la serie, empezando por la 1.");
+            }
+        }
     }
 
     /** Marcador de la serie, o error si las partidas marcadas no forman una serie completa. Bo1: sin marcador. */

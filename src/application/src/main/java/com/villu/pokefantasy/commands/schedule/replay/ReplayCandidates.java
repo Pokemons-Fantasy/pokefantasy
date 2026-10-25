@@ -30,6 +30,13 @@ public final class ReplayCandidates {
 
     private ReplayCandidates() {}
 
+    private static final Pattern REPLAY_ID = Pattern.compile("^[a-z0-9-]{1,120}$");
+
+    /** Un id de replay de Showdown bien formado (los privados acaban en {@code -<contraseña>pw}). */
+    public static boolean isReplayId(String id) {
+        return id != null && REPLAY_ID.matcher(id).matches();
+    }
+
     /** El id de un enlace de replay de Showdown (con o sin {@code .json}); vacío si no es uno. */
     public static Optional<String> replayId(String url) {
         if (url == null) return Optional.empty();

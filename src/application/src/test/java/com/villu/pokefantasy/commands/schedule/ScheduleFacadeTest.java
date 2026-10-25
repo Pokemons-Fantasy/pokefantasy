@@ -105,6 +105,17 @@ class ScheduleFacadeTest {
     }
 
     @Test
+    void importSeries_invalidId_rejectedBeforeDownloading() {
+        assertThatThrownBy(() -> facade.importSeries("l1", "m1", List.of("g1", "../../x"), "ash"))
+                .isInstanceOf(IllegalArgumentException.class).hasMessage("Replay no válido.");
+        java.util.List<String> withNull = new java.util.ArrayList<>(List.of("g1"));
+        withNull.add(null);
+        assertThatThrownBy(() -> facade.importSeries("l1", "m1", withNull, "ash"))
+                .isInstanceOf(IllegalArgumentException.class).hasMessage("Replay no válido.");
+        verifyNoInteractions(showdownPort);
+    }
+
+    @Test
     void importSeries_limits() {
         assertThatThrownBy(() -> facade.importSeries("l1", "m1", List.of(), "ash"))
                 .isInstanceOf(IllegalArgumentException.class).hasMessage("Marca las partidas de la serie.");

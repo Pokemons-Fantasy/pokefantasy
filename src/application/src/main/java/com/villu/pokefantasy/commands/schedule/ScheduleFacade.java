@@ -93,6 +93,10 @@ public class ScheduleFacade {
         if (replayIds.size() > MAX_IMPORTED) {
             throw new IllegalArgumentException("Marca como mucho " + MAX_IMPORTED + " partidas.");
         }
+        // Antes de descargar: un id raro ("../x") haría peticiones arbitrarias a replay.pokemonshowdown.com.
+        if (replayIds.stream().anyMatch(id -> !ReplayCandidates.isReplayId(id))) {
+            throw new IllegalArgumentException("Replay no válido.");
+        }
         List<ShowdownReplay> replays = replayIds.stream().map(this::fetchReplay).toList();
         mediator.send(new ImportSeriesCommand(leagueId, matchId, requestingUsername, replays));
     }
