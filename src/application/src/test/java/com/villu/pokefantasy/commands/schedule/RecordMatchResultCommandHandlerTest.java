@@ -43,6 +43,7 @@ class RecordMatchResultCommandHandlerTest {
     @Mock private LeagueRepository leagueRepository;
     @Mock private DraftRepository draftRepository;
     @Mock private ActivityEventRepository activityEventRepository;
+    @Mock private JornadaCompletionNotifier jornadaCompletionNotifier;
 
     private RecordMatchResultCommandHandler handler;
 
@@ -55,7 +56,8 @@ class RecordMatchResultCommandHandlerTest {
     @BeforeEach
     void setUp() {
         handler = new RecordMatchResultCommandHandler(scheduleRepository, leagueAdminGuard,
-                new MatchResultService(leagueRepository, draftRepository, activityEventRepository));
+                new MatchResultService(leagueRepository, draftRepository, activityEventRepository),
+                jornadaCompletionNotifier);
         // Default: both players have pokémon in the league (forfeit check passes)
         lenient().when(draftRepository.findLatestByLeagueId(LEAGUE_ID))
                 .thenReturn(Optional.of(draftWithPicks(pick(PLAYER1, "pikachu"), pick(PLAYER2, "bulbasaur"))));
@@ -135,6 +137,7 @@ class RecordMatchResultCommandHandlerTest {
         assertThat(saved.getWinnerUsername()).isEqualTo(PLAYER1);
         assertThat(saved.getStatus()).isEqualTo(MatchStatus.COMPLETED);
         assertThat(saved.getWinnerScore()).isNull(); // sin marcador
+        verify(jornadaCompletionNotifier).notifyIfCompleted(any(), eq(captor.getValue()), eq(1));
     }
 
     @Test

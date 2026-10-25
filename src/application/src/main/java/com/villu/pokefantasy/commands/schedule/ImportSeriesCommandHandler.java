@@ -31,13 +31,16 @@ public class ImportSeriesCommandHandler implements CommandHandler<ImportSeriesCo
     private final LeagueMembershipGuard leagueMembershipGuard;
     private final ReplayImportService replayImportService;
     private final MatchResultService matchResultService;
+    private final JornadaCompletionNotifier jornadaCompletionNotifier;
 
     public ImportSeriesCommandHandler(ScheduleRepository scheduleRepository, LeagueMembershipGuard leagueMembershipGuard,
-                                      ReplayImportService replayImportService, MatchResultService matchResultService) {
+                                      ReplayImportService replayImportService, MatchResultService matchResultService,
+                                      JornadaCompletionNotifier jornadaCompletionNotifier) {
         this.scheduleRepository = scheduleRepository;
         this.leagueMembershipGuard = leagueMembershipGuard;
         this.replayImportService = replayImportService;
         this.matchResultService = matchResultService;
+        this.jornadaCompletionNotifier = jornadaCompletionNotifier;
     }
 
     @Override
@@ -65,13 +68,14 @@ public class ImportSeriesCommandHandler implements CommandHandler<ImportSeriesCo
         Match match = matchResultService.findMatch(schedule, command.matchId());
         String loser = matchResultService.requireParticipant(match, result.winner());
         matchResultService.requireWinnerHasTeam(command.leagueId(), result.winner(), loser);
-        matchResultService.award(league, match, result.winner(), loser, result.score(),
-                matchResultService.findRoundNumber(schedule, command.matchId()));
+        int roundNumber = matchResultService.findRoundNumber(schedule, command.matchId());
+        matchResultService.award(league, match, result.winner(), loser, result.score(), roundNumber);
 
         match.setReplayIds(games.stream().map(g -> g.replay().id()).toList());
         List<String> warnings = games.stream().flatMap(g -> g.warnings().stream())
                 .collect(Collectors.toCollection(LinkedHashSet::new)).stream().limit(MAX_WARNINGS).toList();
         match.setImportWarnings(warnings.isEmpty() ? null : warnings);
+        jornadaCompletionNotifier.notifyIfCompleted(league, schedule, roundNumber);
         scheduleRepository.save(schedule);
         return null;
     }

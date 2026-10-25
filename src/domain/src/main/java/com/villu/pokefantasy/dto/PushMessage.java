@@ -28,7 +28,7 @@ public record PushMessage(String title, String body, String path, String tag, Du
         return new PushMessage(title, body, "/leagues/" + leagueId + "/draft", "draft-turn-" + leagueId, ttl, true);
     }
 
-    /** Robo o intercambio: abre Equipos. Sin etiqueta: cada uno es un aviso distinto. */
+    /** Robo, intercambio o jornada completa: abre Equipos. Sin etiqueta: cada uno es un aviso distinto. */
     public static PushMessage teams(String leagueId, String title, String body) {
         return new PushMessage(title, body, "/leagues/" + leagueId + "/teams", null);
     }

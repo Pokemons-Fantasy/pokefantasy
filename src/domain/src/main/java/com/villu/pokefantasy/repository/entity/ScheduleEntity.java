@@ -38,6 +38,8 @@ public class ScheduleEntity {
          */
         private String stealReminderSentFor;
         private String swapReminderSentFor;
+        /** Ya se avisó por push de que la jornada tiene todos sus resultados; {@code null} = no. */
+        private Boolean completionNotified;
 
         public Jornada(int roundNumber, List<Match> matches, String startDate) {
             this.roundNumber = roundNumber;
