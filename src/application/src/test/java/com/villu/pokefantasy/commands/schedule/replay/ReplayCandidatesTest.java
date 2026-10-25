@@ -71,6 +71,32 @@ class ReplayCandidatesTest {
     }
 
     @Test
+    void evaluate_unfinishedGame_isNotATie() {
+        ShowdownReplay unfinished = new ShowdownReplay("u", "gen9doublescustomgame", List.of("Ash Ketchum", "Misty W"),
+                "|player|p1|Ash Ketchum|a|\n|player|p2|Misty W|b|\n", FROM + 1);
+
+        assertThat(ReplayCandidates.evaluate(ctx(null), List.of(unfinished)).getFirst().getReason())
+                .isEqualTo("Partida sin terminar");
+    }
+
+    @Test
+    void evaluate_afterTheJornadaWeek_outOfWeek() {
+        long afterWeek = FROM + ReplayCandidates.WEEK_SECONDS + 1;
+
+        assertThat(ReplayCandidates.evaluate(ctx(null), List.of(ok("late", "Ash Ketchum", null, null, afterWeek)))
+                .getFirst().getReason()).isEqualTo("Fuera de la semana de la jornada");
+        assertThat(ReplayCandidates.evaluate(ctx(null),
+                List.of(ok("sunday", "Ash Ketchum", null, null, FROM + ReplayCandidates.WEEK_SECONDS - 1)))
+                .getFirst().isSelectable()).isTrue();
+    }
+
+    @Test
+    void redact_hidesPrivateReplayPassword() {
+        assertThat(ReplayCandidates.redact("gen9doublescustomgame-1-secretpw")).isEqualTo("gen9doublescustomgame-1-***pw");
+        assertThat(ReplayCandidates.redact("gen9doublescustomgame-1")).isEqualTo("gen9doublescustomgame-1");
+    }
+
+    @Test
     void evaluate_customRulesInFormatid_isSameFormat() {
         assertThat(ReplayCandidates.evaluate(ctx(null), List.of(replay("r", "Ash Ketchum", "Misty W", "Misty W", null,
                 null, FROM + 1, "gen9doublescustomgame@@@Picked Team Size = 4"))).getFirst().isSelectable()).isTrue();

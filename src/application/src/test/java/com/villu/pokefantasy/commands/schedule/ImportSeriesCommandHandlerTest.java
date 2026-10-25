@@ -195,6 +195,16 @@ class ImportSeriesCommandHandlerTest {
     }
 
     @Test
+    void privateReplayNotSelectable_errorHidesItsPassword() {
+        other.setReplayIds(List.of("g1-secretpw"));
+
+        assertThatThrownBy(() -> importReplays(game("g1-secretpw", 1, "Ash Ketchum", false),
+                game("g2", 2, "Ash Ketchum", true)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("g1-***pw: Ya usado en otro partido.");
+    }
+
+    @Test
     void alreadyCompleted_conflict() {
         match.setStatus(MatchStatus.COMPLETED);
 

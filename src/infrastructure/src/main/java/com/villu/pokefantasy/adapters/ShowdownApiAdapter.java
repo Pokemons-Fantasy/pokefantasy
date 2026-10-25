@@ -1,5 +1,6 @@
 package com.villu.pokefantasy.adapters;
 
+import com.villu.pokefantasy.commands.schedule.replay.ReplayCandidates;
 import com.villu.pokefantasy.exception.ShowdownUnavailableException;
 import com.villu.pokefantasy.ports.ShowdownPort;
 import com.villu.pokefantasy.ports.ShowdownReplay;
@@ -100,14 +101,10 @@ public class ShowdownApiAdapter implements ShowdownPort {
             return Optional.empty();
         } catch (RestClientException e) {
             // Ni el id completo ni la excepción (su mensaje lleva la URL): un replay privado lleva su contraseña.
-            log.warn("Showdown no responde al leer el replay {} ({})", redact(replayId), e.getClass().getSimpleName());
+            log.warn("Showdown no responde al leer el replay {} ({})", ReplayCandidates.redact(replayId),
+                    e.getClass().getSimpleName());
             throw new ShowdownUnavailableException(UNAVAILABLE, null);
         }
-    }
-
-    /** El id de un replay sin la contraseña de los privados ({@code ...-<contraseña>pw} → {@code ...-***pw}). */
-    static String redact(String replayId) {
-        return replayId.replaceAll("-[a-z0-9]+pw$", "-***pw");
     }
 
     /** Un resultado de {@code search.json} (se ignoran {@code format}, {@code private} y {@code rating}). */

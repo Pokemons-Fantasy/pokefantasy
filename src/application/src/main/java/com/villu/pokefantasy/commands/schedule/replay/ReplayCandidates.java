@@ -31,6 +31,13 @@ public final class ReplayCandidates {
     private ReplayCandidates() {}
 
     private static final Pattern REPLAY_ID = Pattern.compile("^[a-z0-9-]{1,120}$");
+    /** Ventana de la jornada: de lunes a lunes, más un día de margen para subir los replays del domingo. */
+    public static final long WEEK_SECONDS = 8L * 24 * 3600;
+
+    /** El id de un replay sin la contraseña de los privados ({@code ...-<contraseña>pw} → {@code ...-***pw}). */
+    public static String redact(String replayId) {
+        return replayId == null ? null : replayId.replaceAll("-[a-z0-9]+pw$", "-***pw");
+    }
 
     /** Un id de replay de Showdown bien formado (los privados acaban en {@code -<contraseña>pw}). */
     public static boolean isReplayId(String id) {
@@ -57,10 +64,14 @@ public final class ReplayCandidates {
             reason = "No son los jugadores del partido";
         } else if (!ReplayLog.baseFormat(replay.formatid()).equals(ctx.baseFormat())) {
             reason = "Otro formato";
-        } else if (ctx.fromEpoch() != null && replay.uploadtime() < ctx.fromEpoch()) {
+        } else if (ctx.fromEpoch() != null && (replay.uploadtime() < ctx.fromEpoch()
+                || replay.uploadtime() >= ctx.fromEpoch() + WEEK_SECONDS)) {
             reason = "Fuera de la semana de la jornada";
-        } else if (log.tie() || winnerUsername == null) {
+        } else if (log.tie()) {
             reason = "Empate";
+        } else if (winnerUsername == null) {
+            // Sin |win| (abandonada o cortada) o con un ganador que no es ninguno de los dos.
+            reason = "Partida sin terminar";
         } else if (ctx.usedReplayIds().contains(replay.id())) {
             reason = "Ya usado en otro partido";
         }

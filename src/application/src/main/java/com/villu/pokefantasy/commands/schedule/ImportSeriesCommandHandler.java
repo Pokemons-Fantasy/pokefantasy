@@ -62,7 +62,7 @@ public class ImportSeriesCommandHandler implements CommandHandler<ImportSeriesCo
                         .thenComparing(e -> e.replay().uploadtime()))
                 .toList();
         games.forEach(g -> g.reason().ifPresent(reason -> {
-            throw new IllegalArgumentException(g.replay().id() + ": " + reason + ".");
+            throw new IllegalArgumentException(ReplayCandidates.redact(g.replay().id()) + ": " + reason + ".");
         }));
         requireOneCompleteSeries(games);
 
