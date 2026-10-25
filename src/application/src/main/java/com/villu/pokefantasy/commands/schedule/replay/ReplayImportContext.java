@@ -17,7 +17,9 @@ import java.util.Set;
  * @param player1Lineup  alineación declarada de player1, o {@code null}
  * @param player2Lineup  alineación declarada de player2, o {@code null}
  * @param bestOf         partidas de la serie (1 o 3)
+ * @param marketClosedEpoch cierre del mercado de la jornada (epoch en segundos); {@code null} sin fecha
  */
 public record ReplayImportContext(String player1, String player2, String player1Id, String player2Id,
                                   String baseFormat, Long fromEpoch, Set<String> usedReplayIds,
-                                  MatchLineup player1Lineup, MatchLineup player2Lineup, int bestOf) {}
+                                  MatchLineup player1Lineup, MatchLineup player2Lineup, int bestOf,
+                                  Long marketClosedEpoch) {}

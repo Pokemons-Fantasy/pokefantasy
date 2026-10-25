@@ -37,7 +37,7 @@ class ScheduleFacadeTest {
     }
 
     private static final ReplayImportContext CTX = new ReplayImportContext("ash", "misty", "ash", "misty",
-            "gen9doublescustomgame", 1000L, java.util.Set.of(), null, null, 3);
+            "gen9doublescustomgame", 1000L, java.util.Set.of(), null, null, 3, null);
 
     private static ShowdownReplay replay(String id, long uploadtime) {
         return new ShowdownReplay(id, "gen9doublescustomgame", List.of("Ash", "Misty"),
@@ -192,5 +192,59 @@ class ScheduleFacadeTest {
 
         assertThat(facade.leaguesWithDueWindowReminders()).containsExactly("l1");
         assertThat(facade.sendWindowReminders("l1")).isTrue();
+    }
+
+    private static final com.villu.pokefantasy.commands.schedule.replay.AutoImportTarget TARGET =
+            new com.villu.pokefantasy.commands.schedule.replay.AutoImportTarget("l1", "m1");
+
+    private static ShowdownReplay seriesGame(String id, int number, long uploadtime) {
+        return new ShowdownReplay(id, "gen9doublescustomgame", List.of("Ash", "Misty"),
+                "|uhtml|bestof|<h2><strong>Game " + number + "</strong> of <a href=\"/game-bestof3-"
+                        + "gen9doublescustomgame-77\">a best-of-3</a></h2>\n|player|p1|Ash|a|\n|player|p2|Misty|b|\n|win|Ash",
+                uploadtime);
+    }
+
+    @Test
+    void autoImportTargets_listsThem() throws Exception {
+        when(mediator.send(new ListAutoImportTargetsCommand())).thenReturn(List.of(TARGET));
+
+        assertThat(facade.autoImportTargets()).containsExactly(TARGET);
+    }
+
+    @Test
+    void pickAutoImport_completeSeries_asSystem() throws Exception {
+        when(mediator.send(new PrepareReplayImportCommand("l1", "m1", null))).thenReturn(CTX);
+        when(showdownPort.searchReplays("ash", "misty")).thenReturn(List.of(
+                new ShowdownReplaySummary("g2", List.of("Ash", "Misty"), 2002L),
+                new ShowdownReplaySummary("g1", List.of("Ash", "Misty"), 2001L)));
+        when(showdownPort.getReplay("g1")).thenReturn(Optional.of(seriesGame("g1", 1, 2001L)));
+        when(showdownPort.getReplay("g2")).thenReturn(Optional.of(seriesGame("g2", 2, 2002L)));
+
+        assertThat(facade.pickAutoImport(TARGET).orElseThrow()).extracting(ShowdownReplay::id).containsExactly("g1", "g2");
+    }
+
+    @Test
+    void pickAutoImport_noReplays_nothing() throws Exception {
+        when(mediator.send(new PrepareReplayImportCommand("l1", "m1", null))).thenReturn(CTX);
+        when(showdownPort.searchReplays("ash", "misty")).thenReturn(List.of());
+
+        assertThat(facade.pickAutoImport(TARGET)).isEmpty();
+    }
+
+    @Test
+    void pickAutoImport_showdownDown_propagates() throws Exception {
+        when(mediator.send(new PrepareReplayImportCommand("l1", "m1", null))).thenReturn(CTX);
+        when(showdownPort.searchReplays("ash", "misty")).thenThrow(new ShowdownUnavailableException("down", null));
+
+        assertThatThrownBy(() -> facade.pickAutoImport(TARGET)).isInstanceOf(ShowdownUnavailableException.class);
+    }
+
+    @Test
+    void importSeriesAsSystem_sendsWithoutUsername() throws Exception {
+        List<ShowdownReplay> replays = List.of(seriesGame("g1", 1, 2001L));
+
+        facade.importSeriesAsSystem(TARGET, replays);
+
+        verify(mediator).send(new ImportSeriesCommand("l1", "m1", null, replays));
     }
 }
