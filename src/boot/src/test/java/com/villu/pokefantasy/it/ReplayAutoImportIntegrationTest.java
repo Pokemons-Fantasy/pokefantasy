@@ -1,6 +1,7 @@
 package com.villu.pokefantasy.it;
 
 import com.villu.pokefantasy.ReplayAutoImportJob;
+import com.villu.pokefantasy.commands.schedule.JornadaWindowService;
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueRole;
 import com.villu.pokefantasy.dto.LeagueSettings;
@@ -19,7 +20,9 @@ import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
 
+import java.time.DayOfWeek;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -27,7 +30,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
-/** El job registra solo una serie 2-0 ya subida y, al ser el último partido, marca la jornada como avisada. */
+/** Con el mercado cerrado, el job registra solo una serie 2-0 ya subida y, al ser el último partido, marca la jornada como avisada. */
 class ReplayAutoImportIntegrationTest extends IntegrationTest {
 
     private static final String LEAGUE = "league-auto-import";
@@ -68,14 +71,17 @@ class ReplayAutoImportIntegrationTest extends IntegrationTest {
                 new DraftPick("gary", "eevee", 133, 1, Instant.now(), null, null))));
         mongoTemplate.insert(draft);
 
+        // Jornada de la semana pasada: su mercado ya cerró y los replays de esa semana valen.
+        LocalDate monday = LocalDate.now(JornadaWindowService.LEAGUE_ZONE).minusWeeks(1).with(DayOfWeek.MONDAY);
         ScheduleEntity schedule = new ScheduleEntity();
         schedule.setLeagueId(LEAGUE);
         schedule.setJornadas(new ArrayList<>(List.of(new ScheduleEntity.Jornada(1, new ArrayList<>(List.of(
-                new ScheduleEntity.Match("m1", "brock", "gary", null, MatchStatus.PENDING))), null))));
+                new ScheduleEntity.Match("m1", "brock", "gary", null, MatchStatus.PENDING))), monday.toString()))));
         mongoTemplate.insert(schedule);
 
-        ShowdownReplay g1 = game("a1", 1, 1_800_000_001L);
-        ShowdownReplay g2 = game("a2", 2, 1_800_000_002L);
+        long saturday = monday.plusDays(5).atStartOfDay(JornadaWindowService.LEAGUE_ZONE).toEpochSecond();
+        ShowdownReplay g1 = game("a1", 1, saturday + 1);
+        ShowdownReplay g2 = game("a2", 2, saturday + 2);
         when(showdownApiAdapter.searchReplays("brock", "gary")).thenReturn(List.of(
                 new ShowdownReplaySummary("a2", List.of("Brock", "Gary"), g2.uploadtime()),
                 new ShowdownReplaySummary("a1", List.of("Brock", "Gary"), g1.uploadtime())));

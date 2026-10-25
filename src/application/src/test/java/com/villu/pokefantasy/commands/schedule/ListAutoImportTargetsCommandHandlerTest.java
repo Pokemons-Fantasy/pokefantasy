@@ -86,12 +86,12 @@ class ListAutoImportTargetsCommandHandlerTest {
         assertThat(handlerAt(LocalDateTime.of(2026, 10, 23, 15, 59)).handle(new ListAutoImportTargetsCommand())).isEmpty();
     }
 
+    /** Sin fecha no hay semana que acote los replays: uno antiguo entre los dos se registraría sin que nadie lo vea. */
     @Test
-    void jornadaWithoutDate_alwaysCandidate() {
+    void jornadaWithoutDate_notCandidate() {
         active.setStartDate(null);
 
-        assertThat(handlerAt(LocalDateTime.of(2026, 10, 20, 9, 0)).handle(new ListAutoImportTargetsCommand()))
-                .containsExactly(new AutoImportTarget("l1", "m1"));
+        assertThat(handlerAt(LocalDateTime.of(2026, 10, 24, 12, 0)).handle(new ListAutoImportTargetsCommand())).isEmpty();
     }
 
     @Test

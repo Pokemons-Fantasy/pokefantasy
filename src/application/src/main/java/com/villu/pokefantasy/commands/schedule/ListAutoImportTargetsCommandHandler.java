@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * Partidos pendientes de la jornada activa de cada liga con el mercado ya cerrado (o sin fechas) y los dos
+ * Partidos pendientes de la jornada activa de cada liga, con fecha y el mercado ya cerrado, y los dos
  * jugadores con Showdown vinculado: los que el import automático intenta registrar.
  */
 @Service
@@ -45,7 +45,9 @@ public class ListAutoImportTargetsCommandHandler implements CommandHandler<ListA
         for (ScheduleEntity schedule : scheduleRepository.findAll()) {
             LeagueEntity league = leagueRepository.findById(schedule.getLeagueId()).orElse(null);
             Jornada jornada = jornadaWindowService.getActiveJornada(schedule).orElse(null);
-            if (league == null || jornada == null || !marketClosed(schedule, jornada, league)) {
+            // Sin fecha no hay semana que acote los replays (un amistoso antiguo valdría): esas, solo a mano.
+            if (league == null || jornada == null
+                    || !jornadaWindowService.isLineupPeriodOpen(schedule, jornada, league.getSettings())) {
                 continue;
             }
             List<Match> pending = jornada.getMatches().stream().filter(m -> m.getStatus() != MatchStatus.COMPLETED).toList();
@@ -58,11 +60,6 @@ public class ListAutoImportTargetsCommandHandler implements CommandHandler<ListA
                     .forEach(m -> targets.add(new AutoImportTarget(league.getId(), m.getId())));
         }
         return targets;
-    }
-
-    private boolean marketClosed(ScheduleEntity schedule, Jornada jornada, LeagueEntity league) {
-        return jornada.getStartDate() == null
-                || jornadaWindowService.isLineupPeriodOpen(schedule, jornada, league.getSettings());
     }
 
     @Override
