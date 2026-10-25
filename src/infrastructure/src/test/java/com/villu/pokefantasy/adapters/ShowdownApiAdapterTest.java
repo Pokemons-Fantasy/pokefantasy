@@ -128,6 +128,13 @@ class ShowdownApiAdapterTest {
     }
 
     @Test
+    void redact_hidesPrivateReplayPassword() {
+        assertThat(ShowdownApiAdapter.redact("gen9doublescustomgame-123-abcdef123pw"))
+                .isEqualTo("gen9doublescustomgame-123-***pw");
+        assertThat(ShowdownApiAdapter.redact("gen9doublescustomgame-123")).isEqualTo("gen9doublescustomgame-123");
+    }
+
+    @Test
     void getReplay_notFound_empty() {
         server.expect(requestTo(REPLAY_URL)).andRespond(withStatus(HttpStatus.NOT_FOUND));
 

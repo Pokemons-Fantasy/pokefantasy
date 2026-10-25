@@ -99,9 +99,15 @@ public class ShowdownApiAdapter implements ShowdownPort {
         } catch (HttpClientErrorException.NotFound e) {
             return Optional.empty();
         } catch (RestClientException e) {
-            log.warn("Showdown no responde al leer el replay {}", replayId, e);
-            throw new ShowdownUnavailableException(UNAVAILABLE, e);
+            // Ni el id completo ni la excepción (su mensaje lleva la URL): un replay privado lleva su contraseña.
+            log.warn("Showdown no responde al leer el replay {} ({})", redact(replayId), e.getClass().getSimpleName());
+            throw new ShowdownUnavailableException(UNAVAILABLE, null);
         }
+    }
+
+    /** El id de un replay sin la contraseña de los privados ({@code ...-<contraseña>pw} → {@code ...-***pw}). */
+    static String redact(String replayId) {
+        return replayId.replaceAll("-[a-z0-9]+pw$", "-***pw");
     }
 
     /** Un resultado de {@code search.json} (se ignoran {@code format}, {@code private} y {@code rating}). */
