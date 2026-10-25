@@ -30,6 +30,8 @@ public class ScheduleResponse {
         private String startDate;      // "YYYY-MM-DD", null if not configured
         private String stealDeadline;  // "YYYY-MM-DDTHH:mm:ss", null if no startDate
         private String swapDeadline;   // "YYYY-MM-DDTHH:mm:ss", null if no startDate
+        /** Desde cuándo se puede declarar la alineación (cierre del mercado); {@code null} sin fecha. */
+        private String lineupOpensAt;
     }
 
     @Data
@@ -45,5 +47,27 @@ public class ScheduleResponse {
         /** Marcador desde el punto de vista del ganador; {@code null} si no se indicó. */
         private Integer winnerScore;
         private Integer loserScore;
+        /** Si cada jugador ha enviado ya su alineación (lo ve todo el mundo). */
+        private boolean player1LineupSubmitted;
+        private boolean player2LineupSubmitted;
+        /** La alineación de cada lado: solo la propia hasta que estén las dos; después, todo el mundo. */
+        private LineupResponse player1Lineup;
+        private LineupResponse player2Lineup;
+        /** Quien pide puede declarar (o cambiar) su alineación ahora mismo. */
+        private boolean lineupOpen;
+        /** Quien pide podrá declarar su alineación cuando cierre el mercado ({@code lineupOpensAt} de la jornada). */
+        private boolean lineupPending;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class LineupResponse {
+        private List<String> pokemonNames;
+        /** Enlace al equipo completo (lista abierta). */
+        private String pasteUrl;
+        /** Diferencias entre el paste y la alineación. */
+        private List<String> pasteWarnings;
     }
 }

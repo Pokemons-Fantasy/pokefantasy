@@ -19,6 +19,7 @@ import java.util.Optional;
 public class ShowdownApiAdapter implements ShowdownPort {
 
     private static final String USER_URL = "https://pokemonshowdown.com/users/{id}.json";
+    private static final String PASTE_URL = "https://pokepast.es/{id}/json";
     static final String UNAVAILABLE = "Showdown no responde, inténtalo en un rato";
 
     private final RestTemplate restTemplate;
@@ -54,6 +55,22 @@ public class ShowdownApiAdapter implements ShowdownPort {
             throw new ShowdownUnavailableException(UNAVAILABLE, e);
         }
     }
+
+    @Override
+    public Optional<String> getPokepaste(String pasteId) {
+        try {
+            PasteJson paste = restTemplate.getForObject(PASTE_URL, PasteJson.class, pasteId);
+            return Optional.ofNullable(paste).map(PasteJson::paste);
+        } catch (HttpClientErrorException.NotFound e) {
+            return Optional.empty();
+        } catch (RestClientException e) {
+            log.warn("pokepast.es no responde al leer el paste {}", pasteId, e);
+            throw new ShowdownUnavailableException(UNAVAILABLE, e);
+        }
+    }
+
+    /** {@code /{id}/json} de pokepast.es: {@code paste}, {@code title}, {@code author}, {@code notes}. */
+    private record PasteJson(String paste) {}
 
     /** Solo los campos que se usan de {@code /users/{id}.json}; Jackson ignora el resto. */
     private record UserJson(String username, String userid) {}

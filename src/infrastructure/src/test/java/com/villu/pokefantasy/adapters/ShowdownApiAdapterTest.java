@@ -60,6 +60,31 @@ class ShowdownApiAdapterTest {
         assertThat(adapter.findUser("ashketchum")).isEmpty();
     }
 
+    private static final String PASTE_URL = "https://pokepast.es/abc123/json";
+
+    @Test
+    void getPokepaste_returnsPasteText() {
+        server.expect(requestTo(PASTE_URL)).andRespond(withSuccess(
+                "{\"paste\":\"Pikachu @ Light Ball\\r\\n\",\"title\":\"t\",\"author\":\"a\",\"notes\":\"\"}",
+                MediaType.APPLICATION_JSON));
+
+        assertThat(adapter.getPokepaste("abc123")).contains("Pikachu @ Light Ball\r\n");
+    }
+
+    @Test
+    void getPokepaste_notFound_empty() {
+        server.expect(requestTo(PASTE_URL)).andRespond(withStatus(HttpStatus.NOT_FOUND));
+
+        assertThat(adapter.getPokepaste("abc123")).isEmpty();
+    }
+
+    @Test
+    void getPokepaste_serverError_throwsUnavailable() {
+        server.expect(requestTo(PASTE_URL)).andRespond(withServerError());
+
+        assertThatThrownBy(() -> adapter.getPokepaste("abc123")).isInstanceOf(ShowdownUnavailableException.class);
+    }
+
     @Test
     void findUser_serverError_throwsUnavailable() {
         server.expect(requestTo(USER_URL)).andRespond(withServerError());

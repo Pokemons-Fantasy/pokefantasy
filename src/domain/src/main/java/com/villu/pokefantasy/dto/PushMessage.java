@@ -33,6 +33,11 @@ public record PushMessage(String title, String body, String path, String tag, Du
         return new PushMessage(title, body, "/leagues/" + leagueId + "/teams", null);
     }
 
+    /** Alineaciones reveladas: abre el calendario y sustituye al aviso anterior de ese partido. */
+    public static PushMessage lineups(String leagueId, String matchId, String title, String body) {
+        return new PushMessage(title, body, "/leagues/" + leagueId + "/schedule", "lineups-" + matchId);
+    }
+
     /**
      * Cierre de ventana ({@code windowKey}: steal o swap): abre Equipos, sustituye al aviso anterior de esa
      * ventana y caduca cuando cierra ({@code ttl}).

@@ -1,6 +1,7 @@
 package com.villu.pokefantasy.repository.entity;
 
 import com.villu.pokefantasy.dto.MatchStatus;
+import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
@@ -8,6 +9,7 @@ import org.springframework.data.annotation.Version;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.time.Instant;
 import java.util.List;
 
 @Data
@@ -62,6 +64,12 @@ public class ScheduleEntity {
         /** Marcador (p. ej. 3–1) desde el punto de vista del ganador; {@code null} si no se indicó. */
         private Integer winnerScore;
         private Integer loserScore;
+        /**
+         * Alineaciones del partido; {@code null} = aún no enviada. Por lado y no por username: el borrado de
+         * cuenta renombra {@code player1} / {@code player2}, y unas claves con el nombre antiguo quedarían huérfanas.
+         */
+        private MatchLineup player1Lineup;
+        private MatchLineup player2Lineup;
 
         public Match(String id, String player1, String player2, String winnerUsername, MatchStatus status) {
             this.id = id;
@@ -70,5 +78,23 @@ public class ScheduleEntity {
             this.winnerUsername = winnerUsername;
             this.status = status;
         }
+
+        /** Los dos jugadores la han enviado: se ven las dos y ya no se pueden cambiar. */
+        public boolean lineupsRevealed() {
+            return player1Lineup != null && player2Lineup != null;
+        }
+    }
+
+    /** Los Pokémon que un jugador lleva al partido (y, con lista abierta, el enlace a su equipo). */
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class MatchLineup {
+        private List<String> pokemonNames;
+        /** Enlace al equipo completo (lista abierta); {@code null} con lista cerrada. */
+        private String pasteUrl;
+        /** Diferencias entre el paste de pokepast.es y la alineación; no bloquean. */
+        private List<String> pasteWarnings;
+        private Instant submittedAt;
     }
 }
