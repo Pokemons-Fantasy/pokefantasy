@@ -65,6 +65,9 @@ public class ScheduleFacade {
         ReplayImportContext ctx = mediator.send(new PrepareReplayImportCommand(leagueId, matchId, requestingUsername));
         List<ShowdownReplay> replays;
         if (url != null && !url.isBlank()) {
+            if (ReplayCandidates.isBattleRoomUrl(url)) {
+                throw new IllegalArgumentException(BATTLE_ROOM_URL);
+            }
             String id = ReplayCandidates.replayId(url)
                     .orElseThrow(() -> new IllegalArgumentException("Pega el enlace de un replay de Showdown."));
             replays = List.of(fetchReplay(id));
@@ -126,9 +129,18 @@ public class ScheduleFacade {
         mediator.send(new ImportSeriesCommand(leagueId, matchId, requestingUsername, replays));
     }
 
+    static final String BATTLE_ROOM_URL =
+            "Ese es el enlace de la sala, no del replay: pulsa «Upload and share replay» y pega el enlace que te da.";
+
+    /**
+     * Descarga un replay. En el 404, si el id no lleva contraseña puede ser un privado pegado sin ella (se avisa);
+     * si la lleva, el mensaje la oculta.
+     */
     private ShowdownReplay fetchReplay(String id) {
-        return showdownPort.getReplay(id)
-                .orElseThrow(() -> new IllegalArgumentException("No se encontró el replay " + id + "."));
+        return showdownPort.getReplay(id).orElseThrow(() -> new IllegalArgumentException(
+                id.equals(ReplayCandidates.baseId(id))
+                        ? "No se encontró el replay " + id + ". Si es privado, pega el enlace completo, el que acaba en …pw."
+                        : "No se encontró el replay " + ReplayCandidates.redact(id) + "."));
     }
 
     public ScheduleResponse getSchedule(String leagueId, String requestingUsername) throws Exception {

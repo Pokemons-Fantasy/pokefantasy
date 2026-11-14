@@ -52,7 +52,8 @@ public class ImportSeriesCommandHandler implements CommandHandler<ImportSeriesCo
                         "Esta liga aún no tiene calendario: se genera al completar el draft."));
         ReplayImportContext ctx = replayImportService.contextFor(league, schedule, command.matchId(), command.username());
 
-        List<String> ids = command.replays().stream().map(r -> r.id()).toList();
+        // Por id base: el mismo combate subido como público y como privado son dos ids y una sola partida.
+        List<String> ids = command.replays().stream().map(r -> ReplayCandidates.baseId(r.id())).toList();
         if (new HashSet<>(ids).size() != ids.size()) {
             throw new IllegalArgumentException("No marques la misma partida dos veces.");
         }

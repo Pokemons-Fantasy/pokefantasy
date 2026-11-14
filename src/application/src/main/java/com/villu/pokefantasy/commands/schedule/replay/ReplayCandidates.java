@@ -42,9 +42,25 @@ public final class ReplayCandidates {
         return replayId == null ? null : replayId.replaceAll("-[a-z0-9]+pw$", "-***pw");
     }
 
+    /**
+     * El id del combate sin la contraseña de un privado ({@code ...-<contraseña>pw} → {@code ...}): el mismo
+     * combate subido como público y como privado tiene dos ids, y para "ya usado" son el mismo.
+     */
+    public static String baseId(String replayId) {
+        return replayId == null ? null : replayId.replaceAll("-[a-z0-9]+pw$", "");
+    }
+
     /** Un id de replay de Showdown bien formado (los privados acaban en {@code -<contraseña>pw}). */
     public static boolean isReplayId(String id) {
         return id != null && REPLAY_ID.matcher(id).matches();
+    }
+
+    private static final Pattern BATTLE_ROOM_URL =
+            Pattern.compile("^https://play\\.pokemonshowdown\\.com/battle-[a-z0-9-]+/?$");
+
+    /** El enlace de la sala del combate (no es un replay: el replay sale de «Upload and share replay»). */
+    public static boolean isBattleRoomUrl(String url) {
+        return url != null && BATTLE_ROOM_URL.matcher(url.trim()).matches();
     }
 
     /** El id de un enlace de replay de Showdown (con o sin {@code .json}); vacío si no es uno. */
@@ -75,7 +91,7 @@ public final class ReplayCandidates {
         } else if (winnerUsername == null) {
             // Sin |win| (abandonada o cortada) o con un ganador que no es ninguno de los dos.
             reason = "Partida sin terminar";
-        } else if (ctx.usedReplayIds().contains(replay.id())) {
+        } else if (ctx.usedReplayIds().contains(baseId(replay.id()))) {
             reason = "Ya usado en otro partido";
         }
         return new Evaluated(replay, log, winnerUsername, Optional.ofNullable(reason), warnings(ctx, log));
