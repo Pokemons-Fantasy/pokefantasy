@@ -55,6 +55,14 @@ public final class ReplayCandidates {
         return id != null && REPLAY_ID.matcher(id).matches();
     }
 
+    private static final Pattern BATTLE_ROOM_URL =
+            Pattern.compile("^https://play\\.pokemonshowdown\\.com/battle-[a-z0-9-]+/?$");
+
+    /** El enlace de la sala del combate (no es un replay: el replay sale de «Upload and share replay»). */
+    public static boolean isBattleRoomUrl(String url) {
+        return url != null && BATTLE_ROOM_URL.matcher(url.trim()).matches();
+    }
+
     /** El id de un enlace de replay de Showdown (con o sin {@code .json}); vacío si no es uno. */
     public static Optional<String> replayId(String url) {
         if (url == null) return Optional.empty();

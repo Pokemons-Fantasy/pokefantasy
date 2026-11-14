@@ -103,6 +103,15 @@ class ReplayCandidatesTest {
     }
 
     @Test
+    void isBattleRoomUrl() {
+        assertThat(ReplayCandidates.isBattleRoomUrl("https://play.pokemonshowdown.com/battle-gen9doublescustomgame-1")).isTrue();
+        assertThat(ReplayCandidates.isBattleRoomUrl(" https://play.pokemonshowdown.com/battle-gen9doublescustomgame-1-abcpw/ "))
+                .isTrue();
+        assertThat(ReplayCandidates.isBattleRoomUrl("https://replay.pokemonshowdown.com/gen9doublescustomgame-1")).isFalse();
+        assertThat(ReplayCandidates.isBattleRoomUrl(null)).isFalse();
+    }
+
+    @Test
     void evaluate_privateReplayOfAUsedOne_isUsed() {
         // El mismo combate subido como privado tiene otro id: "ya usado" compara sin la contraseña.
         assertThat(ReplayCandidates.evaluate(ctx(null), List.of(ok("used-1-secretpw", "Ash Ketchum", null, null, FROM + 4)))
