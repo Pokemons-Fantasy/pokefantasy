@@ -97,6 +97,19 @@ class ReplayCandidatesTest {
     }
 
     @Test
+    void baseId_stripsPrivatePassword() {
+        assertThat(ReplayCandidates.baseId("gen9doublescustomgame-1-secretpw")).isEqualTo("gen9doublescustomgame-1");
+        assertThat(ReplayCandidates.baseId("gen9doublescustomgame-123")).isEqualTo("gen9doublescustomgame-123");
+    }
+
+    @Test
+    void evaluate_privateReplayOfAUsedOne_isUsed() {
+        // El mismo combate subido como privado tiene otro id: "ya usado" compara sin la contraseña.
+        assertThat(ReplayCandidates.evaluate(ctx(null), List.of(ok("used-1-secretpw", "Ash Ketchum", null, null, FROM + 4)))
+                .getFirst().getReason()).isEqualTo("Ya usado en otro partido");
+    }
+
+    @Test
     void evaluate_customRulesInFormatid_isSameFormat() {
         assertThat(ReplayCandidates.evaluate(ctx(null), List.of(replay("r", "Ash Ketchum", "Misty W", "Misty W", null,
                 null, FROM + 1, "gen9doublescustomgame@@@Picked Team Size = 4"))).getFirst().isSelectable()).isTrue();

@@ -1,5 +1,6 @@
 package com.villu.pokefantasy.commands.schedule;
 
+import com.villu.pokefantasy.commands.schedule.replay.ReplayCandidates;
 import com.villu.pokefantasy.commands.schedule.replay.ReplayImportContext;
 import com.villu.pokefantasy.dto.BattleGameType;
 import com.villu.pokefantasy.dto.LeagueRole;
@@ -72,7 +73,7 @@ public class ReplayImportService {
         Set<String> used = new HashSet<>();
         schedule.getJornadas().forEach(j -> j.getMatches().stream()
                 .filter(m -> !Objects.equals(m.getId(), match.getId()) && m.getReplayIds() != null)
-                .forEach(m -> used.addAll(m.getReplayIds())));
+                .forEach(m -> m.getReplayIds().stream().map(ReplayCandidates::baseId).forEach(used::add)));
 
         return new ReplayImportContext(match.getPlayer1(), match.getPlayer2(), id1, id2,
                 singles ? "gen9customgame" : "gen9doublescustomgame", fromEpoch, used,

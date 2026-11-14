@@ -42,6 +42,14 @@ public final class ReplayCandidates {
         return replayId == null ? null : replayId.replaceAll("-[a-z0-9]+pw$", "-***pw");
     }
 
+    /**
+     * El id del combate sin la contraseña de un privado ({@code ...-<contraseña>pw} → {@code ...}): el mismo
+     * combate subido como público y como privado tiene dos ids, y para "ya usado" son el mismo.
+     */
+    public static String baseId(String replayId) {
+        return replayId == null ? null : replayId.replaceAll("-[a-z0-9]+pw$", "");
+    }
+
     /** Un id de replay de Showdown bien formado (los privados acaban en {@code -<contraseña>pw}). */
     public static boolean isReplayId(String id) {
         return id != null && REPLAY_ID.matcher(id).matches();
@@ -75,7 +83,7 @@ public final class ReplayCandidates {
         } else if (winnerUsername == null) {
             // Sin |win| (abandonada o cortada) o con un ganador que no es ninguno de los dos.
             reason = "Partida sin terminar";
-        } else if (ctx.usedReplayIds().contains(replay.id())) {
+        } else if (ctx.usedReplayIds().contains(baseId(replay.id()))) {
             reason = "Ya usado en otro partido";
         }
         return new Evaluated(replay, log, winnerUsername, Optional.ofNullable(reason), warnings(ctx, log));
