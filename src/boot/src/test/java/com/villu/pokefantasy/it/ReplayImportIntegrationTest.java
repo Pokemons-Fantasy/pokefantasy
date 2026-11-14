@@ -18,7 +18,9 @@ import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
 
+import java.net.URLEncoder;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -101,5 +103,31 @@ class ReplayImportIntegrationTest extends IntegrationTest {
 
         HttpResponse<String> again = ash.post(BASE + "/matches/m1/import", "{\"replayIds\":[\"g1\",\"g2\",\"g3\"]}");
         assertThat(again.statusCode()).isEqualTo(409);
+    }
+
+    /** Serie privada: se pega cada enlace y el registro vuelve a descargarlos con su contraseña. */
+    @Test
+    void privateSeries_pastedThenImported_keepsFullIds() throws Exception {
+        String[] ids = {"g1-secretpw", "g2-secretpw", "g3-secretpw"};
+        String[] winners = {"Ash", "Misty", "Ash"};
+        for (int i = 0; i < ids.length; i++) {
+            when(showdownApiAdapter.getReplay(ids[i])).thenReturn(
+                    Optional.of(game(ids[i], i + 1, winners[i], 1_800_000_001L + i)));
+        }
+        ApiClient ash = client().loggedInAs("ash", "pikachu123");
+        client().loggedInAs("misty", "starmie123");
+        linkShowdown("ash");
+        linkShowdown("misty");
+
+        String url = URLEncoder.encode("https://replay.pokemonshowdown.com/g1-secretpw", StandardCharsets.UTF_8);
+        String pasted = ash.get(BASE + "/matches/m1/replays?url=" + url).body();
+        assertThat(pasted).contains("\"id\":\"g1-secretpw\"").contains("\"selectable\":true");
+
+        HttpResponse<String> imported = ash.post(BASE + "/matches/m1/import",
+                "{\"replayIds\":[\"g1-secretpw\",\"g2-secretpw\",\"g3-secretpw\"]}");
+        assertThat(imported.statusCode()).isEqualTo(204);
+
+        assertThat(ash.get(BASE).body())
+                .contains("\"replayIds\":[\"g1-secretpw\",\"g2-secretpw\",\"g3-secretpw\"]");
     }
 }
