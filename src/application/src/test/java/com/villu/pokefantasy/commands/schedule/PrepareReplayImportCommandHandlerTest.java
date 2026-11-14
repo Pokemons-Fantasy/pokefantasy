@@ -116,6 +116,14 @@ class PrepareReplayImportCommandHandlerTest {
     }
 
     @Test
+    void usedReplayIds_areBaseIds() {
+        jornada.getMatches().get(1).setReplayIds(List.of("used-1-secretpw", "used-2"));
+
+        assertThat(handler.handle(new PrepareReplayImportCommand("l1", "m1", "ash")).usedReplayIds())
+                .containsExactlyInAnyOrder("used-1", "used-2");
+    }
+
+    @Test
     void admin_canImport_singlesFormat() {
         league.getSettings().setBattleGameType(BattleGameType.SINGLES);
 

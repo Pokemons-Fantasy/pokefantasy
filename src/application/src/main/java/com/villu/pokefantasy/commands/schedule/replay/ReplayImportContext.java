@@ -13,7 +13,7 @@ import java.util.Set;
  * @param player2Id      {@code showdownId} de player2
  * @param baseFormat     formato base de Showdown de la liga ({@code gen9doublescustomgame} / {@code gen9customgame})
  * @param fromEpoch      replays subidos desde aquí (lunes 00:00 de la semana de la jornada); {@code null} = sin filtro
- * @param usedReplayIds  replays ya usados en otros partidos de la liga
+ * @param usedReplayIds  replays ya usados en otros partidos de la liga, como ids base ({@link ReplayCandidates#baseId})
  * @param player1Lineup  alineación declarada de player1, o {@code null}
  * @param player2Lineup  alineación declarada de player2, o {@code null}
  * @param bestOf         partidas de la serie (1 o 3)

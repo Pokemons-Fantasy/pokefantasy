@@ -5,12 +5,12 @@
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>4.1.1</version>
+		<version>4.1.2</version>
 	</parent>
 
 	<groupId>com.villu</groupId>
 	<artifactId>pokefantasy</artifactId>
-	<version>1.8.0</version>
+	<version>1.8.1</version>
 	<name>pokefantasy</name>
 	<description>Project for a game created by Lobon</description>
 	<packaging>pom</packaging>
@@ -25,7 +25,7 @@
 		<java.version>21</java.version>
 		<org.mapstruct.version>1.6.3</org.mapstruct.version>
 		<!-- springdoc 3.1.x = Spring Boot 4.1.x (3.0.x era para Boot 4.0) -->
-		<springdoc.version>3.1.1</springdoc.version>
+		<springdoc.version>3.2.0</springdoc.version>
 		<sonar.coverage.jacoco.xmlReportPaths>${project.basedir}/target/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
 	</properties>
 	<dependencyManagement>
@@ -46,22 +46,22 @@
 			<dependency>
 				<groupId>com.villu</groupId>
 				<artifactId>domain</artifactId>
-				<version>1.8.0</version>
+				<version>1.8.1</version>
 			</dependency>
 			<dependency>
 				<groupId>com.villu</groupId>
 				<artifactId>application</artifactId>
-				<version>1.8.0</version>
+				<version>1.8.1</version>
 			</dependency>
 			<dependency>
 				<groupId>com.villu</groupId>
 				<artifactId>api-rest</artifactId>
-				<version>1.8.0</version>
+				<version>1.8.1</version>
 			</dependency>
 			<dependency>
 				<groupId>com.villu</groupId>
 				<artifactId>infrastructure</artifactId>
-				<version>1.8.0</version>
+				<version>1.8.1</version>
 			</dependency>
 			<dependency>
 				<groupId>org.springframework.boot</groupId>
@@ -121,7 +121,7 @@
 			<plugin>
 				<groupId>org.jacoco</groupId>
 				<artifactId>jacoco-maven-plugin</artifactId>
-				<version>0.8.12</version>
+				<version>0.8.16</version>
 				<executions>
 					<execution>
 						<id>prepare-agent</id>

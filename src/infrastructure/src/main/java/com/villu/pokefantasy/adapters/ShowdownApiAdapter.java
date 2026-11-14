@@ -96,7 +96,8 @@ public class ShowdownApiAdapter implements ShowdownPort {
         try {
             ReplayJson r = restTemplate.getForObject(REPLAY_URL, ReplayJson.class, replayId);
             return Optional.ofNullable(r)
-                    .map(x -> new ShowdownReplay(x.id(), x.formatid(), x.players(), x.log(), x.uploadtime()));
+                    .map(x -> new ShowdownReplay(downloadableId(x.id(), x.password()), x.formatid(), x.players(),
+                            x.log(), x.uploadtime()));
         } catch (HttpClientErrorException.NotFound e) {
             return Optional.empty();
         } catch (RestClientException e) {
@@ -107,11 +108,21 @@ public class ShowdownApiAdapter implements ShowdownPort {
         }
     }
 
+    /**
+     * El id con el que se vuelve a descargar el replay. Showdown devuelve el de un privado sin la contraseña
+     * ({@code password} aparte), y sin ella {@code /<id>.json} da 404: se recompone {@code <id>-<password>pw}.
+     */
+    static String downloadableId(String id, String password) {
+        if (password == null || password.isBlank() || id.endsWith("-" + password + "pw")) return id;
+        return id + "-" + password + "pw";
+    }
+
     /** Un resultado de {@code search.json} (se ignoran {@code format}, {@code private} y {@code rating}). */
     private record SummaryJson(String id, List<String> players, long uploadtime) {}
 
-    /** {@code /<id>.json} de un replay. */
-    private record ReplayJson(String id, String formatid, List<String> players, String log, long uploadtime) {}
+    /** {@code /<id>.json} de un replay; {@code password} solo viene en los privados. */
+    private record ReplayJson(String id, String password, String formatid, List<String> players, String log,
+                              long uploadtime) {}
 
     /** {@code /{id}/json} de pokepast.es: {@code paste}, {@code title}, {@code author}, {@code notes}. */
     private record PasteJson(String paste) {}

@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.villu</groupId>
         <artifactId>pokefantasy</artifactId>
-        <version>1.8.0</version>
+        <version>1.8.1</version>
     </parent>
 
     <modelVersion>4.0.0</modelVersion>
@@ -92,7 +92,7 @@
     </dependencies>
 
     <properties>
-        <sentry.version>8.60.0</sentry.version>
+        <sentry.version>8.62.0</sentry.version>
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

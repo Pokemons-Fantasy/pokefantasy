@@ -200,6 +200,15 @@ class ImportSeriesCommandHandlerTest {
     }
 
     @Test
+    void sameGamePublicAndPrivate_rejectedAsRepeated() {
+        // El mismo combate subido como público y como privado: dos ids, una sola partida.
+        assertThatThrownBy(() -> importReplays(game("g1", 1, "Ash Ketchum", false),
+                game("g1-secretpw", 1, "Ash Ketchum", false)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("No marques la misma partida dos veces.");
+    }
+
+    @Test
     void replayNotSelectable_rejectedWithReason() {
         other.setReplayIds(List.of("g1"));
 

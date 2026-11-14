@@ -89,7 +89,32 @@ class ScheduleFacadeTest {
         assertThatThrownBy(() -> facade.replayCandidates("l1", "m1",
                 "https://replay.pokemonshowdown.com/gen9doublescustomgame-9.json", "ash"))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("No se encontró el replay gen9doublescustomgame-9.");
+                .hasMessage("No se encontró el replay gen9doublescustomgame-9. Si es privado, pega el enlace completo, "
+                        + "el que acaba en …pw.");
+    }
+
+    @Test
+    void replayCandidates_privateMissing_redactsPassword() throws Exception {
+        when(mediator.send(new PrepareReplayImportCommand("l1", "m1", "ash"))).thenReturn(CTX);
+        when(showdownPort.getReplay("gen9doublescustomgame-9-secretpw")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> facade.replayCandidates("l1", "m1",
+                "https://replay.pokemonshowdown.com/gen9doublescustomgame-9-secretpw", "ash"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("No se encontró el replay gen9doublescustomgame-9-***pw.");
+    }
+
+    @Test
+    void replayCandidates_battleRoomUrl_explains() throws Exception {
+        when(mediator.send(new PrepareReplayImportCommand("l1", "m1", "ash"))).thenReturn(CTX);
+        for (String url : List.of("https://play.pokemonshowdown.com/battle-gen9doublescustomgame-1",
+                "https://play.pokemonshowdown.com/battle-gen9doublescustomgame-1-abcpw")) {
+            assertThatThrownBy(() -> facade.replayCandidates("l1", "m1", url, "ash"))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("Ese es el enlace de la sala, no del replay: pulsa «Upload and share replay» y pega "
+                            + "el enlace que te da.");
+        }
+        verifyNoInteractions(showdownPort);
     }
 
     @Test
