@@ -127,6 +127,43 @@ class ShowdownApiAdapterTest {
                 1700000000L));
     }
 
+    private static final String PRIVATE_URL =
+            "https://replay.pokemonshowdown.com/gen9doublescustomgame-1-secretpw.json";
+
+    private static String replayJson(String id, String password) {
+        return "{\"id\":\"" + id + "\",\"password\":" + (password == null ? "null" : "\"" + password + "\"")
+                + ",\"private\":1,\"formatid\":\"gen9doublescustomgame\",\"players\":[\"Ash\",\"Misty\"],"
+                + "\"log\":\"|win|Ash\",\"uploadtime\":1700000000}";
+    }
+
+    @Test
+    void getReplay_private_idKeepsPassword() {
+        // Showdown devuelve el id sin la contraseña y la contraseña aparte: sin ella el replay no se vuelve a descargar.
+        server.expect(requestTo(PRIVATE_URL)).andRespond(withSuccess(
+                replayJson("gen9doublescustomgame-1", "secret"), MediaType.APPLICATION_JSON));
+
+        assertThat(adapter.getReplay("gen9doublescustomgame-1-secretpw")).get()
+                .extracting(ShowdownReplay::id).isEqualTo("gen9doublescustomgame-1-secretpw");
+    }
+
+    @Test
+    void getReplay_idAlreadyWithPassword_notDuplicated() {
+        server.expect(requestTo(PRIVATE_URL)).andRespond(withSuccess(
+                replayJson("gen9doublescustomgame-1-secretpw", "secret"), MediaType.APPLICATION_JSON));
+
+        assertThat(adapter.getReplay("gen9doublescustomgame-1-secretpw")).get()
+                .extracting(ShowdownReplay::id).isEqualTo("gen9doublescustomgame-1-secretpw");
+    }
+
+    @Test
+    void getReplay_blankPassword_idUnchanged() {
+        server.expect(requestTo(REPLAY_URL)).andRespond(withSuccess(
+                replayJson("gen9doublescustomgame-1", ""), MediaType.APPLICATION_JSON));
+
+        assertThat(adapter.getReplay("gen9doublescustomgame-1")).get()
+                .extracting(ShowdownReplay::id).isEqualTo("gen9doublescustomgame-1");
+    }
+
     @Test
     void getReplay_notFound_empty() {
         server.expect(requestTo(REPLAY_URL)).andRespond(withStatus(HttpStatus.NOT_FOUND));
