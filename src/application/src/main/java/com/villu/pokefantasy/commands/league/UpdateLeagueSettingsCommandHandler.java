@@ -15,6 +15,7 @@ import com.villu.pokefantasy.repository.entity.ScheduleEntity;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -145,11 +146,17 @@ public class UpdateLeagueSettingsCommandHandler
             tierAssignmentService.assignTiersToPool(command.leagueId(), league.getSettings());
         }
 
-        // Fecha de inicio nueva: una semana por jornada a partir de ella.
+        // Fecha de inicio nueva: si ya había una, todo el calendario se mueve lo mismo (se conservan los
+        // aplazamientos); si no, una semana por jornada a partir de ella.
         if (command.seasonStartDate() != null) {
+            LocalDate firstDate = LocalDate.parse(command.seasonStartDate());
+            long shiftDays = previous != null && previous.getSeasonStartDate() != null
+                    ? ChronoUnit.DAYS.between(LocalDate.parse(previous.getSeasonStartDate()), firstDate) : 0;
+            boolean keepGaps = shiftDays != 0;
             schedule.ifPresent(s -> {
-                LocalDate firstDate = LocalDate.parse(command.seasonStartDate());
-                s.getJornadas().forEach(j -> j.setStartDate(firstDate.plusWeeks(j.getRoundNumber() - 1).toString()));
+                s.getJornadas().forEach(j -> j.setStartDate(keepGaps && j.getStartDate() != null
+                        ? LocalDate.parse(j.getStartDate()).plusDays(shiftDays).toString()
+                        : firstDate.plusWeeks(j.getRoundNumber() - 1).toString()));
                 scheduleRepository.save(s);
             });
         }

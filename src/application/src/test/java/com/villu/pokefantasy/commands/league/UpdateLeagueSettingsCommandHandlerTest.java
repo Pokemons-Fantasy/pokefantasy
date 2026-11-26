@@ -300,6 +300,26 @@ class UpdateLeagueSettingsCommandHandlerTest {
     }
 
     @Test
+    void handle_seasonStartDateMoved_beforeStart_keepsGaps() {
+        LeagueEntity league = leagueWithAdmin("ash");
+        league.setSettings(LeagueSettings.builder().seasonStartDate("2027-06-05").build());
+        when(leagueAdminGuard.requireLeagueAdmin("l1", "ash")).thenReturn(league);
+        when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.empty());
+        // Sin empezar (fechas futuras, sin resultados) y con la jornada 2 aplazada una semana
+        Jornada j1 = new Jornada(1, new ArrayList<>(List.of(new Match("mid1", "ash", "brock", null, MatchStatus.PENDING))), "2027-06-05");
+        Jornada j2 = new Jornada(2, new ArrayList<>(List.of(new Match("mid2", "brock", "ash", null, MatchStatus.PENDING))), "2027-06-19");
+        ScheduleEntity schedule = new ScheduleEntity();
+        schedule.setJornadas(new ArrayList<>(List.of(j1, j2)));
+        when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
+
+        handler.handle(cmdWithSeasonStart("2027-06-12"));
+
+        assertThat(j1.getStartDate()).isEqualTo("2027-06-12");
+        assertThat(j2.getStartDate()).isEqualTo("2027-06-26");
+        verify(scheduleRepository).save(schedule);
+    }
+
+    @Test
     void handle_seasonStartDateChanged_afterSeasonStarted_conflict() {
         LeagueEntity league = leagueWithAdmin("ash");
         league.setSettings(LeagueSettings.builder().seasonStartDate("2026-06-06").build());
