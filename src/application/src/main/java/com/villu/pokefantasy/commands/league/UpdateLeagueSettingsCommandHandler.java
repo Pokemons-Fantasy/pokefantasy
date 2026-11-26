@@ -1,6 +1,7 @@
 package com.villu.pokefantasy.commands.league;
 
 import com.villu.pokefantasy.commands.closedlist.TierAssignmentService;
+import com.villu.pokefantasy.commands.schedule.JornadaWindowService;
 import com.villu.pokefantasy.dto.DraftStatus;
 import com.villu.pokefantasy.dto.LeagueSettings;
 import com.villu.pokefantasy.league.LeagueAdminGuard;
@@ -10,9 +11,11 @@ import com.villu.pokefantasy.repository.LeagueRepository;
 import com.villu.pokefantasy.repository.ScheduleRepository;
 import com.villu.pokefantasy.repository.entity.DraftEntity;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
+import com.villu.pokefantasy.repository.entity.ScheduleEntity;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.util.Objects;
 import java.util.Optional;
 
 @Service
@@ -24,12 +27,15 @@ public class UpdateLeagueSettingsCommandHandler
     private final LeagueAdminGuard leagueAdminGuard;
     private final ScheduleRepository scheduleRepository;
     private final TierAssignmentService tierAssignmentService;
+    private final JornadaWindowService jornadaWindowService;
 
     public UpdateLeagueSettingsCommandHandler(LeagueRepository leagueRepository,
                                               DraftRepository draftRepository,
                                               LeagueAdminGuard leagueAdminGuard,
                                               ScheduleRepository scheduleRepository,
-                                              TierAssignmentService tierAssignmentService) {
+                                              TierAssignmentService tierAssignmentService,
+                                              JornadaWindowService jornadaWindowService) {
+        this.jornadaWindowService = jornadaWindowService;
         this.leagueRepository = leagueRepository;
         this.draftRepository = draftRepository;
         this.leagueAdminGuard = leagueAdminGuard;
@@ -87,6 +93,18 @@ public class UpdateLeagueSettingsCommandHandler
             throw new IllegalArgumentException("El tamaño máximo del equipo debe ser al menos 10.");
         }
 
+        // La fecha de inicio solo mueve el calendario si cambia: guardar los ajustes con la misma no deshace un
+        // aplazamiento. Con la temporada empezada ya no se cambia (las jornadas se mueven con «Aplazar»).
+        LeagueSettings previous = league.getSettings();
+        boolean dateChanged = !Objects.equals(command.seasonStartDate(),
+                previous != null ? previous.getSeasonStartDate() : null);
+        Optional<ScheduleEntity> schedule = dateChanged
+                ? scheduleRepository.findByLeagueId(command.leagueId()) : Optional.empty();
+        if (schedule.map(s -> jornadaWindowService.hasSeasonStarted(s, previous)).orElse(false)) {
+            throw new IllegalStateException(
+                    "La temporada ya ha empezado: para mover jornadas usa «Aplazar» en el calendario.");
+        }
+
         league.setSettings(LeagueSettings.builder()
                 .coinsPerWin(command.coinsPerWin())
                 .coinsPerLoss(command.coinsPerLoss())
@@ -127,15 +145,12 @@ public class UpdateLeagueSettingsCommandHandler
             tierAssignmentService.assignTiersToPool(command.leagueId(), league.getSettings());
         }
 
-        // If seasonStartDate was set, retroactively assign weekly dates to all jornadas
+        // Fecha de inicio nueva: una semana por jornada a partir de ella.
         if (command.seasonStartDate() != null) {
-            scheduleRepository.findByLeagueId(command.leagueId()).ifPresent(schedule -> {
+            schedule.ifPresent(s -> {
                 LocalDate firstDate = LocalDate.parse(command.seasonStartDate());
-                schedule.getJornadas().forEach(j -> {
-                    int weekIndex = j.getRoundNumber() - 1;
-                    j.setStartDate(firstDate.plusWeeks(weekIndex).toString());
-                });
-                scheduleRepository.save(schedule);
+                s.getJornadas().forEach(j -> j.setStartDate(firstDate.plusWeeks(j.getRoundNumber() - 1).toString()));
+                scheduleRepository.save(s);
             });
         }
 

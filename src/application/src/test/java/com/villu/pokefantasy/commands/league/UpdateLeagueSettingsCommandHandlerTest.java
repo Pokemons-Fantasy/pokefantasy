@@ -51,7 +51,8 @@ class UpdateLeagueSettingsCommandHandlerTest {
     @BeforeEach
     void setUp() {
         handler = new UpdateLeagueSettingsCommandHandler(
-                leagueRepository, draftRepository, leagueAdminGuard, scheduleRepository, tierAssignmentService);
+                leagueRepository, draftRepository, leagueAdminGuard, scheduleRepository, tierAssignmentService,
+                new com.villu.pokefantasy.commands.schedule.JornadaWindowService());
     }
 
     private LeagueEntity leagueWithAdmin(String adminName) {
@@ -270,6 +271,50 @@ class UpdateLeagueSettingsCommandHandlerTest {
         ScheduleEntity saved = scheduleCaptor.getValue();
         assertThat(saved.getJornadas().get(0).getStartDate()).isEqualTo("2026-06-06");
         assertThat(saved.getJornadas().get(1).getStartDate()).isEqualTo("2026-06-13");
+    }
+
+    private static UpdateLeagueSettingsCommand cmdWithSeasonStart(String seasonStartDate) {
+        return new UpdateLeagueSettingsCommand(
+                "l1", 100, 50, 500, 400, 300, 200, 100, seasonStartDate, 20, 20, 20, 20, 20, 20,
+                null, null, null, null, null, null, null, null, null, "ash");
+    }
+
+    @Test
+    void handle_sameSeasonStartDate_keepsShiftedDates() {
+        LeagueEntity league = leagueWithAdmin("ash");
+        league.setSettings(LeagueSettings.builder().seasonStartDate("2026-06-06").build());
+        when(leagueAdminGuard.requireLeagueAdmin("l1", "ash")).thenReturn(league);
+        when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.empty());
+        // La jornada 2 se aplazó una semana: 06-06 y 06-20.
+        Jornada j1 = new Jornada(1, new ArrayList<>(List.of(new Match("mid1", "ash", "brock", null, MatchStatus.PENDING))), "2026-06-06");
+        Jornada j2 = new Jornada(2, new ArrayList<>(List.of(new Match("mid2", "brock", "ash", null, MatchStatus.PENDING))), "2026-06-20");
+        ScheduleEntity schedule = new ScheduleEntity();
+        schedule.setJornadas(new ArrayList<>(List.of(j1, j2)));
+        org.mockito.Mockito.lenient().when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
+
+        handler.handle(cmdWithSeasonStart("2026-06-06"));
+
+        assertThat(j1.getStartDate()).isEqualTo("2026-06-06");
+        assertThat(j2.getStartDate()).isEqualTo("2026-06-20");
+        verify(scheduleRepository, never()).save(any());
+    }
+
+    @Test
+    void handle_seasonStartDateChanged_afterSeasonStarted_conflict() {
+        LeagueEntity league = leagueWithAdmin("ash");
+        league.setSettings(LeagueSettings.builder().seasonStartDate("2026-06-06").build());
+        when(leagueAdminGuard.requireLeagueAdmin("l1", "ash")).thenReturn(league);
+        when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.empty());
+        Jornada j1 = new Jornada(1, new ArrayList<>(List.of(new Match("mid1", "ash", "brock", "ash", MatchStatus.COMPLETED))), "2026-06-06");
+        ScheduleEntity schedule = new ScheduleEntity();
+        schedule.setJornadas(new ArrayList<>(List.of(j1)));
+        when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
+
+        assertThatThrownBy(() -> handler.handle(cmdWithSeasonStart("2026-06-13")))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Aplazar");
+        verify(leagueRepository, never()).save(any());
+        assertThat(league.getSettings().getSeasonStartDate()).isEqualTo("2026-06-06");
     }
 
     @Test
