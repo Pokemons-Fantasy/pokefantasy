@@ -15,5 +15,10 @@ public enum ActivityEventType {
     /** Presupuesto del draft que le sobró al jugador y pasó a su saldo; {@code coinsAmount} es lo sumado. */
     DRAFT_COINS,
     /** El dueño subió la cláusula de robo de un Pokémon; {@code coinsAmount} es lo invertido (la cláusula sube el doble). */
-    CLAUSE_RAISED
+    CLAUSE_RAISED,
+    /**
+     * El admin movió el calendario: {@code roundNumber} es la primera jornada movida y {@code weeks} las semanas,
+     * negativas si se adelantó.
+     */
+    SCHEDULE_SHIFTED
 }

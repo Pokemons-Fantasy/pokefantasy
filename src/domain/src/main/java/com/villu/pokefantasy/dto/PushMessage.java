@@ -38,6 +38,11 @@ public record PushMessage(String title, String body, String path, String tag, Du
         return new PushMessage(title, body, "/leagues/" + leagueId + "/schedule", "lineups-" + matchId);
     }
 
+    /** Cambios del calendario (jornadas movidas, alineación anulada): abre el calendario. */
+    public static PushMessage schedule(String leagueId, String title, String body) {
+        return new PushMessage(title, body, "/leagues/" + leagueId + "/schedule", null);
+    }
+
     /**
      * Cierre de ventana ({@code windowKey}: steal o swap): abre Equipos, sustituye al aviso anterior de esa
      * ventana y caduca cuando cierra ({@code ttl}).
