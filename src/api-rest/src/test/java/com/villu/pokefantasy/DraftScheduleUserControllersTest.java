@@ -195,6 +195,13 @@ class DraftScheduleUserControllersTest extends ControllerTestSupport {
     }
 
     @Test
+    void shiftSchedule_204() throws Exception {
+        mvc.perform(json(post("/v1/leagues/l1/schedule/shift"), "{\"fromRound\":3,\"weeks\":2}"))
+                .andExpect(status().isNoContent());
+        verify(scheduleFacade).shiftSchedule("l1", 3, 2, ME);
+    }
+
+    @Test
     void standingsAndStats() throws Exception {
         mvc.perform(get("/v1/leagues/l1/standings")).andExpect(status().isOk());
         mvc.perform(get("/v1/leagues/l1/season-stats")).andExpect(status().isOk());
