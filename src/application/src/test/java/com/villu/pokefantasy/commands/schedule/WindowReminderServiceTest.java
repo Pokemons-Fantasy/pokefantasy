@@ -73,7 +73,7 @@ class WindowReminderServiceTest {
     private WindowReminderService serviceAt(LocalDateTime now) {
         Clock fixed = Clock.fixed(now.atZone(JornadaWindowService.LEAGUE_ZONE).toInstant(),
                 JornadaWindowService.LEAGUE_ZONE);
-        return new WindowReminderService(new JornadaWindowService(fixed), userRepository, pushNotificationPort);
+        return new WindowReminderService(new JornadaWindowService(fixed), new com.villu.pokefantasy.league.LeaguePushTokens(userRepository), pushNotificationPort);
     }
 
     @Test
