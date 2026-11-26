@@ -230,7 +230,7 @@ class ShiftScheduleCommandHandlerTest {
 
     @Test
     void shift_weeksOutOfRange_rejected() {
-        for (Integer weeks : Arrays.asList(0, 13, -13, null)) {
+        for (Integer weeks : Arrays.asList(0, 13, -13, null, Integer.MIN_VALUE)) {
             assertThatThrownBy(() -> handler().handle(new ShiftScheduleCommand(LEAGUE_ID, 3, weeks, ADMIN)))
                     .isInstanceOf(IllegalArgumentException.class);
         }
