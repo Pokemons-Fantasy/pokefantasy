@@ -320,6 +320,57 @@ class UpdateLeagueSettingsCommandHandlerTest {
     }
 
     @Test
+    void handle_seasonStartDateMoved_measuresFromJornada1_notFromStoredDate() {
+        LeagueEntity league = leagueWithAdmin("ash");
+        // Ajuste desfasado: la jornada 1 está realmente el 06-12
+        league.setSettings(LeagueSettings.builder().seasonStartDate("2027-06-05").build());
+        when(leagueAdminGuard.requireLeagueAdmin("l1", "ash")).thenReturn(league);
+        when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.empty());
+        Jornada j1 = new Jornada(1, new ArrayList<>(List.of(new Match("mid1", "ash", "brock", null, MatchStatus.PENDING))), "2027-06-12");
+        Jornada j2 = new Jornada(2, new ArrayList<>(List.of(new Match("mid2", "brock", "ash", null, MatchStatus.PENDING))), "2027-06-26");
+        ScheduleEntity schedule = new ScheduleEntity();
+        schedule.setJornadas(new ArrayList<>(List.of(j1, j2)));
+        when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
+
+        handler.handle(cmdWithSeasonStart("2027-06-19"));
+
+        assertThat(j1.getStartDate()).isEqualTo("2027-06-19");
+        assertThat(j2.getStartDate()).isEqualTo("2027-07-03");
+    }
+
+    @Test
+    void handle_seasonStartDateMoved_someJornadaWithoutDate_weeklyFill() {
+        LeagueEntity league = leagueWithAdmin("ash");
+        league.setSettings(LeagueSettings.builder().seasonStartDate("2027-06-05").build());
+        when(leagueAdminGuard.requireLeagueAdmin("l1", "ash")).thenReturn(league);
+        when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.empty());
+        Jornada j1 = new Jornada(1, new ArrayList<>(List.of(new Match("mid1", "ash", "brock", null, MatchStatus.PENDING))), "2027-06-05");
+        Jornada j2 = new Jornada(2, new ArrayList<>(List.of(new Match("mid2", "brock", "ash", null, MatchStatus.PENDING))), null);
+        Jornada j3 = new Jornada(3, new ArrayList<>(List.of(new Match("mid3", "ash", "brock", null, MatchStatus.PENDING))), "2027-06-26");
+        ScheduleEntity schedule = new ScheduleEntity();
+        schedule.setJornadas(new ArrayList<>(List.of(j1, j2, j3)));
+        when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
+
+        handler.handle(cmdWithSeasonStart("2027-06-12"));
+
+        assertThat(List.of(j1.getStartDate(), j2.getStartDate(), j3.getStartDate()))
+                .containsExactly("2027-06-12", "2027-06-19", "2027-06-26");
+    }
+
+    @Test
+    void handle_seasonStartDateChanged_scheduleWithoutJornadas_noError() {
+        LeagueEntity league = leagueWithAdmin("ash");
+        when(leagueAdminGuard.requireLeagueAdmin("l1", "ash")).thenReturn(league);
+        when(draftRepository.findLatestByLeagueId("l1")).thenReturn(Optional.empty());
+        ScheduleEntity schedule = new ScheduleEntity();
+        when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
+
+        handler.handle(cmdWithSeasonStart("2027-06-12"));
+
+        verify(scheduleRepository, never()).save(any());
+    }
+
+    @Test
     void handle_seasonStartDateChanged_afterSeasonStarted_conflict() {
         LeagueEntity league = leagueWithAdmin("ash");
         league.setSettings(LeagueSettings.builder().seasonStartDate("2026-06-06").build());
