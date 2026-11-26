@@ -38,6 +38,23 @@ class LeaguePushTokensTest {
     }
 
     @Test
+    void ofMembersExcept_skipsThatUser() {
+        LeagueEntity league = new LeagueEntity();
+        league.setMembers(List.of(new LeagueMember("ash", LeagueRole.ADMIN, 0), new LeagueMember("brock", LeagueRole.USER, 0)));
+        when(userRepository.findByUsername("brock")).thenReturn(user("brock", List.of("t2")));
+
+        assertThat(new LeaguePushTokens(userRepository).ofMembersExcept(league, "ash")).containsExactly("t2");
+    }
+
+    @Test
+    void ofMembersExcept_onlyThatUser_empty() {
+        LeagueEntity league = new LeagueEntity();
+        league.setMembers(List.of(new LeagueMember("ash", LeagueRole.ADMIN, 0)));
+
+        assertThat(new LeaguePushTokens(userRepository).ofMembersExcept(league, "ash")).isEmpty();
+    }
+
+    @Test
     void ofUsers_skipsMissingUsersAndNullTokens() {
         when(userRepository.findByUsername("gone")).thenReturn(null);
         when(userRepository.findByUsername("misty")).thenReturn(user("misty", null));

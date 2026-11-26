@@ -1,6 +1,7 @@
 package com.villu.pokefantasy.commands.schedule;
 
 import com.villu.pokefantasy.dto.ActivityEventType;
+import com.villu.pokefantasy.dto.LeagueSettings;
 import com.villu.pokefantasy.dto.MatchStatus;
 import com.villu.pokefantasy.dto.PushMessage;
 import com.villu.pokefantasy.league.LeagueAdminGuard;
@@ -66,6 +67,7 @@ public class ShiftScheduleCommandHandler implements CommandHandler<ShiftSchedule
         }
         int fromRound = command.fromRound();
         ScheduleEntity schedule = scheduleRepository.findByLeagueId(command.leagueId())
+                .filter(s -> s.getJornadas() != null)
                 .orElseThrow(() -> new IllegalStateException(
                         "Esta liga aún no tiene calendario: se genera al completar el draft."));
         Jornada from = jornada(schedule, fromRound)
@@ -96,7 +98,10 @@ public class ShiftScheduleCommandHandler implements CommandHandler<ShiftSchedule
                 .map(ShiftScheduleCommandHandler::clearLineups)
                 .orElse(Set.of());
 
-        if (fromRound == 1 && league.getSettings() != null) {
+        if (fromRound == 1) {
+            if (league.getSettings() == null) {
+                league.setSettings(LeagueSettings.defaults());
+            }
             league.getSettings().setSeasonStartDate(newFrom.toString());
             leagueRepository.save(league);
         }
@@ -108,14 +113,21 @@ public class ShiftScheduleCommandHandler implements CommandHandler<ShiftSchedule
                 .weeks(weeks)
                 .createdAt(Instant.now())
                 .build());
-        pushNotificationPort.send(leaguePushTokens.ofMembers(league), PushMessage.schedule(league.getId(),
-                weeks > 0 ? "Calendario aplazado" : "Calendario adelantado",
-                league.getName() + ": la jornada " + fromRound + " pasa al fin de semana del " + DAY.format(newFrom) + "."));
+        pushNotificationPort.send(leaguePushTokens.ofMembersExcept(league, command.requestingUsername()),
+                PushMessage.schedule(league.getId(),
+                        weeks > 0 ? "Calendario aplazado" : "Calendario adelantado",
+                        league.getName() + ": la jornada " + fromRound + " pasa al fin de semana del "
+                                + DAY.format(newFrom) + "."));
         if (!lostLineup.isEmpty()) {
-            int round = activeRound.orElseThrow();
-            pushNotificationPort.send(leaguePushTokens.ofUsers(lostLineup), PushMessage.schedule(league.getId(),
-                    "Alineación anulada", "Se ha movido la jornada " + round
-                            + " y se reabre el mercado: vuelve a declarar tu alineación cuando cierre."));
+            Jornada active = jornada(schedule, activeRound.orElseThrow()).orElseThrow();
+            // Adelantar a la semana en curso puede dejar los cierres ya pasados: entonces no se reabre nada.
+            boolean marketReopens = jornadaWindowService.lineupOpensAt(active, league.getSettings())
+                    .map(opens -> jornadaWindowService.now().isBefore(opens)).orElse(false);
+            String body = "Se ha movido la jornada " + active.getRoundNumber() + (marketReopens
+                    ? " y se reabre el mercado: vuelve a declarar tu alineación cuando cierre."
+                    : ": vuelve a declarar tu alineación.");
+            pushNotificationPort.send(leaguePushTokens.ofUsers(lostLineup),
+                    PushMessage.schedule(league.getId(), "Alineación anulada", body));
         }
         scheduleRepository.save(schedule);
         return null;

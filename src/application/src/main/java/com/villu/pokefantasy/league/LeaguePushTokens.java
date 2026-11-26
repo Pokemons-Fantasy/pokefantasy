@@ -25,6 +25,12 @@ public class LeaguePushTokens {
         return ofUsers(league.getMembers().stream().map(LeagueMember::getUsername).toList());
     }
 
+    /** Los tokens de los miembros salvo {@code username} (quien hizo el cambio no se avisa a sí mismo). */
+    public List<String> ofMembersExcept(LeagueEntity league, String username) {
+        return ofUsers(league.getMembers().stream().map(LeagueMember::getUsername)
+                .filter(name -> !name.equals(username)).toList());
+    }
+
     /** Los tokens de esos usuarios. Uno a uno: {@code findByUsernames} no trae los tokens. */
     public List<String> ofUsers(Collection<String> usernames) {
         return usernames.stream()

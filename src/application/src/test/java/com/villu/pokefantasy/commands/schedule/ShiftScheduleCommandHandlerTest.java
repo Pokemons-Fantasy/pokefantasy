@@ -149,7 +149,50 @@ class ShiftScheduleCommandHandlerTest {
         verify(pushNotificationPort, times(2)).send(tokens.capture(), messages.capture());
         int lineupPush = messages.getAllValues().get(0).title().equals("Alineación anulada") ? 0 : 1;
         assertThat(messages.getAllValues().get(lineupPush).title()).isEqualTo("Alineación anulada");
+        assertThat(messages.getAllValues().get(lineupPush).body()).contains("se reabre el mercado");
         assertThat(tokens.getAllValues().get(lineupPush)).containsExactlyInAnyOrder("t-ash", "t-misty", "t-gary");
+    }
+
+    @Test
+    void shift_activeIntoClosedWeek_lineupPushDoesNotPromiseMarket() {
+        // Sábado 19 por la tarde: el mercado de esta semana ya cerró
+        schedule = schedule(
+                jornada(1, "2026-12-05", MatchStatus.COMPLETED),
+                jornada(2, "2026-12-26", MatchStatus.PENDING),
+                jornada(3, "2027-01-02", MatchStatus.PENDING));
+        schedule.getJornadas().get(1).getMatches().get(0).setPlayer1Lineup(lineup());
+
+        handlerAt(LocalDateTime.of(2026, 12, 19, 18, 0)).handle(new ShiftScheduleCommand(LEAGUE_ID, 2, -1, ADMIN));
+
+        ArgumentCaptor<PushMessage> messages = ArgumentCaptor.forClass(PushMessage.class);
+        verify(pushNotificationPort, times(2)).send(any(), messages.capture());
+        PushMessage lineupPush = messages.getAllValues().stream()
+                .filter(m -> m.title().equals("Alineación anulada")).findFirst().orElseThrow();
+        assertThat(lineupPush.body()).doesNotContain("se reabre el mercado").contains("vuelve a declarar tu alineación");
+    }
+
+    @Test
+    void shift_fromRound1_withoutSettings_createsDefaults() {
+        schedule = schedule(
+                jornada(1, "2026-12-19", MatchStatus.PENDING),
+                jornada(2, "2026-12-26", MatchStatus.PENDING));
+        league.setSettings(null);
+
+        handler().handle(new ShiftScheduleCommand(LEAGUE_ID, 1, 1, ADMIN));
+
+        assertThat(league.getSettings()).isNotNull();
+        assertThat(league.getSettings().getSeasonStartDate()).isEqualTo("2026-12-26");
+        assertThat(league.getSettings().getCoinsPerWin()).isEqualTo(LeagueSettings.defaults().getCoinsPerWin());
+        verify(leagueRepository).save(league);
+    }
+
+    @Test
+    void shift_scheduleWithoutJornadas_conflict() {
+        schedule.setJornadas(null);
+
+        assertThatThrownBy(() -> handler().handle(new ShiftScheduleCommand(LEAGUE_ID, 3, 1, ADMIN)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("no tiene calendario");
     }
 
     @Test
@@ -160,7 +203,8 @@ class ShiftScheduleCommandHandlerTest {
         ArgumentCaptor<List<String>> tokens = ArgumentCaptor.forClass(List.class);
         ArgumentCaptor<PushMessage> message = ArgumentCaptor.forClass(PushMessage.class);
         verify(pushNotificationPort).send(tokens.capture(), message.capture());
-        assertThat(tokens.getValue()).containsExactly("t-ash", "t-brock", "t-misty", "t-gary");
+        // El admin que lo mueve no recibe su propio aviso
+        assertThat(tokens.getValue()).containsExactly("t-brock", "t-misty", "t-gary");
         assertThat(message.getValue().title()).isEqualTo("Calendario aplazado");
         assertThat(message.getValue().body()).contains("la jornada 3 pasa al fin de semana del 02/01");
         assertThat(message.getValue().path()).isEqualTo("/leagues/l1/schedule");
