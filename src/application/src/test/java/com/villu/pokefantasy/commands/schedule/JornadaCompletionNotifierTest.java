@@ -65,7 +65,7 @@ class JornadaCompletionNotifierTest {
         lenient().when(userRepository.findByUsername("misty")).thenReturn(user("misty", null));
         lenient().when(userRepository.findByUsername("brock")).thenReturn(user("brock", List.of("t-brock1", "t-brock2")));
 
-        notifier = new JornadaCompletionNotifier(userRepository, pushNotificationPort);
+        notifier = new JornadaCompletionNotifier(new com.villu.pokefantasy.league.LeaguePushTokens(userRepository), pushNotificationPort);
     }
 
     @Test

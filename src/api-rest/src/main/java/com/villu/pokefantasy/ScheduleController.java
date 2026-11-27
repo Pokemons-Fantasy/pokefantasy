@@ -5,6 +5,7 @@ import com.villu.pokefantasy.commands.schedule.ScheduleFacade;
 import com.villu.pokefantasy.request.schedule.DeclareLineupRequest;
 import com.villu.pokefantasy.request.schedule.ImportSeriesRequest;
 import com.villu.pokefantasy.request.schedule.RecordMatchResultRequest;
+import com.villu.pokefantasy.request.schedule.ShiftScheduleRequest;
 import com.villu.pokefantasy.response.ReplayCandidateResponse;
 import com.villu.pokefantasy.response.ScheduleResponse;
 import com.villu.pokefantasy.response.SeasonStatsResponse;
@@ -97,6 +98,15 @@ public class ScheduleController {
                                              @PathVariable String matchId,
                                              @AuthenticationPrincipal UserDetails userDetails) throws Exception {
         scheduleFacade.revertResult(leagueId, matchId, userDetails.getUsername());
+        return ResponseEntity.noContent().build();
+    }
+
+    /** Aplaza o adelanta en cascada desde {@code fromRound} (admin). */
+    @PostMapping("/{leagueId}/schedule/shift")
+    public ResponseEntity<Void> shiftSchedule(@PathVariable String leagueId,
+                                              @AuthenticationPrincipal UserDetails userDetails,
+                                              @RequestBody ShiftScheduleRequest request) throws Exception {
+        scheduleFacade.shiftSchedule(leagueId, request.getFromRound(), request.getWeeks(), userDetails.getUsername());
         return ResponseEntity.noContent().build();
     }
 

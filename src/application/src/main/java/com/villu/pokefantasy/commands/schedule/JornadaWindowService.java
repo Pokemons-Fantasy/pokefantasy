@@ -191,6 +191,42 @@ public class JornadaWindowService {
                 && lineupOpensAt(jornada, settings).map(opens -> now().isBefore(opens)).orElse(false);
     }
 
+    /**
+     * El admin puede mover {@code jornada} y las siguientes: tiene fecha, no está jugada (es la activa o una
+     * posterior) y, si es la activa, aún no tiene ningún resultado (si no, el mercado se reabriría con partidos
+     * ya jugados). Con la temporada terminada no se mueve nada.
+     */
+    public boolean isShiftable(ScheduleEntity schedule, Jornada jornada) {
+        if (jornada.getStartDate() == null) {
+            return false;
+        }
+        return getActiveJornada(schedule)
+                .filter(active -> jornada.getRoundNumber() >= active.getRoundNumber())
+                .filter(active -> jornada.getRoundNumber() != active.getRoundNumber() || noneCompleted(jornada))
+                .isPresent();
+    }
+
+    /**
+     * La temporada ha empezado: la jornada 1 tiene algún resultado o ya cerró su mercado. Desde entonces las fechas
+     * solo se mueven aplazando jornadas, no cambiando la fecha de inicio.
+     */
+    public boolean hasSeasonStarted(ScheduleEntity schedule, LeagueSettings settings) {
+        if (schedule == null || schedule.getJornadas() == null) {
+            return false;
+        }
+        return schedule.getJornadas().stream()
+                .filter(j -> j.getRoundNumber() == 1)
+                .findFirst()
+                .map(first -> !noneCompleted(first)
+                        || lineupOpensAt(first, settings).map(opens -> !now().isBefore(opens)).orElse(false))
+                .orElse(false);
+    }
+
+    private static boolean noneCompleted(Jornada jornada) {
+        return jornada.getMatches() == null
+                || jornada.getMatches().stream().noneMatch(m -> MatchStatus.COMPLETED.equals(m.getStatus()));
+    }
+
     private boolean isActive(ScheduleEntity schedule, Jornada jornada) {
         return getActiveJornada(schedule).map(a -> a.getRoundNumber() == jornada.getRoundNumber()).orElse(false);
     }

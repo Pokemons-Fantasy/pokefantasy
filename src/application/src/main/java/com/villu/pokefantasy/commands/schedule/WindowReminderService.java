@@ -2,13 +2,11 @@ package com.villu.pokefantasy.commands.schedule;
 
 import com.villu.pokefantasy.dto.PushMessage;
 import com.villu.pokefantasy.dto.LeagueSettings;
+import com.villu.pokefantasy.league.LeaguePushTokens;
 import com.villu.pokefantasy.repository.PushNotificationPort;
-import com.villu.pokefantasy.repository.UserRepository;
 import com.villu.pokefantasy.repository.entity.LeagueEntity;
-import com.villu.pokefantasy.repository.entity.LeagueMember;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity;
 import com.villu.pokefantasy.repository.entity.ScheduleEntity.Jornada;
-import com.villu.pokefantasy.repository.entity.UserEntity;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -17,7 +15,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Objects;
 
 /**
  * Aviso por push a todos los miembros de una liga cuando faltan menos de {@link #LEAD} para que cierre la
@@ -47,13 +44,13 @@ public class WindowReminderService {
     record Due(Window window, Jornada jornada, LocalDateTime deadline) {}
 
     private final JornadaWindowService windowService;
-    private final UserRepository userRepository;
+    private final LeaguePushTokens leaguePushTokens;
     private final PushNotificationPort pushNotificationPort;
 
-    public WindowReminderService(JornadaWindowService windowService, UserRepository userRepository,
+    public WindowReminderService(JornadaWindowService windowService, LeaguePushTokens leaguePushTokens,
                                  PushNotificationPort pushNotificationPort) {
         this.windowService = windowService;
-        this.userRepository = userRepository;
+        this.leaguePushTokens = leaguePushTokens;
         this.pushNotificationPort = pushNotificationPort;
     }
 
@@ -80,14 +77,7 @@ public class WindowReminderService {
         if (due.isEmpty()) {
             return false;
         }
-        List<String> tokens = league.getMembers().stream()
-                .map(LeagueMember::getUsername)
-                .map(userRepository::findByUsername)
-                .filter(Objects::nonNull)
-                .map(UserEntity::getFcmTokens)
-                .filter(Objects::nonNull)
-                .flatMap(List::stream)
-                .toList();
+        List<String> tokens = leaguePushTokens.ofMembers(league);
         for (Due reminder : due) {
             pushNotificationPort.send(tokens, PushMessage.window(league.getId(),
                     reminder.window().name().toLowerCase(Locale.ROOT),

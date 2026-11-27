@@ -68,6 +68,7 @@ public class GetScheduleCommandHandler implements CommandHandler<GetScheduleComm
                                     .swapDeadline(swapDeadline)
                                     .lineupOpensAt(jornadaWindowService.lineupOpensAt(j, settings)
                                             .map(LocalDateTime::toString).orElse(null))
+                                    .shiftable(jornadaWindowService.isShiftable(entity, j))
                                     .matches(j.getMatches() == null ? List.of() :
                                             j.getMatches().stream()
                                                     .map(m -> toMatch(m, viewer, periodOpen, periodPending))
@@ -81,6 +82,7 @@ public class GetScheduleCommandHandler implements CommandHandler<GetScheduleComm
                 .jornadas(jornadas)
                 .stealWindowOpen(jornadaWindowService.isStealWindowOpen(entity, settings))
                 .swapWindowOpen(jornadaWindowService.isSwapWindowOpen(entity, settings))
+                .seasonStarted(jornadaWindowService.hasSeasonStarted(entity, settings))
                 .build();
     }
 
