@@ -19,6 +19,8 @@ public class ScheduleResponse {
     /** Estado de las ventanas calculado por el backend (única fuente de verdad). */
     private boolean stealWindowOpen;
     private boolean swapWindowOpen;
+    /** La jornada 1 tiene algún resultado o ya cerró su mercado: la fecha de inicio ya no se cambia. */
+    private Boolean seasonStarted;
 
     @Data
     @Builder
@@ -32,6 +34,8 @@ public class ScheduleResponse {
         private String swapDeadline;   // "YYYY-MM-DDTHH:mm:ss", null if no startDate
         /** Desde cuándo se puede declarar la alineación (cierre del mercado); {@code null} sin fecha. */
         private String lineupOpensAt;
+        /** El admin puede mover esta jornada y las siguientes ({@code POST /schedule/shift}). */
+        private Boolean shiftable;
     }
 
     @Data

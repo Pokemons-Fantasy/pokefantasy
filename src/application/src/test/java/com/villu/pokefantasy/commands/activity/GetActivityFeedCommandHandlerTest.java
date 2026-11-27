@@ -139,6 +139,29 @@ class GetActivityFeedCommandHandlerTest {
     }
 
     @Test
+    void mapsWeeksOfScheduleShifted() {
+        ActivityEventEntity entity = ActivityEventEntity.builder()
+                .id("ev-2")
+                .leagueId(LEAGUE_ID)
+                .type(ActivityEventType.SCHEDULE_SHIFTED)
+                .actorUsername("ash")
+                .roundNumber(6)
+                .weeks(2)
+                .createdAt(Instant.now())
+                .build();
+        when(activityEventRepository.find(new ActivityEventFilter(LEAGUE_ID, null, null), 0, 20))
+                .thenReturn(List.of(entity));
+        when(activityEventRepository.count(new ActivityEventFilter(LEAGUE_ID, null, null))).thenReturn(1L);
+
+        var response = handler.handle(new GetActivityFeedCommand(LEAGUE_ID, null, null, 0, 20, "ash"))
+                .getEvents().get(0);
+
+        assertThat(response.getType()).isEqualTo(ActivityEventType.SCHEDULE_SHIFTED);
+        assertThat(response.getRoundNumber()).isEqualTo(6);
+        assertThat(response.getWeeks()).isEqualTo(2);
+    }
+
+    @Test
     void handle_withUsername_filtersByUser() {
         List<ActivityEventEntity> userEvents = List.of(
                 event("e1", ActivityEventType.STEAL, "ash", "brock", "charizard"),

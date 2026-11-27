@@ -73,6 +73,28 @@ class GetScheduleCommandHandlerTest {
         assertThat(match.getLoserScore()).isEqualTo(1);
     }
 
+    @Test
+    void marksShiftableJornadasAndSeasonStarted() {
+        ScheduleEntity schedule = new ScheduleEntity();
+        schedule.setLeagueId("l1");
+        Jornada j1 = new Jornada(1, new ArrayList<>(List.of(new Match("m1", "ash", "brock", "ash", MatchStatus.COMPLETED))), null);
+        Jornada j2 = new Jornada(2, new ArrayList<>(List.of(new Match("m2", "ash", "brock", null, MatchStatus.PENDING))), null);
+        Jornada j3 = new Jornada(3, new ArrayList<>(List.of(new Match("m3", "brock", "ash", null, MatchStatus.PENDING))), null);
+        schedule.setJornadas(new ArrayList<>(List.of(j1, j2, j3)));
+        when(scheduleRepository.findByLeagueId("l1")).thenReturn(Optional.of(schedule));
+        when(leagueRepository.findById("l1")).thenReturn(Optional.empty());
+        when(jornadaWindowService.isShiftable(schedule, j1)).thenReturn(false);
+        when(jornadaWindowService.isShiftable(schedule, j2)).thenReturn(true);
+        when(jornadaWindowService.isShiftable(schedule, j3)).thenReturn(true);
+        when(jornadaWindowService.hasSeasonStarted(schedule, null)).thenReturn(true);
+
+        ScheduleResponse response = handler.handle(new GetScheduleCommand("l1", "ash"));
+
+        assertThat(response.getJornadas()).extracting(ScheduleResponse.JornadaResponse::getShiftable)
+                .containsExactly(false, true, true);
+        assertThat(response.getSeasonStarted()).isTrue();
+    }
+
     // ── Alineaciones ────────────────────────────────────────────────────────────
 
     private static final MatchLineup ASH_LINEUP =

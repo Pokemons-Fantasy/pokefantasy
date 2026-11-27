@@ -163,6 +163,12 @@ public class ScheduleFacade {
         mediator.send(new CorrectMatchResultCommand(leagueId, matchId, null, requestingUsername));
     }
 
+    /** Mueve en cascada la jornada {@code fromRound} y las siguientes {@code weeks} semanas (admin). */
+    public void shiftSchedule(String leagueId, Integer fromRound, Integer weeks, String requestingUsername)
+            throws Exception {
+        mediator.send(new ShiftScheduleCommand(leagueId, fromRound, weeks, requestingUsername));
+    }
+
     public StandingsResponse getStandings(String leagueId, String requestingUsername) throws Exception {
         return mediator.send(new GetStandingsCommand(leagueId, requestingUsername));
     }

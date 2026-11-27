@@ -26,5 +26,7 @@ public class ActivityEventResponse {
     private String fromTier;
     private String toTier;
     private Integer roundNumber;
+    /** SCHEDULE_SHIFTED: semanas que se movió el calendario (negativas si se adelantó); null en el resto. */
+    private Integer weeks;
     private Instant createdAt;
 }

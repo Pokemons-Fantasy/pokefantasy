@@ -312,6 +312,80 @@ class JornadaWindowServiceTest {
         assertThat(service().isLineupPeriodOpen(scheduleWith(active), active, null)).isFalse();
     }
 
+    // -------------------------------------------------------------------------
+    // Aplazar jornadas / temporada empezada
+    // -------------------------------------------------------------------------
+
+    @Test
+    void isShiftable_activeWithoutResults_true() {
+        Jornada j1 = jornada(1, "2026-05-30", MatchStatus.COMPLETED);
+        Jornada j2 = pendingJornada(2, START_DATE);
+        Jornada j3 = pendingJornada(3, "2026-06-13");
+        ScheduleEntity schedule = scheduleWith(j1, j2, j3);
+
+        assertThat(service().isShiftable(schedule, j2)).isTrue();
+        assertThat(service().isShiftable(schedule, j3)).isTrue();
+        assertThat(service().isShiftable(schedule, j1)).isFalse();
+    }
+
+    @Test
+    void isShiftable_activeWithSomeResult_false() {
+        Jornada j1 = jornada(1, "2026-05-30", MatchStatus.COMPLETED);
+        Jornada j2 = pendingJornada(2, START_DATE);
+        j2.getMatches().add(new Match("m2b", "misty", "gary", "misty", MatchStatus.COMPLETED));
+        Jornada j3 = pendingJornada(3, "2026-06-13");
+        ScheduleEntity schedule = scheduleWith(j1, j2, j3);
+
+        assertThat(service().isShiftable(schedule, j2)).isFalse();
+        assertThat(service().isShiftable(schedule, j3)).isTrue();
+    }
+
+    @Test
+    void isShiftable_seasonOver_false() {
+        Jornada j1 = jornada(1, "2026-05-30", MatchStatus.COMPLETED);
+        Jornada j2 = jornada(2, START_DATE, MatchStatus.COMPLETED);
+        ScheduleEntity schedule = scheduleWith(j1, j2);
+
+        assertThat(service().isShiftable(schedule, j1)).isFalse();
+        assertThat(service().isShiftable(schedule, j2)).isFalse();
+    }
+
+    @Test
+    void isShiftable_withoutDate_false() {
+        Jornada j1 = pendingJornada(1, null);
+
+        assertThat(service().isShiftable(scheduleWith(j1), j1)).isFalse();
+    }
+
+    @Test
+    void hasSeasonStarted_beforeJornada1MarketCloses_false() {
+        ScheduleEntity schedule = scheduleWith(pendingJornada(1, START_DATE), pendingJornada(2, "2026-06-13"));
+
+        assertThat(serviceAt(LocalDateTime.of(2026, 6, 5, 15, 59)).hasSeasonStarted(schedule, null)).isFalse();
+    }
+
+    @Test
+    void hasSeasonStarted_afterJornada1MarketCloses_true() {
+        ScheduleEntity schedule = scheduleWith(pendingJornada(1, START_DATE), pendingJornada(2, "2026-06-13"));
+
+        assertThat(serviceAt(LocalDateTime.of(2026, 6, 5, 16, 0)).hasSeasonStarted(schedule, null)).isTrue();
+    }
+
+    @Test
+    void hasSeasonStarted_jornada1WithResult_true() {
+        Jornada j1 = pendingJornada(1, START_DATE);
+        j1.getMatches().add(new Match("m1b", "misty", "gary", "misty", MatchStatus.COMPLETED));
+        ScheduleEntity schedule = scheduleWith(j1, pendingJornada(2, "2026-06-13"));
+
+        assertThat(service().hasSeasonStarted(schedule, null)).isTrue();
+    }
+
+    @Test
+    void hasSeasonStarted_noSchedule_false() {
+        assertThat(service().hasSeasonStarted(null, null)).isFalse();
+        assertThat(service().hasSeasonStarted(scheduleWith(pendingJornada(1, null)), null)).isFalse();
+    }
+
     private Jornada completedJornada(int round) {
         Match match = new Match("m" + round, "ash", "brock", "ash", MatchStatus.COMPLETED);
         return new Jornada(round, new ArrayList<>(List.of(match)), "2026-05-01");

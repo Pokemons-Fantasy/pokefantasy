@@ -69,6 +69,7 @@ public class GetActivityFeedCommandHandler implements CommandHandler<GetActivity
                 .fromTier(entity.getFromTier())
                 .toTier(entity.getToTier())
                 .roundNumber(entity.getRoundNumber())
+                .weeks(entity.getWeeks())
                 .createdAt(entity.getCreatedAt())
                 .build();
     }

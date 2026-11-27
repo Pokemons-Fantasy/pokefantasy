@@ -36,6 +36,13 @@ class ScheduleFacadeTest {
         facade = new ScheduleFacade(mediator, showdownPort);
     }
 
+    @Test
+    void shiftSchedule_sendsCommand() throws Exception {
+        facade.shiftSchedule("l1", 3, 2, "ash");
+
+        verify(mediator).send(new ShiftScheduleCommand("l1", 3, 2, "ash"));
+    }
+
     private static final ReplayImportContext CTX = new ReplayImportContext("ash", "misty", "ash", "misty",
             "gen9doublescustomgame", 1000L, java.util.Set.of(), null, null, 3, null);
 
